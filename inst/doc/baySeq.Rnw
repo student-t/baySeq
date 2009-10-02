@@ -1,0 +1,256 @@
+\documentclass[a4paper]{article}
+% \VignetteIndexEntry{baySeq}
+
+\title{baySeq (version 1.1.4)}
+\author{Thomas J. Hardcastle}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This vignette is intended to give a rapid introduction to the commands used in implementing two methods of evaluating differential expression in Solexa-type, or \textsl{count} data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly \cite{hardcastle}.
+
+We assume that we have discrete data from a set of sequencing or other high-throughput experiments, arranged in a matrix such that each column describes a sample and each row describes some entity for which counts exist. For example, the rows may correspond to the different sequences observed in a sequencing experiment. The data then consists of the number of times each sequence is observed in each sample. We wish to determine which, if any, rows of the data correspond to some patterns of differential expression across the samples. This problem has been addressed for pairwise differential expression by the \verb'edgeR' \cite{edgeR} package. 
+
+However, \verb'baySeq' takes an alternative approach to analysis that allows more complicated patterns of differential expression than simple pairwise comparison, and thus is able to cope with more complex experimental designs. We also observe that the methods implemented in \verb'baySeq' perform at least as well, and in some circumstances considerably better than those implemented in \verb'edgeR' \cite{hardcastle}.
+
+\verb'baySeq' uses empirical Bayesian methods to estimate the posterior likelihoods of each of a set of hypotheses that define patterns of differential expression for each row. This approach begins by considering a distribution for the row defined by a set of underlying parameters for which some prior distribution exists. By estimating this prior distribution from the data, we are able to assess, for a given hypothesis about the relatedness of our underlying parameters for multiple libraries, the posterior likelihood of the hypothesis.
+
+In forming a set of hypotheses upon the data, we consider which patterns are biologically likely to occur in the data. For example, suppose we have count data from some organism in condition $A$ and condition $B$. Suppose further that we have two biological replicates for each condition, and hence four libraries $A_1, A_2, B_1, B_2$, where $A_1$, $A_2$ and $B_1$, $B_2$ are the replicates. It is reasonable to suppose that at least some of the rows may be unaffected by our experimental conditions $A$ and $B$, and the count data for each sample in these rows will be \textsl{equivalent}. These data need not in general be identical across each sample due to random effects and different library sizes, but they will share the same underlying parameters. However, some of the rows may be influenced by the different experimental conditions $A$ and $B$. The count data for the samples $A_1$ and $A_2$ will then be equivalent, as will the count data for the samples $B_1$ and $B_2$. However, the count data between samples $A_1, A_2, B_1, B_2$ will not be equivalent. For such a row, the data from samples $A_1$ and $A_2$ will then share the same set of underlying parameters, the data from samples $B_1$ and $B_2$ will share the same set of underlying parameters, but, crucially, the two sets will not be identical.
+
+Our task is thus to determine the posterior likelihood of each hypothesis for each row of the data. We can do this by considering either a Poisson or negative-binomial distribution upon the sequencing count data. The Possion method is considerably faster as a closed form conjugate prior exists for this distribution. The negative-binomial solution is slower as it requires a numerical solution for the prior, but is probably a better model for the data.
+
+\section{Preparation}
+
+We begin by loading the \verb'baySeq' package.
+
+<<echo = false, results = hide>>=
+set.seed(102)
+@
+
+
+<<>>=
+library(baySeq)
+@
+
+Note that because the experiments that \verb'baySeq' is designed to analyse are usually massive, we should use (if possible) parallel processing as implemented by the \verb'snow' package. We therefore need to load the \verb'snow' package (if it exists), define a \textsl{cluster} and load the \verb'baySeq' library onto each member of the cluster. If \verb'snow' is not present, we can proceed anyway with a \verb'NULL' cluster. Results may be slightly different depending on whether or not a cluster is used owing to the non-deterministic elements of the method.
+<<results = hide>>=
+if("snow" %in% installed.packages()[,1])
+  {
+    library(snow)
+    cl <- makeCluster(4, "SOCK")
+    clusterEvalQ(cl, library(baySeq))
+  } else cl <- NULL
+@
+
+Here we have (if the \verb'snow' package is installed) defined a cluster of four processors on sockets; that is to say, on the local machine. If the local machine has multiple processors this may be a valid method of accelerating \verb'baySeq', but if very large data sets are being analysed we may wish to consider some other form of parallelisation (e.g. LAM/MPI) that allows processors on multiple nodes to be used. See the \verb'snow' documentation for details on how to achieve this.
+
+We load a simulated data set consisting of count data on one thousand counts and library sizes for ten libraries.
+
+<<>>=
+data(simCount)
+data(libsizes)
+simCount[1:10,]
+libsizes
+@
+
+The data are simulated such that the first hundred counts show differential expression between the first five libraries and the second five libraries. We can therefore establish two groups. 
+
+<<>>=
+groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1),
+               DE = c(1,1,1,1,1,2,2,2,2,2))
+@
+Each member (vector) contained within the 'groups' list corresponds to one hypothesis upon the data. In this setting, a hypothesis describes the patterns of data we expect to see at least some of the tags correspond to. In this simple example, we expect that some of the tags will be equivalently expressed between all ten libraries. This corresponds to the 'NDE' hypothesis, or vector \verb'c(1,1,1,1,1,1,1,1,1,1)' - all libraries belong to the same group for these tags. 
+
+We also expect that some tags will show differential expression between the first five libraries and the second five libraries. For these tags, the two sets of libraries belong to different groups, and so we have the hypothesis DE, or vector \verb'c(1,1,1,1,1,2,2,2,2,2)' - the first five libraries belong to group 1 and the second five libraries to group 2. 
+
+In a more complex experimental design (Section~\ref{factorial}) we might have several additional hypotheses. The key to constructing vectors corresponding to a hypothesis is to see for which groups of libraries we expect equivalent expression of tags.
+
+The ultimate aim of the \verb'baySeq' package is to evaluate posterior likelihoods of each hypothesis for each row of the data.
+
+We begin by combining the count data, library sizes and user-defined groups into a \verb'countData' object.
+
+<<>>=
+CD <- new("countData", data = simCount, libsizes = libsizes, groups = groups)
+@
+
+We can also optionally add annotation details into the \verb'@annotation' slot of the \verb'countData' object.
+
+<<>>=
+CD@annotation <- data.frame(name = paste("count", 1:1000, sep = "_"))
+@ 
+
+\section{Poisson-Gamma Approach}
+
+We first try to identify the posterior likelihoods of each hypothesis for each tag assuming a Poisson distribution on each tag with a rate that is Gamma distributed. That is, if $Y_{ij}$ is an element of the data where $i$ is the row of the data, and $j$ is the sample, then 
+\begin{eqnarray*}
+Y_{ij} & \sim & Poi(\theta_{j} l_j)
+\end{eqnarray*}
+where the $l_j$ is the library size of sample $j$ (or some other suitable scaling factor) and 
+\begin{eqnarray*}
+\theta_j & \sim &  \Gamma(\alpha_j, \beta_j)
+\end{eqnarray*}
+
+The relationships between the $\alpha_j, \beta_j$ for each $j$ are determined by the hypothesis being investigated such that, if and only if samples $X$ and $Y$ belong to the same group, then $\alpha_X = \alpha_Y$ and $\beta_X = \beta_Y$.
+
+We begin by trying to establish the parameters of the Gamma distribution by bootstrapping from the data and applying maximum likelihood methods. We are able to adjust the parameters of the bootstrapping; here we take twenty sets of count data, establish the maximum likelihood Gamma parameters, and iterate over 1000 cases. In general more than 5000 iterations is recommended but is used here for speed of calculation.
+
+We then take the mean of the maximum likelihood estimates to acquire a prior on the rate distribution.
+<<>>=
+CDP.Poi <- getPriors.Pois(CD, samplesize = 20, iterations = 1000, takemean = TRUE)
+@
+
+The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced.
+
+<<>>=
+  CDP.Poi@priors
+@ 
+
+For each hypothesis, we get a set of priors. In the Poisson-Gamma model, we get, for each group in the hypothesis, a pair of parameters which define the Gamma distribution that we shall use as a prior distribution for the rates of the Poisson distributions that model how many counts we see in each row of the data. Thus, in the hypothesis of differential expression, there are two groups in the data and we find two sets of parameters.
+
+Having acquired a set of prior distributions on the rate parameter of the Poisson distribution, we can calculate the posterior likelihoods of each hypothesis for each tag. We need to pass an initial prior likelihood on each hypothesis; the \verb'prs' parameter. If \verb'estimatePriors = TRUE' then the prior likelihood on each hypothesis will be iteratively updated.
+
+<<>>=
+CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), estimatePriors = TRUE, cl = cl)
+CDPost.Poi@estProps
+CDPost.Poi@posteriors[1:10,]
+CDPost.Poi@posteriors[101:110,]
+@
+
+The estimated posterior likelihoods for each hypothesis are stored in the natural logarithmic scale in the \verb'@posteriors' slot of the \verb'countDataPosterior'. The $n$th column of the posterior likelihoods matrix corresponds to the $n$th hypothesis as listed in the \verb'group' slot of \verb'CDPost.Poi'.
+
+Here the assumption of a Poisson distribution gives an estimate of 
+<<echo = FALSE>>=
+CDPost.Poi@estProps[2]
+@
+as the proportion of differential expressed counts in the simulated data, where in fact the proportion is known to be $0.1$.
+
+\section{Negative-Binomial Approach}
+
+We next try the same analysis assuming a negative binomial distribution on the data. We first estimate an empirical distribution on the parameters of the negative binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a negative binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
+<<>>=
+CDP.NBML <- getPriors.NB(CD, samplesize = 1000, estimation = "ML", cl = cl)
+@
+
+The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced as before. For the negative-binomial method, we are unable to form a conjugate prior distribution. Instead, we build an empirical prior distribution which we record in the list object \verb'$priors' of the slot \verb'@priors'. Each member of this list object corresponds to one of the hypotheses defined by the \verb'group' slot of the \verb'countData' object and contains the estimated parameters for each of the individual counts selected under the hypotheses. The vector \verb'$sampled' contained in the slot \verb'@priors' describes which rows were sampled to create these sets of parameters.
+
+We then acquire posterior likelihoods as before, estimating the proportions of differentially expressed counts. We can repeatedly bootstrap the prior estimatation to improve accuracy; here two bootstraps are used.
+<<>>=
+CDPost.NBML <- getLikelihoods.NBboot(CDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 2, cl = cl)
+CDPost.NBML@estProps
+CDPost.NBML@posteriors[1:10,]
+CDPost.NBML@posteriors[101:110,]
+@
+
+Here the assumption of a negative binomial distribution with priors estimated by maximum likelihood gives an estimate of 
+<<echo = FALSE>>=
+CDPost.NBML@estProps[2]
+@
+as the proportion of differential expressed counts in the simulated data, where in fact the proportion is known to be $0.1$.
+
+\section{Results}
+
+We can ask for the top differentially expressed tags using the \verb'topCounts' function.
+<<>>=
+topCounts(CDPost.NBML, group = 2)  
+@ 
+
+We can compare the accuracy of the methods by considering the false positive rates.
+\begin{center}
+<<echo = FALSE, fig = TRUE>>=
+NBML.FPs <- 1:nrow(simCount) - getTPs(CDPost.NBML, 1, TPs = 1:100, decreasing = FALSE)
+Poi.FPs <- 1:nrow(simCount) - getTPs(CDPost.Poi, 1, TPs = 1:100, decreasing = FALSE)
+plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
+lines(x = 1:1000, y = log(NBML.FPs[1:1000]), type = "l", col = "red")
+lines(x = 1:1000, y = log(Poi.FPs[1:1000]), type = "l", col = "blue")
+@
+\end{center}
+
+False positive rates for the bootstrapped negative binomial approach with maximum likelihood priors (red) are much lower than for the Poisson-Gamma conjugacy approach (blue). This approach is therefore significantly more accurate, although potentially computationally more intensive and thus slower than the Poisson-Gamma conjugacy. 
+
+Finally, we shut down the cluster (assuming it was started to begin with).
+<<>>=
+if(!is.null(cl))
+  stopCluster(cl)
+@
+
+\section{More Complex Experimental Designs}
+
+\label{factorial}
+
+To illustrate the way in which a model is specified for more complex experimental designs, we consider a factorial design containing eight libraries. Table~\ref{factorial} describes the experimental design in more detail. Samples 1, 2, 3 \& 4 are from condition A while samples 5, 6, 7 \& 8 are from condition B. However, samples 1, 2, 5 \& 6 have also been subjected to some condition C, while samples 3, 4, 7 \& 8 have been subjected to some condition D.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{l|rr}
+& Condition A & Condition B \\ \hline
+Condition C & Samples 1, 2 & Samples 5, 6 \\
+Condition D & Samples 3, 4 & Samples 7, 8
+\end{tabular}
+\caption{An example factorial design experiment in which samples 1 and 2 are subjected to experimental conditions A and C, samples 3 and 4 are subjected to conditions B and C, samples 5 and 6 are subjected to conditions A and C and samples 7 and 8 are subjected to conditions B and D.}
+\label{factorial}
+\end{table}
+
+<<echo = false, results = hide>>=
+set.seed(101)
+@
+
+We prepare the \verb'baySeq' library and cluster as before.
+
+<<results = hide>>=
+library(baySeq)
+if("snow" %in% installed.packages()[,1])
+  {
+    library(snow)
+    cl <- makeCluster(4, "SOCK")
+    clusterEvalQ(cl, library(baySeq))
+  } else cl <- NULL
+@
+
+We load a simulated data set corresponding to the factorial design described. The first hundred cases show differential expression caused by differences between condition A and condition B, while the second hundred cases show differential expression caused by differences between condition C and condition D.
+
+<<>>=
+data(factData)
+data(factlibsizes)
+@
+
+We establish three group structures on the data.
+
+<<>>=
+factgroups <- list(NDE = c(1,1,1,1,1,1,1,1),
+                   DE.A.B = c(1,1,1,1,2,2,2,2),
+                   DE.C.D = c(1,1,2,2,1,1,2,2))
+@
+
+The first group assumes no differential expression between samples. The second group assumes differential expression between samples experiencing condition A and samples experiencing condition B. The third group assumes differential expression between samples experiencing condition C and samples experiencing condition D.
+
+We could also consider the possibility of interactions between effects, by considering a group \verb'c(1,1,2,2,3,3,4,4)'. However, in this simulated data set, no such data exists and so we need not consider this group. It should be noted, however, that such a group would only find that an interaction effect takes place in some elements of the data. Like an ANOVA test, it is necessary to examine the data to determine what form the effect takes.
+
+Having established a group structure, we proceed as before.
+
+<<>>=
+CDfact <- new("countData", data = factCount, libsizes = factlibsizes, groups = factgroups)
+CDfact@annotation <- data.frame(name = paste("count", 1:1000, sep = "_"))
+CDfactP.NBML <- getPriors.NB(CDfact, samplesize = 1000, estimation = "ML", cl = cl)
+CDfactPost.NBML <- getLikelihoods.NBboot(CDfactP.NBML, prs = c(0.2, 0.3,0.5), estimatePriors = TRUE, bootStraps = 2, cl = cl)
+CDfactPost.NBML@estProps
+@
+
+We can then ask for the tags showing most differential expression caused by the difference between conditions A and B
+<<>>=
+topCounts(CDfactPost.NBML, group = 2)  
+@ 
+
+And for those tags showing most differential expression caused by the difference between conditions C and D
+<<>>=
+topCounts(CDfactPost.NBML, group = 3)  
+@ 
+
+\begin{thebibliography}{99}
+\bibitem{hardcastle} Thomas J. Hardcastle and Krystyna A. Kelly. \textsl{Empirical Bayesian methods for differential expression in count data}. In submission. 2009.
+\bibitem{edgeR} Mark Robinson \verb'edgeR'\textsl{:' Methods for differential expression in digital gene expression datasets}. Bioconductor.
+\end{thebibliography}
+
+\end{document}

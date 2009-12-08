@@ -14,7 +14,7 @@ data and then assessing posterior likelihoods of the models proposed.
 \tabular{ll}{
 Package: \tab baySeq\cr
 Type: \tab Package\cr
-Version: \tab 1.0\cr
+Version: \tab 1.1.1\cr
 Date: \tab 2009-16-05\cr
 License: \tab GPL-3\cr
 LazyLoad: \tab yes\cr
@@ -58,7 +58,7 @@ CD[1:10,]
 
 # estimate prior distributions on 'countData' object using Poisson
 # method. Other methods are available - see getPriors
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20, iterations = 1000, takemean = TRUE)
+CDP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = NULL)
 
 # estimate posterior likelihoods for each row of data belonging to each hypothesis
 CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), estimatePriors = TRUE, cl = NULL)

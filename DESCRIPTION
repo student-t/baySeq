@@ -1,7 +1,7 @@
 Package: baySeq
 Type: Package
 Title: Empirical Bayesian analysis of patterns of differential expression in count data
-Version: 1.1.0
+Version: 1.1.1
 Date: 2009-06-22
 Depends: R (>= 2.3.0), methods
 Suggests: snow
@@ -10,5 +10,5 @@ Maintainer: Thomas J. Hardcastle <tjh48@cam.ac.uk>
 Description: This package identifies differential expression in high-throughput 'count' data, such as that derived from next-generation sequencing machines, calculating estimated posterior likelihoods of differential expression (or more complex hypotheses) via empirical Bayesian methods.
 License: GPL-3
 LazyLoad: yes
-Collate: AllClasses.R countData-accessors.R countDataPosterior-accessors.R internals.R PDgivenr.R getLikelihoods.R getPriors.R getTPs.R topCounts.R
+Collate: AllClasses.R countData-accessors.R PDgivenr.R getLikelihoods.R getPriors.R getTPs.R topCounts.R plotPriors.R
 biocViews: Bioinformatics, HighThroughputSequencing, DifferentialExpression, MultipleComparisons, SAGE

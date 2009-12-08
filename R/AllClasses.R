@@ -1,2 +1,3 @@
-setClass("countData", representation(data = "matrix", libsizes = "numeric", groups = "list", annotation = "data.frame", priors = "list"))
-setClass("countDataPosterior", contains = "countData", representation(posteriors = "matrix", estProps = "numeric"))
+setClass("countData", representation(data = "matrix", libsizes = "numeric", groups = "list", annotation = "data.frame", priors = "list", posteriors = "matrix", nullPosts = "numeric", estProps = "numeric"))
+
+setClass("segData", contains = "countData", representation(seglens = "numeric"))

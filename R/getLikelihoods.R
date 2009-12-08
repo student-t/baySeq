@@ -1,16 +1,17 @@
 `getLikelihoods.Dirichlet` <-
-function(cDP, prs, estimatePriors = TRUE, subset = NULL, cl)
+function(cD, prs, estimatePriors = TRUE, subset = NULL, cl)
   {
-    if(class(cDP) != "countData")
-      stop("variable 'cDP' must be of class 'countData'")
-    if(cDP@priors$type != "Dir") stop("Incorrect prior type for this method of likelihood estimation")
-    if(class(cDP) != "countData")
+    if(!inherits(cD, what = "countData"))
+      stop("variable 'cD' must be of or descend from class 'countData'")
+
+    if(cD@priors$type != "Dir") stop("Incorrect prior type for this method of likelihood estimation")
+    if(class(cD) != "countData")
       stop("variable 'countData' in 'getGroupPriors' must be of class 'countData'")
-    if(length(prs) != length(cDP@groups)) stop("'prs' must be of same length as the number of groups in the 'cDP' object")
+    if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
       stop("'subset' must be integer, numeric, or NULL")
 
-    if(is.null(subset)) subset <- 1:nrow(cDP@data)
+    if(is.null(subset)) subset <- 1:nrow(cD@data)
     
     `PrgivenD.Dirichlet` <-
       function(us, libsizes, priors, groups, priorgroups = c(0.99, 0.01))
@@ -24,36 +25,37 @@ function(cDP, prs, estimatePriors = TRUE, subset = NULL, cl)
         }
     
     if(is.null(cl)) {
-      ps <- apply(cDP@data[subset,], 1, PrgivenD.Dirichlet, cDP@libsizes, cDP@priors$priors, cDP@groups)
+      ps <- apply(cD@data[subset,], 1, PrgivenD.Dirichlet, cD@libsizes, cD@priors$priors, cD@groups)
     } else {
-      ps <- parRapply(cl, cDP@data[subset,], PrgivenD.Dirichlet, cDP@libsizes, cDP@priors$priors, cDP@groups)
+      ps <- parRapply(cl, cD@data[subset,], PrgivenD.Dirichlet, cD@libsizes, cD@priors$priors, cD@groups)
     }
-    ps <- matrix(ps, ncol = length(cDP@groups), byrow = TRUE)
-    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors)
+    ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
+    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, cl = cl)
 
-    posteriors <- matrix(NA, ncol = length(cDP@groups), nrow(cDP@data))
+    posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
     posteriors[subset,] <- t(pps$posteriors)
 
-    colnames(posteriors) <- names(cDP@groups)
+    colnames(posteriors) <- names(cD@groups)
     estProps <- pps$priors
-    names(estProps) <- names(cDP@groups)
+    names(estProps) <- names(cD@groups)
     
-    new("countDataPosterior", cDP, posteriors = posteriors, estProps = estProps)
+    new("countData", cD, posteriors = posteriors, estProps = estProps)
   }
 
 
 `getLikelihoods.Pois` <-
-function(cDP, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
+function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
   {
-    if(class(cDP) != "countData")
-      stop("variable 'cDP' must be of class 'countData'")
-    if(cDP@priors$type != "Poi") stop("Incorrect prior type for this method of likelihood estimation")
-    if(length(prs) != length(cDP@groups)) stop("'prs' must be of same length as the number of groups in the 'cDP' object")
+    if(!inherits(cD, what = "countData"))
+      stop("variable 'cD' must be of or descend from class 'countData'")
+
+    if(cD@priors$type != "Poi") stop("Incorrect prior type for this method of likelihood estimation")
+    if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
 
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
       stop("'subset' must be integer, numeric, or NULL")
 
-    if(is.null(subset)) subset <- 1:nrow(cDP@data)
+    if(is.null(subset)) subset <- 1:nrow(cD@data)
 
     `PrgivenD.Pois` <-
       function(us, libsizes, priors, groups, distpriors = FALSE)
@@ -67,149 +69,239 @@ function(cDP, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
         }
 
     if(is.null(cl)) {
-      ps <- apply(cDP@data[subset,], 1, PrgivenD.Pois, cDP@libsizes, cDP@priors$priors, cDP@groups, distpriors)
+      ps <- apply(cD@data[subset,], 1, PrgivenD.Pois, cD@libsizes, cD@priors$priors, cD@groups, distpriors)
     } else {
-      ps <- parRapply(cl, cDP@data[subset,], PrgivenD.Pois, cDP@libsizes, cDP@priors$priors, cDP@groups, distpriors)
+      ps <- parRapply(cl, cD@data[subset,], PrgivenD.Pois, cD@libsizes, cD@priors$priors, cD@groups, distpriors)
       }                        
-    ps <- matrix(ps, ncol = length(cDP@groups), byrow = TRUE)
-    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors)
+    ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
+    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, cl = cl)
 
-    posteriors <- matrix(NA, ncol = length(cDP@groups), nrow(cDP@data))
-    posteriors[subset,] <- t(pps$posteriors)
+    posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
+    posteriors[subset,] <- pps$posteriors
 
-    colnames(posteriors) <- names(cDP@groups)
+    colnames(posteriors) <- names(cD@groups)
     estProps <- pps$priors
-    names(estProps) <- names(cDP@groups)
+    names(estProps) <- names(cD@groups)
     
-    new("countDataPosterior", cDP, posteriors = posteriors, estProps = estProps)
-  }
-
-
-`getPosteriors` <-
-function(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy = 1e-5)
-  {
-    getPosts <- function(x, prs)
-      {
-        posts <- x + log(prs)
-        posts <- posts - logsum(posts)
-        posts
-      }
-    if(estimatePriors)
-      {
-        oldprs <- prs
-        for(ii in 1:maxit)
-          {
-            posteriors <- apply(ps, 1, getPosts, prs)
-            prs <- rowSums(exp(posteriors)) / ncol(posteriors)
-            if(all(abs(oldprs - prs) < accuracy)) break
-            oldprs <- prs
-          }
-        if(ii == maxit)
-          warning("Convergence not achieved to required accuracy.")
-      }
-    list(posteriors = posteriors <- apply(ps, 1, getPosts, prs), priors = prs)
+    new("countData", cD, posteriors = posteriors, estProps = estProps)
   }
 
 
 `getLikelihoods.NBboot` <-
-function(cDP, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1e-4, cl)
+function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
   {
     
-    if(class(cDP) != "countData")
-      stop("variable 'cDP' must be of class 'countData'")
-    if(cDP@priors$type != "NB") stop("Incorrect prior type for this method of likelihood estimation")
-    if(length(prs) != length(cDP@groups)) stop("'prs' must be of same length as the number of groups in the 'cDP' object")
+    if(!inherits(cD, what = "countData"))
+      stop("variable 'cD' must be of or descend from class 'countData'")
+
+    if(cD@priors$type != "NB") stop("Incorrect prior type for this method of likelihood estimation")
+    if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
+
+    if(any(prs < 0))
+      stop("Negative values in the 'prs' vector are not permitted")
+    
+    if(!nullData & sum(prs) != 1)
+      stop("If 'nullData = FALSE' then the 'prs' vector should sum to 1.")
+
+    if(nullData & sum(prs) >= 1)
+            stop("If 'nullData = TRUE' then the 'prs' vector should sum to less than 1.")
 
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
       stop("'subset' must be integer, numeric, or NULL")
     
-    if(is.null(subset)) subset <- 1:nrow(cDP@data)
-    sy <- cDP@priors$sampled
+    if(is.null(subset)) subset <- 1:nrow(cD@data)
+    sy <- cD@priors$sampled
+    groups <- cD@groups
+
+    NBpriors <- cD@priors$priors
+
+    NBbootStrap <- function(us, libsizes, groups) {
+      PDgivenr.NB <- function (us, seglen, ns, prior, group, sampled)
+          {
+            `logsum` <-
+              function(x)
+                max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
+
+            pD <- 0
+            for (gg in 1:length(unique(group))) {
+              selus <- group == gg
+              pD <- pD + logsum(
+                                rowSums(matrix(
+                                               dnbinom(rep(us[selus], each = nrow(prior[[gg]])),
+                                                       size = 1 / prior[[gg]][,2],
+                                                       mu = rep(ns[selus], each = nrow(prior[[gg]])) * seglen * prior[[gg]][,1], log = TRUE),
+                                               ncol = sum(selus))
+                                        ) + log(sampled))
+            }
+            pD
+          }
+
+      
+      ps <- c()
+      for (ii in 1:length(NBpriors))
+        ps[ii] <- PDgivenr.NB(us[-1], us[1], libsizes, NBpriors[[ii]], groups[[ii]], sampPriors[[ii]])
+      ps
+    }
     
-    NBbootStrap <- function (us, groups, libsizes) 
+    clustAssign <- function(object, name)
       {
-        ps <- c()
-        for (ii in 1:length(groups))
-          ps[ii] <- PDgivenr.NBIndie(us, libsizes, NBpriors[[ii]], groups[[ii]], sampPriors[[ii]])
-        ps
-      }    
-    clustAssignPrior <- function(priors, sampPriors)
-      {
-        assign("NBpriors", priors, envir = .GlobalEnv)
-        assign("sampPriors", sampPriors, envir = .GlobalEnv)
+        assign(name, object, envir = .GlobalEnv)
         NULL
       }
+
+    if(!is.null(cl))
+      {
+        getLikelihoodsEnv <- new.env(parent = .GlobalEnv)
+        environment(clustAssign) <- getLikelihoodsEnv
+        environment(NBbootStrap) <- getLikelihoodsEnv
+      }
+    
     if(is.null(conv)) conv <- 0
-    posteriors <- matrix(1 / length(cDP@groups), ncol = length(cDP@groups), nrow = nrow(cDP@data))
+    posteriors <- matrix(1 / length(cD@groups), ncol = length(cD@groups), nrow = nrow(cD@data))
     propest <- NULL
-   
+
+    if(class(cD) == "segData") seglens <- cD@seglens else seglens <- rep(1, nrow(cD@data))
+    
+    if(nullData)
+      {
+        ndelocGroup <- which(unlist(lapply(groups, function(x) all(x == x[1]))))
+        if(length(ndelocGroup) == 0)
+          stop("If 'nullData = TRUE' then there must exist some vector in groups whose members are all identical")
+        groups <- c(groups, list(rep(1, ncol(cD@data))))
+        ndenulGroup <- length(groups)
+        prs <- c(prs, 1 - sum(prs))
+
+        NBpriors[[ndenulGroup]] <- NBpriors[[ndelocGroup]]
+        
+        NZLs <- apply(cD@data[sy,, drop = FALSE] != 0, 1, any)
+        NZLpriors <- log(cD@priors$priors[[ndelocGroup]][[1]][NZLs,1])
+        
+        dsortp <- sort(NZLpriors, decreasing = TRUE)
+        dcummeans <- cumsum(dsortp) / 1:length(dsortp)
+        dcumsquare <- cumsum(dsortp ^ 2) / (1:length(dsortp) - 1)
+        dcumvar <- dcumsquare - (dcummeans^2) * 1:length(dsortp) / (1:length(dsortp) - 1)
+        dcumse <- sqrt(dcumvar / 1:length(dsortp))
+
+        isortp <- sort(NZLpriors, decreasing = FALSE)
+        icummeans <- cumsum(isortp) / 1:length(isortp)
+        icumsquare <- cumsum(isortp ^ 2) / (1:length(isortp) - 1)
+        icumvar <- icumsquare - (icummeans^2) * 1:length(isortp) / (1:length(isortp) - 1)
+        icumse <- sqrt(icumvar / 1:length(isortp))
+
+        meanvars <- (c(rev(dcumvar)[-1], NA) + icumvar) / 2
+        
+        varrise <- which(meanvars[-1] > meanvars[-length(meanvars)])
+        sep <- min(varrise[varrise > length(NZLpriors) / 100])
+        
+        kstar <- c(mean(isortp[1:sep]), mean(isortp[(sep + 1):length(isortp)]))
+        
+        kmNZ <- kmeans(NZLpriors, centers = matrix(kstar, ncol = 1))
+        km <- rep(1, length(sy))
+        km[NZLs] <- kmNZ$cluster
+
+        sampPosteriors <- matrix(NA, nrow = length(sy), ncol = length(groups))
+        for(ii in 1:length(groups))
+          sampPosteriors[,ii] <- c(1, 0)[as.numeric(km == c(1,2)[as.numeric(ii == ndenulGroup) + 1]) + 1]
+      } else {
+        sampPosteriors <- matrix(NA, nrow = length(sy), ncol = length(groups))
+        for(ii in 1:length(groups))
+          sampPosteriors[,ii] <- 1
+      }
+
+    posteriors <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
+    propest <- NULL
+    converged <- FALSE
+
+    if(!is.null(cl))
+      clusterCall(cl, clustAssign, NBpriors, "NBpriors")
+    
     for(cc in 1:bootStraps)
       {
         sampPriors <- list()
-        for(ii in 1:length(cDP@groups))
-            sampPriors[[ii]] <- posteriors[sy,ii] / sum(posteriors[sy,ii])
+        for(ii in 1:length(groups))
+          sampPriors[[ii]] <- sampPosteriors[,ii] / sum(sampPosteriors[,ii])
 
-        NBpriors <- cDP@priors$priors
-        if(is.null(cl)) {
-          ps <- 
-            apply(cDP@data[union(sy, subset),,drop = FALSE], 1, NBbootStrap,
-                  groups = cDP@groups, libsizes = cDP@libsizes)
+        if (is.null(cl)) {
+          ps <- apply(cbind(seglens, cD@data)[union(sy, subset),,drop = FALSE],
+                      1, NBbootStrap, libsizes = cD@libsizes, groups = groups)
         } else {
-          clusterCall(cl, clustAssignPrior, NBpriors, sampPriors)
-          ps <- 
-            parRapply(cl, cDP@data[union(sy, subset),, drop = FALSE], NBbootStrap,
-                      groups = cDP@groups, libsizes = cDP@libsizes)
+          clusterCall(cl, clustAssign, sampPriors, "sampPriors")
+          ps <- parRapply(cl, cbind(seglens, cD@data)[union(sy, subset),, drop = FALSE],
+                          NBbootStrap, libsizes = cD@libsizes, groups = groups)
         }
-        ps <- matrix(ps, ncol = length(cDP@groups), byrow = TRUE)
-        pps <- getPosteriors(ps, prs, estimatePriors = TRUE)
-
-        posteriors <- matrix(NA, ncol = length(cDP@groups), nrow = nrow(cDP@data))
-        posteriors[union(sy, subset),] <- t(pps$posteriors)
         
-        posteriors <- exp(posteriors)
+        ps <- matrix(ps, ncol = length(groups), byrow = TRUE)
+        rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
+        rps[union(sy, subset),] <- ps
+        
+        pps <- getPosteriors(rps[subset,], prs, estimatePriors = TRUE, cl = cl)
+        print(pps$priors)
+        pps <- getPosteriors(rps[union(sy,subset),], pps$priors, estimatePriors = FALSE, cl = cl)
+
+        if(any(!is.na(posteriors)))
+          if(all(abs(exp(posteriors[union(sy,subset),]) - exp(pps$posteriors)) < conv)) converged <- TRUE
+        
+        posteriors[union(sy, subset),] <- pps$posteriors
+
+        sampPosteriors <- exp(posteriors[sy,])
+        
         prs <- pps$priors
         propest <- rbind(propest, prs)
-        print(prs)
-    
-    
-        retposteriors <- matrix(NA, ncol = length(cDP@groups), nrow = nrow(cDP@data))
-        retposteriors[union(sy, subset),] <- t(pps$posteriors)
-        if(any(!(sy %in% subset)))
-          retposteriors[sy[!(sy %in% subset)],] <- NA
-        
-        colnames(retposteriors) <- names(cDP@groups)
-        estProps <- pps$priors
-        names(estProps) <- names(cDP@groups)
 
-        if(all(abs((posteriors[union(sy,subset),] - exp(t(pps$posteriors)))) < conv) | cc > bootStraps) break()
+        estProps <- pps$priors
+        names(estProps) <- names(cD@groups)
+
+        if(converged)
+          break()
       }
 
-    return(new("countDataPosterior", cDP, posteriors = retposteriors, estProps = estProps))
+    posteriors[sy[!(sy %in% subset)],] <- NA
+
+    nullPosts <- numeric(0)
+    if(nullData) {
+      nullPosts <- posteriors[,ndenulGroup]
+      estProps <- pps$priors[-ndenulGroup]
+      posteriors <- posteriors[,-ndenulGroup, drop = FALSE]
+    }
+    colnames(posteriors) <- names(cD@groups)
+    return(new(class(cD), cD, posteriors = posteriors, estProps = estProps, nullPosts = nullPosts))
   }
 
 
 `getPosteriors` <-
-function(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy = 1e-5)
+function(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy = 1e-5, cl = cl)
   {
     getPosts <- function(x, prs)
       {
+        `logsum` <-
+          function(x)
+            max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
+        
         posts <- x + log(prs)
         posts <- posts - logsum(posts)
         posts
       }
+
+    if(!is.null(cl))
+      {
+        getPostsEnv <- new.env(parent = .GlobalEnv)
+        environment(getPosts) <- getPostsEnv
+      }
+    
     if(estimatePriors)
       {
         oldprs <- prs
         for(ii in 1:maxit)
           {
-            posteriors <- apply(ps, 1, getPosts, prs)
-            prs <- rowSums(exp(posteriors)) / ncol(posteriors)
+            if(!is.null(cl)) {
+              posteriors <- matrix(parRapply(cl, ps, getPosts, prs), ncol = ncol(ps), byrow = TRUE)
+            } else posteriors <- matrix(apply(ps, 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE)
+            prs <- colSums(exp(posteriors)) / nrow(posteriors)
             if(all(abs(oldprs - prs) < accuracy)) break
             oldprs <- prs
           }
         if(ii == maxit)
           warning("Convergence not achieved to required accuracy.")
       }
-    list(posteriors = posteriors <- apply(ps, 1, getPosts, prs), priors = prs)
+list(posteriors = posteriors <- matrix(apply(ps, 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE), priors = prs)
   }
-

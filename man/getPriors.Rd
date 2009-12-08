@@ -14,13 +14,16 @@
 }
 \usage{
 getPriors.Dirichlet(cD, samplesize = 10^5, iterations = 10^3)
-getPriors.Pois(cD, samplesize = 10^5, iterations = 10^3, takemean = TRUE)
+getPriors.Pois(cD, samplesize = 10^5, perSE = 1e-1, takemean = TRUE, cl)
 getPriors.NB(cD, samplesize = 10^5, estimation = "ML", cl)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{cD}{A \code{\link{countData}} object.}
-  \item{samplesize}{How large a sample should be taken in estimating the priors?}
+  \item{samplesize}{How large a sample should be taken in estimating the
+    priors?}
+  \item{perSE}{What should the relative standard error of the estimated
+    parameters fall below?}
   \item{iterations}{Over how many iterations should we take samples and
     re-estimate the priors?}
   \item{takemean}{If TRUE (recommended), we take the mean of the
@@ -63,8 +66,7 @@ CD <- new("countData", data = simCount, libsizes = libsizes, groups =
 groups)
 
 # Estimate priors using Poisson method.
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20, iterations = 1000,
-takemean = TRUE)
+CDP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = NULL)
 
 \dontrun{
 

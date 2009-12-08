@@ -1,8 +1,8 @@
 `getPriors.Dirichlet` <-
 function(cD, samplesize = 10^5, iterations = 10^3)
   {
-    if(class(cD) != "countData")
-      stop("variable 'cD' must be of class 'countData'")
+    if(!inherits(cD, what = "countData"))
+      stop("variable 'cD' must be of or descend from class 'countData'")
 
     `PgivenDir` <-
       function(alphas, us, ns)
@@ -43,46 +43,79 @@ function(cD, samplesize = 10^5, iterations = 10^3)
 
 
 `getPriors.Pois` <-
-  function (cD, samplesize = 10^5, iterations = 10^3, takemean = TRUE) 
+  function (cD, samplesize = 10^5, perSE = 1e-1
+            , takemean = TRUE, cl) 
 {
-    if (class(cD) != "countData") 
-        stop("variable 'cD' must be of class 'countData'")
-    PgivenPois <- function(alphas, us, ns) {
-        if (any(alphas <= 0)) 
+  if(!inherits(cD, what = "countData"))
+    stop("variable 'cD' must be of or descend from class 'countData'")
+
+    priorPars <- function(y, libsizes, samplesize, seluu, initial)
+      {
+        PgivenPois <- function(alphas, us, ns) {
+          if (any(alphas <= 0)) 
             return(NA)
-        alpha <- alphas[1]
-        beta <- alphas[2]
-        Uq <- rowSums(us)
-        Nq <- sum(ns)
-        sum(rowSums(t(t(us) * log(ns)) - lfactorial(us)) + alpha * 
-            log(beta) + lgamma(Uq + alpha) - ((Uq + alpha) * 
-            log(Nq + beta) + lgamma(alpha)))
-    }
+          alpha <- alphas[1]
+          beta <- alphas[2]
+          Uq <- rowSums(us)
+          Nq <- sum(ns)
+          sum(rowSums(t(t(us) * log(ns)) - lfactorial(us)) + alpha * 
+              log(beta) + lgamma(Uq + alpha) - ((Uq + alpha) * 
+                                                log(Nq + beta) + lgamma(alpha)))
+        }
+
+        us = matrix(y[sample(1:nrow(y), samplesize, replace = FALSE), seluu], ncol = length(seluu)) 
+        optim(initial, 
+              PgivenPois, control = list(fnscale = -1),
+              us = us,
+              ns = libsizes[seluu])$par
+      }
+
+    clustAssignData <- function(y)
+      {
+        assign("y", y, envir = .GlobalEnv)
+        NULL
+      }
+
+    getPriorEnv <- new.env(parent = .GlobalEnv)
+    environment(clustAssignData) <- getPriorEnv
+    environment(priorPars) <- getPriorEnv
+    
+    
     priors <- list()
     libsizes <- cD@libsizes
     y <- cD@data
+
+    if(!is.null(cl))
+      clusterCall(cl, clustAssignData, y)
+    
     groups <- cD@groups
     for (gg in 1:length(groups)) {
-        if (takemean) 
-            priors[[gg]] <- matrix(NA, ncol = 2, nrow = length(unique(groups[[gg]])))
-        else priors[[gg]] <- list()
+        if (takemean) {
+          priors[[gg]] <- matrix(NA, ncol = 2, nrow = length(unique(groups[[gg]])))
+        } else priors[[gg]] <- list()
+        initial <- c(0.2, 1100)
         for (uu in 1:length(unique(groups[[gg]]))) {
-            cat(".")
-            temp.priors <- NULL
-            for (ii in 1:iterations) {
-                seluu <- which(groups[[gg]] == unique(groups[[gg]])[uu])
-                initial <- c(0.2, 1100)
-                if (!is.null(temp.priors)) 
-                  initial <- apply(temp.priors, 2, mean)
-                temp.priors <- rbind(temp.priors, optim(initial, 
-                  PgivenPois, control = list(fnscale = -1), us = matrix(y[sample(1:nrow(y), 
-                    samplesize, replace = FALSE), seluu], ncol = length(seluu)), 
-                  ns = libsizes[seluu])$par)
+            tempPriors <- NULL
+            seluu <- which(groups[[gg]] == unique(groups[[gg]])[uu])
+            repeat {
+              if (!is.null(tempPriors)) 
+                initial <- apply(tempPriors, 2, mean)
+              if(!is.null(cl))
+                {
+                  pars <- clusterCall(cl, priorPars, y, libsizes, samplesize, seluu, initial)
+                  pars <- matrix(unlist(pars), ncol = 2, byrow = TRUE)
+                } else {
+                  pars <- matrix(priorPars(y, libsizes, samplesize, seluu, initial), ncol = 2, nrow = 1)
+                }
+              tempPriors <- rbind(tempPriors, pars[apply(!is.na(pars), 1, all),])
+              if(nrow(tempPriors) > 1)
+                if(all((apply(tempPriors, 2, sd) / sqrt(nrow(tempPriors))) / apply(tempPriors, 2, mean) < perSE)) break()
             }
-            if (takemean) 
-                priors[[gg]][uu, ] <- apply(temp.priors, 2, mean)
-            else priors[[gg]][[uu]] <- temp.priors
-        }
+            cat(".")
+            if(takemean) 
+              priors[[gg]][uu, ] <- apply(tempPriors, 2, mean)
+            else priors[[gg]][[uu]] <- tempPriors
+          }
     }
     names(priors) <- names(groups)
     new("countData", cD, priors = list(type = "Poi", priors = priors))
@@ -92,31 +125,42 @@ function(cD, samplesize = 10^5, iterations = 10^3)
 `getPriors.NB` <-
 function (cD, samplesize = 10^5, estimation = "ML", cl)
 {
-  if(class(cD) != "countData")
-    stop("variable 'cD' must be of class 'countData'")
+  if(!inherits(cD, what = "countData"))
+    stop("variable 'cD' must be of or descend from class 'countData'")
+
 
   ML.optimover <- function(x, libsizes)
     {
-      ML.NB <- function(alphas, y, libsizes)
-        if (all(alphas > 0)) sum(dnbinom(y, size = 1/alphas[2], mu = alphas[1] * libsizes, log = TRUE)) else return(NA)
-      optim(par = c(mean(x/libsizes) + abs(rnorm(1, 0, 0.001)) * as.numeric(all(x == 0)), 0.01), fn = ML.NB, control = list(fnscale = -1), y = x, libsizes = libsizes)$par
+      ML.NB <- function(alphas, y, libsizes, seglen)
+        if (all(alphas > 0)) 
+          sum(dnbinom(y, size = 1/alphas[2], mu = alphas[1] * libsizes * seglen, log = TRUE)) else return(NA)
+      
+      cts <- x[-1]
+      len <- x[1]
+      
+      optim(par = c(mean(cts/(libsizes * len)) + abs(rnorm(1, 0, 0.001)) * as.numeric(all(cts == 0)), 0.01),
+            fn = ML.NB, control = list(fnscale = -1), 
+            y = cts, libsizes = libsizes, seglen = len)$par
     }
   
   QL.optimover <- function(x, libsizes)
     {
-      dispalt <- function(dispersion, x, mu, libsizes)
-        abs(2 * (sum(x[x > 0] * log(x[x > 0]/(mu * libsizes[x > 0]))) -
-                 sum((x + dispersion^-1) * log((x + dispersion^-1) / (mu * libsizes + dispersion^-1)))) - (length(x)-1))
-      mualt <- function(mu, x, dispersion, libsizes)
-        sum(dnbinom(x, size = 1/ dispersion, mu = mu * libsizes, log = TRUE))
+      dispalt <- function(dispersion, cts, mu, libsizes, len)
+        abs(2 * (sum(cts[cts > 0] * log(cts[cts > 0]/(mu * libsizes[cts > 0] * len))) -
+                 sum((cts + dispersion^-1) * log((cts + dispersion^-1) / (mu * libsizes * len + dispersion^-1)))) - (length(cts)-1))
+      mualt <- function(mu, cts, dispersion, libsizes, len)
+        sum(dnbinom(cts, size = 1/ dispersion, mu = mu * libsizes * len, log = TRUE))
+
+      cts <- x[-1]
+      len <- x[1]
       
-      mu <- mean(x / libsizes)
+      mu <- mean(cts / (libsizes * len))
       disp <- 0
       newmu <- newdisp <- -1
       repeat {
-        newdisp <- c(newdisp, optimise(dispalt, interval = c(0, 100), x = x, mu = mu, libsizes = libsizes, tol = 1e-30)$minimum)
+        newdisp <- c(newdisp, optimise(dispalt, interval = c(0, 100), cts = cts, mu = mu, libsizes = libsizes, len = len, tol = 1e-30)$minimum)
         disp <- newdisp[length(newdisp)]
-        newmu <- c(newmu, optimise(mualt, interval = c(0, 1000), x = x, dispersion = disp, libsizes = libsizes, maximum = TRUE)$maximum)
+        newmu <- c(newmu, optimise(mualt, interval = c(0, 1000), cts = cts, dispersion = disp, libsizes = libsizes, len = len, maximum = TRUE)$maximum)
         if(any(abs(newmu[-length(newmu)] - newmu[length(newmu)]) < 1e-10 &
                abs(newdisp[-length(newdisp)] - newdisp[length(newdisp)]) < 1e-10))break
         mu <- newmu[length(newmu)]
@@ -131,15 +175,21 @@ function (cD, samplesize = 10^5, estimation = "ML", cl)
   if(nrow(y) < samplesize) samplesize <- nrow(y)
   sy <- sample(1:nrow(y), samplesize, replace = FALSE)
   sy <- sort(sy)
+
+  if(class(cD) == "countData") seglens <- rep(1,nrow(y)) else seglens <- cD@seglens
   
   NBpar <- list()
   for (ii in 1:length(groups)) {
     NBpar[[ii]] <- list()
     for (jj in unique(groups[[ii]])) {
       NBpar.group <- c()
-      z <- y[sy, groups[[ii]] == jj, drop = FALSE]
-      if(estimation == "ML") {
-        if(is.null(cl)) parEach <- t(apply(z, 1, ML.optimover, libsizes[groups[[ii]] == jj])) else parEach <- t(parApply(cl, z, 1, ML.optimover, libsizes[groups[[ii]] == jj]))
+      z <- cbind(seglens[sy], y[sy, groups[[ii]] == jj, drop = FALSE])
+      if (estimation == "ML") {
+        if (is.null(cl)) 
+          parEach <- t(apply(z, 1, ML.optimover, libsizes[groups[[ii]] == jj]))
+        else parEach <- t(parApply(cl, z, 1, ML.optimover, 
+                                   libsizes[groups[[ii]] == jj]))
+        cat(".")
       } else if (estimation == "QL") {
         if(is.null(cl)) parEach <- t(apply(z, 1, QL.optimover, libsizes[groups[[ii]] == jj])) else parEach <- t(parApply(cl, z, 1, QL.optimover, libsizes[groups[[ii]] == jj]))
       }
@@ -149,5 +199,5 @@ function (cD, samplesize = 10^5, estimation = "ML", cl)
   }
   names(NBpar) <- names(groups)
   NBpar <- list(type = "NB", sampled = sy, priors = NBpar)
-  new("countData", cD, priors = NBpar)
+  new(class(cD), cD, priors = NBpar)
 }

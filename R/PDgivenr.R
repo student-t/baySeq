@@ -37,6 +37,10 @@ function(us, ns, prior, group)
 `PDgivenr.PoisIndie` <-
   function(us, ns, prior, group)
   {
+    `logsum` <-
+      function(x)
+        max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
+
     pD <- sum(us * log(ns)) - sum(lfactorial(us))
     for(gg in 1:length(unique(group)))
       {
@@ -48,25 +52,3 @@ function(us, ns, prior, group)
       }
     pD
   }
-
-
-`PDgivenr.NBIndie` <-
-function(us, ns, prior, group, priorWeights)
-  {
-    pD <- 0
-    for(gg in 1:length(unique(group)))
-      {
-        selus <- group == gg
-        pD <- pD +
-          logsum(
-                 rowSums(matrix(
-                                dnbinom(rep(us[selus], each = nrow(prior[[gg]])),
-                                        size = 1 / prior[[gg]][,2],
-                                        mu = rep(ns[selus], each = nrow(prior[[gg]])) * prior[[gg]][,1], log = TRUE),
-                                ncol = sum(selus))
-                 ) + log(priorWeights)
-        )
-      }
-    pD
-  }
-

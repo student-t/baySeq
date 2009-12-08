@@ -1,7 +1,7 @@
 \documentclass[a4paper]{article}
 % \VignetteIndexEntry{baySeq}
 
-\title{baySeq (version 1.1.4)}
+\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data (v.1.1.1)}
 \author{Thomas J. Hardcastle}
 
 \begin{document}
@@ -10,17 +10,17 @@
 
 \section{Introduction}
 
-This vignette is intended to give a rapid introduction to the commands used in implementing two methods of evaluating differential expression in Solexa-type, or \textsl{count} data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly \cite{hardcastle}.
+This vignette is intended to give a rapid introduction to the commands used in implementing two methods of evaluating differential expression in Solexa-type, or \textsl{count} data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly \cite{hardcastle}. The major improvement made in this release is the option to include region length in evaluating differential expression between genomic regions (e.g. genes). See Section~\ref{Section::seglen} for more details.
 
 We assume that we have discrete data from a set of sequencing or other high-throughput experiments, arranged in a matrix such that each column describes a sample and each row describes some entity for which counts exist. For example, the rows may correspond to the different sequences observed in a sequencing experiment. The data then consists of the number of times each sequence is observed in each sample. We wish to determine which, if any, rows of the data correspond to some patterns of differential expression across the samples. This problem has been addressed for pairwise differential expression by the \verb'edgeR' \cite{edgeR} package. 
 
 However, \verb'baySeq' takes an alternative approach to analysis that allows more complicated patterns of differential expression than simple pairwise comparison, and thus is able to cope with more complex experimental designs. We also observe that the methods implemented in \verb'baySeq' perform at least as well, and in some circumstances considerably better than those implemented in \verb'edgeR' \cite{hardcastle}.
 
-\verb'baySeq' uses empirical Bayesian methods to estimate the posterior likelihoods of each of a set of hypotheses that define patterns of differential expression for each row. This approach begins by considering a distribution for the row defined by a set of underlying parameters for which some prior distribution exists. By estimating this prior distribution from the data, we are able to assess, for a given hypothesis about the relatedness of our underlying parameters for multiple libraries, the posterior likelihood of the hypothesis.
+\verb'baySeq' uses empirical Bayesian methods to estimate the posterior likelihoods of each of a set of models that define patterns of differential expression for each row. This approach begins by considering a distribution for the row defined by a set of underlying parameters for which some prior distribution exists. By estimating this prior distribution from the data, we are able to assess, for a given model about the relatedness of our underlying parameters for multiple libraries, the posterior likelihood of the model.
 
-In forming a set of hypotheses upon the data, we consider which patterns are biologically likely to occur in the data. For example, suppose we have count data from some organism in condition $A$ and condition $B$. Suppose further that we have two biological replicates for each condition, and hence four libraries $A_1, A_2, B_1, B_2$, where $A_1$, $A_2$ and $B_1$, $B_2$ are the replicates. It is reasonable to suppose that at least some of the rows may be unaffected by our experimental conditions $A$ and $B$, and the count data for each sample in these rows will be \textsl{equivalent}. These data need not in general be identical across each sample due to random effects and different library sizes, but they will share the same underlying parameters. However, some of the rows may be influenced by the different experimental conditions $A$ and $B$. The count data for the samples $A_1$ and $A_2$ will then be equivalent, as will the count data for the samples $B_1$ and $B_2$. However, the count data between samples $A_1, A_2, B_1, B_2$ will not be equivalent. For such a row, the data from samples $A_1$ and $A_2$ will then share the same set of underlying parameters, the data from samples $B_1$ and $B_2$ will share the same set of underlying parameters, but, crucially, the two sets will not be identical.
+In forming a set of models upon the data, we consider which patterns are biologically likely to occur in the data. For example, suppose we have count data from some organism in condition $A$ and condition $B$. Suppose further that we have two biological replicates for each condition, and hence four libraries $A_1, A_2, B_1, B_2$, where $A_1$, $A_2$ and $B_1$, $B_2$ are the replicates. It is reasonable to suppose that at least some of the rows may be unaffected by our experimental conditions $A$ and $B$, and the count data for each sample in these rows will be \textsl{equivalent}. These data need not in general be identical across each sample due to random effects and different library sizes, but they will share the same underlying parameters. However, some of the rows may be influenced by the different experimental conditions $A$ and $B$. The count data for the samples $A_1$ and $A_2$ will then be equivalent, as will the count data for the samples $B_1$ and $B_2$. However, the count data between samples $A_1, A_2, B_1, B_2$ will not be equivalent. For such a row, the data from samples $A_1$ and $A_2$ will then share the same set of underlying parameters, the data from samples $B_1$ and $B_2$ will share the same set of underlying parameters, but, crucially, the two sets will not be identical.
 
-Our task is thus to determine the posterior likelihood of each hypothesis for each row of the data. We can do this by considering either a Poisson or negative-binomial distribution upon the sequencing count data. The Possion method is considerably faster as a closed form conjugate prior exists for this distribution. The negative-binomial solution is slower as it requires a numerical solution for the prior, but is probably a better model for the data.
+Our task is thus to determine the posterior likelihood of each model for each row of the data. We can do this by considering either a Poisson or negative-binomial distribution upon the sequencing count data. The Possion method is considerably faster as a closed form conjugate prior exists for this distribution. The negative-binomial solution is slower as it requires a numerical solution for the prior, but is probably a better fit for most data. In experimental data, we have found that the Poisson method is likely to give poor results if true biological replicates are not available; in most human studies, for example. In general, therefore, the use of the negative-binomial methods is recommended.
 
 \section{Preparation}
 
@@ -41,7 +41,6 @@ if("snow" %in% installed.packages()[,1])
   {
     library(snow)
     cl <- makeCluster(4, "SOCK")
-    clusterEvalQ(cl, library(baySeq))
   } else cl <- NULL
 @
 
@@ -62,13 +61,13 @@ The data are simulated such that the first hundred counts show differential expr
 groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1),
                DE = c(1,1,1,1,1,2,2,2,2,2))
 @
-Each member (vector) contained within the 'groups' list corresponds to one hypothesis upon the data. In this setting, a hypothesis describes the patterns of data we expect to see at least some of the tags correspond to. In this simple example, we expect that some of the tags will be equivalently expressed between all ten libraries. This corresponds to the 'NDE' hypothesis, or vector \verb'c(1,1,1,1,1,1,1,1,1,1)' - all libraries belong to the same group for these tags. 
+Each member (vector) contained within the 'groups' list corresponds to one model upon the data. In this setting, a model describes the patterns of data we expect to see at least some of the tags correspond to. In this simple example, we expect that some of the tags will be equivalently expressed between all ten libraries. This corresponds to the 'NDE' model, or vector \verb'c(1,1,1,1,1,1,1,1,1,1)' - all libraries belong to the same group for these tags. 
 
-We also expect that some tags will show differential expression between the first five libraries and the second five libraries. For these tags, the two sets of libraries belong to different groups, and so we have the hypothesis DE, or vector \verb'c(1,1,1,1,1,2,2,2,2,2)' - the first five libraries belong to group 1 and the second five libraries to group 2. 
+We also expect that some tags will show differential expression between the first five libraries and the second five libraries. For these tags, the two sets of libraries belong to different groups, and so we have the model 'DE', or vector \verb'c(1,1,1,1,1,2,2,2,2,2)' - the first five libraries belong to group 1 and the second five libraries to group 2. 
 
-In a more complex experimental design (Section~\ref{factorial}) we might have several additional hypotheses. The key to constructing vectors corresponding to a hypothesis is to see for which groups of libraries we expect equivalent expression of tags.
+In a more complex experimental design (Section~\ref{factorial}) we might have several additional models. The key to constructing vectors corresponding to a model is to see for which groups of libraries we expect equivalent expression of tags.
 
-The ultimate aim of the \verb'baySeq' package is to evaluate posterior likelihoods of each hypothesis for each row of the data.
+The ultimate aim of the \verb'baySeq' package is to evaluate posterior likelihoods of each model for each row of the data.
 
 We begin by combining the count data, library sizes and user-defined groups into a \verb'countData' object.
 
@@ -84,7 +83,7 @@ CD@annotation <- data.frame(name = paste("count", 1:1000, sep = "_"))
 
 \section{Poisson-Gamma Approach}
 
-We first try to identify the posterior likelihoods of each hypothesis for each tag assuming a Poisson distribution on each tag with a rate that is Gamma distributed. That is, if $Y_{ij}$ is an element of the data where $i$ is the row of the data, and $j$ is the sample, then 
+We first try to identify the posterior likelihoods of each model for each tag assuming a Poisson distribution on each tag with a rate that is Gamma distributed. That is, if $Y_{ij}$ is an element of the data where $i$ is the row of the data, and $j$ is the sample, then 
 \begin{eqnarray*}
 Y_{ij} & \sim & Poi(\theta_{j} l_j)
 \end{eqnarray*}
@@ -93,13 +92,13 @@ where the $l_j$ is the library size of sample $j$ (or some other suitable scalin
 \theta_j & \sim &  \Gamma(\alpha_j, \beta_j)
 \end{eqnarray*}
 
-The relationships between the $\alpha_j, \beta_j$ for each $j$ are determined by the hypothesis being investigated such that, if and only if samples $X$ and $Y$ belong to the same group, then $\alpha_X = \alpha_Y$ and $\beta_X = \beta_Y$.
+The relationships between the $\alpha_j, \beta_j$ for each $j$ are determined by the model being investigated such that, if and only if samples $X$ and $Y$ belong to the same group, then $\alpha_X = \alpha_Y$ and $\beta_X = \beta_Y$.
 
 We begin by trying to establish the parameters of the Gamma distribution by bootstrapping from the data and applying maximum likelihood methods. We are able to adjust the parameters of the bootstrapping; here we take twenty sets of count data, establish the maximum likelihood Gamma parameters, and iterate over 1000 cases. In general more than 5000 iterations is recommended but is used here for speed of calculation.
 
 We then take the mean of the maximum likelihood estimates to acquire a prior on the rate distribution.
 <<>>=
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20, iterations = 1000, takemean = TRUE)
+CDP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = cl)
 @
 
 The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced.
@@ -108,9 +107,9 @@ The calculated priors are stored in the \verb'@priors' slot of the \verb'countDa
   CDP.Poi@priors
 @ 
 
-For each hypothesis, we get a set of priors. In the Poisson-Gamma model, we get, for each group in the hypothesis, a pair of parameters which define the Gamma distribution that we shall use as a prior distribution for the rates of the Poisson distributions that model how many counts we see in each row of the data. Thus, in the hypothesis of differential expression, there are two groups in the data and we find two sets of parameters.
+For each model, we get a set of priors. In the Poisson-Gamma approch, we get, for each group in the model, a pair of parameters which define the Gamma distribution that we shall use as a prior distribution for the rates of the Poisson distributions that describe how many counts we see in each row of the data. Thus, in the model of differential expression, there are two groups in the data and we find two sets of parameters.
 
-Having acquired a set of prior distributions on the rate parameter of the Poisson distribution, we can calculate the posterior likelihoods of each hypothesis for each tag. We need to pass an initial prior likelihood on each hypothesis; the \verb'prs' parameter. If \verb'estimatePriors = TRUE' then the prior likelihood on each hypothesis will be iteratively updated.
+Having acquired a set of prior distributions on the rate parameter of the Poisson distribution, we can calculate the posterior likelihoods of each model for each tag. We need to pass an initial prior likelihood on each model; the \verb'prs' parameter. If \verb'estimatePriors = TRUE' then the prior likelihood on each model will be iteratively updated.
 
 <<>>=
 CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), estimatePriors = TRUE, cl = cl)
@@ -119,7 +118,7 @@ CDPost.Poi@posteriors[1:10,]
 CDPost.Poi@posteriors[101:110,]
 @
 
-The estimated posterior likelihoods for each hypothesis are stored in the natural logarithmic scale in the \verb'@posteriors' slot of the \verb'countDataPosterior'. The $n$th column of the posterior likelihoods matrix corresponds to the $n$th hypothesis as listed in the \verb'group' slot of \verb'CDPost.Poi'.
+The estimated posterior likelihoods for each model are stored in the natural logarithmic scale in the \verb'@posteriors' slot of the \verb'countDataPosterior'. The $n$th column of the posterior likelihoods matrix corresponds to the $n$th model as listed in the \verb'group' slot of \verb'CDPost.Poi'.
 
 Here the assumption of a Poisson distribution gives an estimate of 
 <<echo = FALSE>>=
@@ -134,7 +133,7 @@ We next try the same analysis assuming a negative binomial distribution on the d
 CDP.NBML <- getPriors.NB(CD, samplesize = 1000, estimation = "ML", cl = cl)
 @
 
-The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced as before. For the negative-binomial method, we are unable to form a conjugate prior distribution. Instead, we build an empirical prior distribution which we record in the list object \verb'$priors' of the slot \verb'@priors'. Each member of this list object corresponds to one of the hypotheses defined by the \verb'group' slot of the \verb'countData' object and contains the estimated parameters for each of the individual counts selected under the hypotheses. The vector \verb'$sampled' contained in the slot \verb'@priors' describes which rows were sampled to create these sets of parameters.
+The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced as before. For the negative-binomial method, we are unable to form a conjugate prior distribution. Instead, we build an empirical prior distribution which we record in the list object \verb'$priors' of the slot \verb'@priors'. Each member of this list object corresponds to one of the models defined by the \verb'group' slot of the \verb'countData' object and contains the estimated parameters for each of the individual counts selected under the models. The vector \verb'$sampled' contained in the slot \verb'@priors' describes which rows were sampled to create these sets of parameters.
 
 We then acquire posterior likelihoods as before, estimating the proportions of differentially expressed counts. We can repeatedly bootstrap the prior estimatation to improve accuracy; here two bootstraps are used.
 <<>>=
@@ -157,18 +156,31 @@ We can ask for the top differentially expressed tags using the \verb'topCounts' 
 topCounts(CDPost.NBML, group = 2)  
 @ 
 
-We can compare the accuracy of the methods by considering the false positive rates.
-\begin{center}
-<<echo = FALSE, fig = TRUE>>=
-NBML.FPs <- 1:nrow(simCount) - getTPs(CDPost.NBML, 1, TPs = 1:100, decreasing = FALSE)
-Poi.FPs <- 1:nrow(simCount) - getTPs(CDPost.Poi, 1, TPs = 1:100, decreasing = FALSE)
-plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
-lines(x = 1:1000, y = log(NBML.FPs[1:1000]), type = "l", col = "red")
-lines(x = 1:1000, y = log(Poi.FPs[1:1000]), type = "l", col = "blue")
-@
-\end{center}
+We can compare the accuracy of the methods by using the \verb'getTPs' function to find the number of true positives. We then use this to plot the false positive rate.
 
-False positive rates for the bootstrapped negative binomial approach with maximum likelihood priors (red) are much lower than for the Poisson-Gamma conjugacy approach (blue). This approach is therefore significantly more accurate, although potentially computationally more intensive and thus slower than the Poisson-Gamma conjugacy. 
+<<>>=
+NBML.TPs <- getTPs(CDPost.NBML, group = 2, TPs = 1:100)
+Poi.TPs <- getTPs(CDPost.Poi, group = 2, TPs = 1:100)
+@ 
+
+<<FPsPlot>>=
+plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
+lines(x = 1:1000, y = log(1:1000 - NBML.TPs[1:1000]), type = "l", col = "red")
+lines(x = 1:1000, y = log(1:1000 - Poi.TPs[1:1000]), type = "l", col = "blue")
+@
+
+\begin{figure}[!ht]
+\begin{center}
+
+<<label=figFPs, fig=TRUE,echo=FALSE>>=
+<<FPsPlot>>
+@ 
+\caption{(Log) false positive rates for differentially expressed tag discovery in a simulated dataset using the Poisson-Gamma approach (blue) and the Negative Binomial approach (red).}
+\label{FPs}
+\end{center}
+\end{figure}
+
+Figure~\ref{FPs} shows that false positive rates for the bootstrapped negative binomial approach with maximum likelihood priors (red) are much lower than for the Poisson-Gamma conjugacy approach (blue). This approach is therefore significantly more accurate, although potentially computationally more intensive and thus slower than the Poisson-Gamma conjugacy. 
 
 Finally, we shut down the cluster (assuming it was started to begin with).
 <<>>=
@@ -205,7 +217,6 @@ if("snow" %in% installed.packages()[,1])
   {
     library(snow)
     cl <- makeCluster(4, "SOCK")
-    clusterEvalQ(cl, library(baySeq))
   } else cl <- NULL
 @
 
@@ -247,6 +258,127 @@ And for those tags showing most differential expression caused by the difference
 <<>>=
 topCounts(CDfactPost.NBML, group = 3)  
 @ 
+
+\section{Application to Genomic Regions}
+\label{Section::seglen}
+
+So far, we have assumed that the count data deals with individual tags from a sequencing machine. If we consider count data derived from grouping together tags relating to genomic regions, for example, in looking at the number of tags that match to a gene in mRNA-Seq, we need to include the region length in the calculations of differential expression. The reasons for this are clear; if a region of length 200 bases has 200 tags in sample A and 400 tags in sample B, this may be good evidence for differential expression. If we saw the same difference in a region 2e6 bases
+long, this would be much poorer evidence of differential expression. We can use the 'segData' class to explore such data.
+
+We load a simulated data set consisting of count data on one thousand counts and library sizes for ten libraries. We use the same library sizes as before, but now the first column of 'simSeg' contains the length of the segment
+
+<<>>=
+data(simSeg)
+data(libsizes)
+simSeg[1:10,]
+libsizes
+@
+
+As before, the data are simulated such that the first hundred segments show differential expression between the first five libraries and the second five libraries. We thus establish two groups.
+
+<<>>=
+groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1),
+               DE = c(1,1,1,1,1,2,2,2,2,2))
+@
+
+We now combine the count data, library sizes and user-defined groups, together with the segment lengths, into a \verb'segData' object.
+
+<<>>=
+SD <- new("segData", data = simSeg[,-1], libsizes = libsizes, groups = groups, seglens = simSeg[,1])
+@
+
+We can also optionally add annotation details into the \verb'@annotation' slot of the \verb'segData' object.
+
+<<>>=
+SD@annotation <- data.frame(name = paste("gene", 1:1000, sep = "_"))
+@ 
+
+At present, for evaluating differential expression between segments, only the Negative Binomial approach is implemented. We calculate the priors as before.
+
+<<>>=
+SDP.NBML <- getPriors.NB(SD, samplesize = 1000, estimation = "ML", cl = cl)
+@
+
+We can then calculate the posterior likelihoods as before.
+<<>>=
+SDPost.NBML <- getLikelihoods.NBboot(SDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 2, cl = cl)
+SDPost.NBML@estProps
+SDPost.NBML@posteriors[1:10,]
+SDPost.NBML@posteriors[101:110,]
+@
+
+If we ignore segment length, and merely use the count data, we could acquire posteriors as before.
+
+<<>>=
+CSD <- new("countData", data = simSeg[,-1], libsizes = libsizes, groups = groups)
+CSD@annotation <- data.frame(name = paste("gene", 1:1000, sep = "_"))
+CSDP.NBML <- getPriors.NB(CSD, samplesize = 1000, estimation = "ML", cl = cl)
+CSDPost.NBML <- getLikelihoods.NBboot(CSDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 2, cl = cl)
+@
+
+If we look at the false discovery rates (Figure~\ref{FPseglen}), we find that ignoring segment lengths can have a small negative effect on the results in these data; the analysis of the \verb'segData' object (blue) has a lower false discovery rate than the analysis of the \verb'countData' object (red).
+
+\begin{figure}[!ht]
+\begin{center}
+<<echo = FALSE, fig = TRUE, label=FPseglen>>=
+SD.FPs <- 1:nrow(simSeg) - getTPs(SDPost.NBML, group = 2, TPs = 1:100)
+CSD.FPs <- 1:nrow(simSeg) - getTPs(CSDPost.NBML, group = 2, TPs = 1:100)
+plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
+lines(x = 1:1000, y = log(CSD.FPs[1:1000]), type = "l", col = "red")
+lines(x = 1:1000, y = log(SD.FPs[1:1000]), type = "l", col = "blue")
+@
+\caption{(Log) false positive rates for differentially expressed region discovery in a simulated dataset using the the Negative Binomial approach considering region lengths (blue) and neglecting region lengths (red).}
+\label{FPseglen}
+\end{center}
+\end{figure}
+
+We are also able to ask if any segments have no true expression by setting \verb'nullData = TRUE'. If the distribution of rates at each segment is bimodal, this approach will be able to differentiate between segments which have no true expression of any kind, and those which have expression (and may be differentially expressed). If we use this option, we implicitly introduce another grouping. The \verb'prs' vector, which defines the prior likelihood of each grouping, should thus sum to less than 1, with the residual going to the implicit group. We can use this method with either \verb'countData' or \verb'segData' objects; however, to ignore segment length may have a significant effect on the results.
+
+In the \verb'simSeg' object, the second hundred rows are simulated to show no true expression.
+
+<<>>=
+NSDPost.NBML <- getLikelihoods.NBboot(SDP.NBML, prs = c(0.4,0.3), estimatePriors = TRUE, nullData = TRUE, bootStraps = 3, cl = cl)
+NCSDPost.NBML <- getLikelihoods.NBboot(CSDP.NBML, prs = c(0.4,0.3), estimatePriors = TRUE, nullData = TRUE, bootStraps = 3, cl = cl)
+@
+
+We can see the top segments for which there is no true expression by setting \verb'group = NULL' in the \verb'topCounts' function. Similarly, we can find true positive rates for by setting \verb'group = NULL' in the \verb'getTPs' function. Figure~\ref{fpNull} shows that neglecting the segment lengths causes a substantial difference in false positive rates in the analysis of the \verb'countData' object (blue) compared to the analysis of the \verb'segData' object (red) in the identification of segments for which there is no true expression.
+
+<<>>=
+topCounts(NSDPost.NBML, group = NULL)
+topCounts(NCSDPost.NBML, group = NULL)
+@ 
+
+\begin{figure}[!ht]
+\begin{center}
+<<echo = FALSE, fig = TRUE, label=fpNull >>=
+NSD.FPs <- 1:nrow(simSeg) - getTPs(NSDPost.NBML, group = NULL, TPs = 101:200, decreasing = TRUE)
+NCSD.FPs <- 1:nrow(simSeg) - getTPs(NCSDPost.NBML, group = NULL, TPs = 101:200, decreasing = TRUE)
+plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
+lines(x = 1:1000, y = log(NCSD.FPs[1:1000]), type = "l", col = "red")
+lines(x = 1:1000, y = log(NSD.FPs[1:1000]), type = "l", col = "blue")
+@
+\caption{(Log) false positive rates for discovery of regions with no genuine expression in a simulated dataset using the the Negative Binomial approach considering region lengths (blue) and neglecting region lengths (red).}
+\label{fpNull}
+\end{center}
+\end{figure}
+
+In order to look for segments for which there is no true expression, we assume that the rates of production of tags are bimodally distributed. If this is not the case, then this approach may cause serious problems in the analysis of the data. It is possible to gain some idea of whether the rates are bimodally distributed by examining the priors estimated (by Negative Binomial methods) for a \verb'countData' or \verb'segData' object by using the function \verb'plotPriors' for some group; ideally, the group which defines non-differentially expressed data. Figure~\ref{plotPriors} shows that these data are truly bimodal and thus this is a sensible approach.
+
+<<pltPriors>>=
+plotPriors(SDP.NBML, group = 1)
+@
+
+\begin{figure}[!ht]
+\begin{center}
+
+<<label=figPriors, fig=TRUE,echo=FALSE>>=
+<<pltPriors>>
+@ 
+\caption{Density of the (log) values estimated for the mean of the data by negative binomial methods. The data are bimodally distributed, suggesting that some regions have no true expresssion.}
+\label{plotPriors}
+\end{center}
+\end{figure}
+
 
 \begin{thebibliography}{99}
 \bibitem{hardcastle} Thomas J. Hardcastle and Krystyna A. Kelly. \textsl{Empirical Bayesian methods for differential expression in count data}. In submission. 2009.

@@ -8,12 +8,17 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
         newgroups <- list()
         for(gg in 1:length(x@groups))
             newgroups[[gg]] <- x@groups[[gg]][j]
-        warning("Selection of samples (columns) may adversely affect the argument in slot 'groups'.")
+        warning("Selection of samples (columns) may adversely affect the argument in slot 'groups' and invalidate the values calculated in slot 'posteriors'.")
         x@groups <- newgroups
       }
   if(missing(i))
     i <- 1:nrow(x@data)
-  x@data <- x@data[i,j, drop = drop]; x@libsizes <- x@libsizes[j]; x@annotation <- x@annotation[i,, drop = FALSE]
+  
+  x@data <- x@data[i,j, drop = drop]
+  x@libsizes <- x@libsizes[j]
+  x@annotation <- x@annotation[i,, drop = FALSE]
+  if(nrow(x@posteriors) > 0)
+    x@posteriors <- x@posteriors[i,]
   x
 })
 
@@ -40,6 +45,24 @@ setMethod("show", "countData", function(object) {
       print(object@annotation[1:10,])
       cat(paste(nrow(object) - 10), "more rows...\n")
     } else print(object@annotation)
-  cat('\nSlot "priors":\n')
-  print(object@priors)
+
+  if(nrow(object@posteriors) > 0)
+    {
+      cat('Slot "posteriors":\n')
+      if(nrow(object@posteriors) > 10)
+        {
+          print(object@posteriors[1:10,])
+          cat(paste(nrow(object) - 10), "more rows...\n")
+        } else print(object@posteriors)
+    }
+  if(length(object@estProps) > 0)
+    {
+      cat('\nSlot "estProps":\n')
+      print(object@estProps)
+    }
+  if(length(object@priors) > 1)
+    {
+      cat('Slot "priors":\n')
+      cat(paste('Priors are of type:', object@priors$type), '\n')
+    }
 })

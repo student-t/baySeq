@@ -3,7 +3,6 @@
 \alias{PDgivenr.Dirichlet}
 \alias{PDgivenr.Pois}
 \alias{PDgivenr.PoisIndie}
-\alias{PDgivenr.NBIndie}
 \title{Functions for estimating the likelihood of the data given an
   equivalence relation for some assumption on the distribution.}
 \description{
@@ -16,7 +15,6 @@
 PDgivenr.Dirichlet(us, prior, group)
 PDgivenr.Pois(us, ns, prior, group)
 PDgivenr.PoisIndie(us, ns, prior, group)
-PDgivenr.NBIndie(us, ns, prior, group, priorWeights)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -25,7 +23,6 @@ PDgivenr.NBIndie(us, ns, prior, group, priorWeights)
   \item{prior}{Prior parameters on distribution.}
   \item{group}{Hypothesised grouping of the data based on equivalence
     relation.}
-  \item{priorWeights}{Weightings for each prior to be used in numerical integration.}
 }
 \details{
   Not intended to be called by the user.
@@ -46,8 +43,7 @@ CD <- new("countData", data = simCount, libsizes = libsizes, groups =
 groups)
 
 # Estimate priors using Poisson method.
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20, iterations = 1000,
-takemean = TRUE)
+CDP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = NULL)
 
 # Calculate likelihood of first row of data given the first hypothesis
 # defined by the 'groups' slot of CDP.Poi by Poisson methods

@@ -8,13 +8,13 @@
   if the top i counts, based on estimated posterior likelihoods, are chosen.
 }
 \usage{
-getTPs(cDP, group, decreasing = TRUE, TPs)
+getTPs(cD, group, decreasing = TRUE, TPs)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-    \item{cDP}{\code{\link{countDataPosterior}} object, containing
+    \item{cD}{\code{\link{countData}} object, containing
     posterior likelihoods for each group.}
-  \item{group}{Which group should we give the counts for?}
+  \item{group}{Which group should we give the counts for? See Details.}
   \item{decreasing}{Ordering on posterior likelihoods.}
   \item{TPs}{Known true positives.}
 }
@@ -22,6 +22,9 @@ getTPs(cDP, group, decreasing = TRUE, TPs)
   In the rare (or simulated) cases where the true positives are known,
   this function will calculate the number of true positives selected at
   any cutoff.
+
+  If group = NULL, then the function looks at the posterior likelihoods
+  that the data have no true differential expression (if calculated).
 }
 \value{
   A vector, the ith member of which gives the number of true positives
@@ -29,7 +32,7 @@ getTPs(cDP, group, decreasing = TRUE, TPs)
 }
 \author{Thomas J. Hardcastle}
 
-\seealso{\code{\link{countDataPosterior}}}
+\seealso{\code{\link{countData}}}
 
 \examples{
 
@@ -38,8 +41,8 @@ data(simCount)
 data(libsizes)
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
 CD <- new("countData", data = simCount, libsizes = libsizes, groups = groups)
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20, iterations = 1000,
-takemean = TRUE)
+CDP.Poi <- getPriors.Pois(CD, samplesize = 20,
+takemean = TRUE, cl = NULL)
 
 # Get likelihoods for data with Poisson method
 CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5),

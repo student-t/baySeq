@@ -9,7 +9,8 @@
   the user.
 }
 \usage{
-getPosteriors(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy = 1e-5)
+getPosteriors(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy =
+1e-5, cl = cl)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -22,6 +23,7 @@ getPosteriors(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy = 1e-5)
     tried if we are bootstrapping prior probabilities from the data?}
   \item{accuracy}{How small should the difference in estimated priors be
     before we stop bootstrapping.}
+  \item{cl}{A SNOW cluster object.}
 }
 
 \details{
@@ -55,11 +57,12 @@ ps <- log(rbind(
 # get posterior log-likelihoods of model, estimating prior likelihoods
 # of each model from the data.
 
-pps <- getPosteriors(ps, prs <- c(0.5, 0.5), estimatePriors = TRUE)
+pps <- getPosteriors(ps, prs <- c(0.5, 0.5), estimatePriors = TRUE, cl =
+NULL)
 
 pps$priors
 
-pps$posteriors[,1:10]
+pps$posteriors[1:10,]
 
 }
 

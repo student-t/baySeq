@@ -1,7 +1,7 @@
 \documentclass[a4paper]{article}
 % \VignetteIndexEntry{baySeq}
 
-\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data (v.1.1.1)}
+\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data (v.1.1.2)}
 \author{Thomas J. Hardcastle}
 
 \begin{document}

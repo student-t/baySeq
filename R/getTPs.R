@@ -1,5 +1,9 @@
 getTPs <- function(cD, group, decreasing = TRUE, TPs)
   {
+    `logsum` <-
+      function(x)
+        max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
+
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
     if(nrow(cD@posteriors) == 0)
@@ -11,8 +15,11 @@ getTPs <- function(cD, group, decreasing = TRUE, TPs)
         if(length(cD@nullPosts) == 0)
           stop("The '@nullPosts' slot of cD is empty - you can't use 'group = NULL'.")
         posteriors <- cD@nullPosts
-      } else posteriors <- cD@posteriors[,group]
-    pord <- order(posteriors, decreasing = decreasing)
+        pord <- order(posteriors, -apply(cD@posteriors, 1, logsum), decreasing = decreasing)
+      } else {
+        posteriors <- cD@posteriors[,group]
+        pord <- order(posteriors, -apply(cbind(cD@posteriors[,-group, drop = FALSE], cD@nullPosts), 1, logsum), decreasing = decreasing)
+      }
     sapply(1:length(posteriors), countTPs, pord, TPs)
   }
 

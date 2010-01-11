@@ -1,3 +1,36 @@
+setMethod("initialize", "countData", function(.Object, ...) {
+  .Object <- callNextMethod()
+  if(length(.Object@libsizes) != ncol(.Object@data))
+    stop("Length of '@libsizes' slot must equal number of columns of '@data' slot.")
+  if(nrow(.Object@annotation) > 0 & nrow(.Object@annotation) != nrow(.Object@data))
+    warning("Number of rows of '@annotation' slot not same as '@data' slot.")
+
+  if(any(lapply(.Object@groups, length) != ncol(.Object@data)))
+    stop("All vectors in '@groups' slot must equal number of columns of '@data' slot.")
+
+  if(ncol(.Object@posteriors) != length(.Object@groups) & ncol(.Object@posteriors) != 0)
+    stop("Number of columns in '@posteriors' slot must equal length of '@groups' slot.")
+  
+  if(length(.Object@nullPosts) != nrow(.Object@data) & length((.Object@nullPosts) != 0))
+    stop("Number of rows in '@data' slot must equal length of '@nullPosts' slot.")
+  
+  if(length(.Object@estProps) != length(.Object@groups) & length(.Object@estProps) != 0)
+    stop("Length of '@estProps' slot must equal length of '@groups' slot.")
+  .Object
+})
+
+setMethod("initialize", "segData", function(.Object, ..., seglens) {
+  if(!missing(seglens))
+    {
+      if(is.vector(seglens))
+        seglens <- matrix(seglens, ncol = 1)
+      .Object@seglens <- seglens
+    }
+  .Object <- callNextMethod(.Object, ...)
+    if(nrow(.Object@seglens) != nrow(.Object@data))
+      stop("Number of rows (or length if submitting as vector) of '@seglens' slot must equal number of rows of '@data' slot.")
+  .Object
+})
 
 setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   if(missing(j))

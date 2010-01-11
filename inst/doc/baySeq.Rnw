@@ -1,7 +1,7 @@
 \documentclass[a4paper]{article}
 % \VignetteIndexEntry{baySeq}
 
-\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data (v.1.1.4)}
+\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data (v.1.1.5)}
 \author{Thomas J. Hardcastle}
 
 \begin{document}
@@ -128,22 +128,22 @@ as the proportion of differential expressed counts in the simulated data, where 
 
 \section{Negative-Binomial Approach}
 
-We next try the same analysis assuming a negative binomial distribution on the data. We first estimate an empirical distribution on the parameters of the negative binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a negative binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
+We next try the same analysis assuming a Negative Binomial distribution on the data. We first estimate an empirical distribution on the parameters of the Negative Binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a Negative Binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
 <<>>=
 CDP.NBML <- getPriors.NB(CD, samplesize = 1000, estimation = "ML", cl = cl)
 @
 
 The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced as before. For the negative-binomial method, we are unable to form a conjugate prior distribution. Instead, we build an empirical prior distribution which we record in the list object \verb'$priors' of the slot \verb'@priors'. Each member of this list object corresponds to one of the models defined by the \verb'group' slot of the \verb'countData' object and contains the estimated parameters for each of the individual counts selected under the models. The vector \verb'$sampled' contained in the slot \verb'@priors' describes which rows were sampled to create these sets of parameters.
 
-We then acquire posterior likelihoods as before, estimating the proportions of differentially expressed counts. We can repeatedly bootstrap the prior estimatation to improve accuracy; here two bootstraps are used.
+We then acquire posterior likelihoods as before, estimating the proportions of differentially expressed counts. We can repeatedly bootstrap the prior estimatation to improve accuracy; here three bootstraps are used.
 <<>>=
-CDPost.NBML <- getLikelihoods.NBboot(CDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 2, cl = cl)
+CDPost.NBML <- getLikelihoods.NBboot(CDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 3, cl = cl)
 CDPost.NBML@estProps
 CDPost.NBML@posteriors[1:10,]
 CDPost.NBML@posteriors[101:110,]
 @
 
-Here the assumption of a negative binomial distribution with priors estimated by maximum likelihood gives an estimate of 
+Here the assumption of a Negative Binomial distribution with priors estimated by maximum likelihood gives an estimate of 
 <<echo = FALSE>>=
 CDPost.NBML@estProps[2]
 @
@@ -163,10 +163,12 @@ NBML.TPs <- getTPs(CDPost.NBML, group = 2, TPs = 1:100)
 Poi.TPs <- getTPs(CDPost.Poi, group = 2, TPs = 1:100)
 @ 
 
-<<FPsPlot>>=
+<<echo = TRUE, fig = TRUE, label=FPsPlot>>=
 plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
 lines(x = 1:1000, y = log(1:1000 - NBML.TPs[1:1000]), type = "l", col = "red")
 lines(x = 1:1000, y = log(1:1000 - Poi.TPs[1:1000]), type = "l", col = "blue")
+
+legend(x = "topleft", lty = c(1,1), col = c("red", "blue"), legend = c("Negative Binomial", "Poisson-Gamma"))
 @
 
 \begin{figure}[!ht]
@@ -180,7 +182,7 @@ lines(x = 1:1000, y = log(1:1000 - Poi.TPs[1:1000]), type = "l", col = "blue")
 \end{center}
 \end{figure}
 
-Figure~\ref{FPs} shows that false positive rates for the bootstrapped negative binomial approach with maximum likelihood priors (red) are much lower than for the Poisson-Gamma conjugacy approach (blue). This approach is therefore significantly more accurate, although potentially computationally more intensive and thus slower than the Poisson-Gamma conjugacy. 
+Figure~\ref{FPs} shows that false positive rates for the bootstrapped Negative Binomial approach with maximum likelihood priors (red) are much lower than for the Poisson-Gamma conjugacy approach (blue). This approach is therefore significantly more accurate, although potentially computationally more intensive and thus slower than the Poisson-Gamma conjugacy. 
 
 Finally, we shut down the cluster (assuming it was started to begin with).
 <<>>=
@@ -245,7 +247,7 @@ Having established a group structure, we proceed as before.
 CDfact <- new("countData", data = factCount, libsizes = factlibsizes, groups = factgroups)
 CDfact@annotation <- data.frame(name = paste("count", 1:1000, sep = "_"))
 CDfactP.NBML <- getPriors.NB(CDfact, samplesize = 1000, estimation = "ML", cl = cl)
-CDfactPost.NBML <- getLikelihoods.NBboot(CDfactP.NBML, prs = c(0.2, 0.3,0.5), estimatePriors = TRUE, bootStraps = 2, cl = cl)
+CDfactPost.NBML <- getLikelihoods.NBboot(CDfactP.NBML, prs = c(0.2, 0.3,0.5), estimatePriors = TRUE, bootStraps = 3, cl = cl)
 CDfactPost.NBML@estProps
 @
 
@@ -293,18 +295,17 @@ We can also optionally add annotation details into the \verb'@annotation' slot o
 SD@annotation <- data.frame(name = paste("gene", 1:1000, sep = "_"))
 @ 
 
-At present, for evaluating differential expression between segments, only the Negative Binomial approach is implemented. We calculate the priors as before.
+We can calculate the priors for this segData object as before, for both the Poisson-Gamma method and the Negative Binomial method.
 
 <<>>=
 SDP.NBML <- getPriors.NB(SD, samplesize = 1000, estimation = "ML", cl = cl)
+SDP.Pois <- getPriors.Pois(SD, samplesize = 20, cl = cl)
 @
 
 We can then calculate the posterior likelihoods as before.
 <<>>=
-SDPost.NBML <- getLikelihoods.NBboot(SDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 2, cl = cl)
-SDPost.NBML@estProps
-SDPost.NBML@posteriors[1:10,]
-SDPost.NBML@posteriors[101:110,]
+SDPost.Pois <- getLikelihoods.Pois(SDP.Pois, prs = c(0.5,0.5), estimatePriors = TRUE, cl = cl)  
+SDPost.NBML <- getLikelihoods.NBboot(SDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 3, cl = cl)
 @
 
 If we ignore segment length, and merely use the count data, we could acquire posteriors as before.
@@ -312,27 +313,37 @@ If we ignore segment length, and merely use the count data, we could acquire pos
 <<>>=
 CSD <- new("countData", data = simSeg[,-1], libsizes = libsizes, groups = groups)
 CSD@annotation <- data.frame(name = paste("gene", 1:1000, sep = "_"))
+
 CSDP.NBML <- getPriors.NB(CSD, samplesize = 1000, estimation = "ML", cl = cl)
-CSDPost.NBML <- getLikelihoods.NBboot(CSDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 2, cl = cl)
+CSDPost.NBML <- getLikelihoods.NBboot(CSDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 3, cl = cl)
+CSDP.Pois <- getPriors.Pois(CSD, samplesize = 20, cl = cl)
+CSDPost.Pois <- getLikelihoods.Pois(CSDP.Pois, prs = c(0.5,0.5), estimatePriors = TRUE, cl = cl)
 @
 
-If we look at the false discovery rates (Figure~\ref{FPseglen}), we find that ignoring segment lengths can have a small negative effect on the results in these data; the analysis of the \verb'segData' object (blue) has a lower false discovery rate than the analysis of the \verb'countData' object (red).
+If we look at the false discovery rates (Figure~\ref{FPseglen}), we find that the Negative Binomial method (red) handles data with different segment lengths much better than the Poisson-Gamma method (blue). We also see that, for the Negative Binomial method, ignoring segment lengths can have a small negative effect on the results.
 
 \begin{figure}[!ht]
 \begin{center}
 <<echo = FALSE, fig = TRUE, label=FPseglen>>=
-SD.FPs <- 1:nrow(simSeg) - getTPs(SDPost.NBML, group = 2, TPs = 1:100)
-CSD.FPs <- 1:nrow(simSeg) - getTPs(CSDPost.NBML, group = 2, TPs = 1:100)
-plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
-lines(x = 1:1000, y = log(CSD.FPs[1:1000]), type = "l", col = "red")
-lines(x = 1:1000, y = log(SD.FPs[1:1000]), type = "l", col = "blue")
+SD.NBML.FPs <- 1:nrow(simSeg) - getTPs(SDPost.NBML, group = 2, TPs = 1:100)
+CSD.NBML.FPs <- 1:nrow(simSeg) - getTPs(CSDPost.NBML, group = 2, TPs = 1:100)
+SD.Pois.FPs <- 1:nrow(simSeg) - getTPs(SDPost.Pois, group = 2, TPs = 1:100)
+CSD.Pois.FPs <- 1:nrow(simSeg) - getTPs(CSDPost.Pois, group = 2, TPs = 1:100)
+
+plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(100)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
+lines(x = 1:1000, y = log(CSD.NBML.FPs[1:1000]), type = "l", col = "red")
+lines(x = 1:1000, y = log(SD.NBML.FPs[1:1000]), type = "l", col = "red", lty = 2)
+lines(x = 1:1000, y = log(CSD.Pois.FPs[1:1000]), type = "l", col = "blue")
+lines(x = 1:1000, y = log(SD.Pois.FPs[1:1000]), type = "l", col = "blue", lty = 2)
+legend(x = "topleft", lty = c(1,2,1,2), col = c("red", "red", "blue", "blue"), legend = c("Negative Binomial (ignoring segment lengths)", "Negative Binomial (including segment lengths)", "Poisson-Gamma (ignoring segment lengths)", "Poisson-Gamma (including segment lengths)"))
+                                                                               
 @
-\caption{(Log) false positive rates for differentially expressed region discovery in a simulated dataset using the the Negative Binomial approach considering region lengths (blue) and neglecting region lengths (red).}
+\caption{(Log) false positive rates for differentially expressed region discovery in a simulated dataset using both the Negative Binomial and Poisson-Gamma methods, including and ignoring segment length data.}
 \label{FPseglen}
 \end{center}
 \end{figure}
 
-We are also able to ask if any segments have no true expression by setting \verb'nullData = TRUE'. If the distribution of rates at each segment is bimodal, this approach will be able to differentiate between segments which have no true expression of any kind, and those which have expression (and may be differentially expressed). If we use this option, we implicitly introduce another grouping. The \verb'prs' vector, which defines the prior likelihood of each grouping, should thus sum to less than 1, with the residual going to the implicit group. We can use this method with either \verb'countData' or \verb'segData' objects; however, to ignore segment length may have a significant effect on the results.
+We are also, using the Negative Binomial methods, able to ask if any segments have no true expression by setting \verb'nullData = TRUE'. If the distribution of rates at each segment is bimodal, this approach will be able to differentiate between segments which have no true expression of any kind, and those which have expression (and may be differentially expressed). If we use this option, we implicitly introduce another grouping. The \verb'prs' vector, which defines the prior likelihood of each grouping, should thus sum to less than 1, with the residual going to the implicit group. We can use this method with either \verb'countData' or \verb'segData' objects; however, to ignore segment length may have a significant effect on the results.
 
 In the \verb'simSeg' object, the second hundred rows are simulated to show no true expression.
 
@@ -350,14 +361,15 @@ topCounts(NCSDPost.NBML, group = NULL)
 
 \begin{figure}[!ht]
 \begin{center}
-<<echo = FALSE, fig = TRUE, label=fpNull >>=
+<<echo = FALSE, fig = TRUE, label=FPNull>>=
 NSD.FPs <- 1:nrow(simSeg) - getTPs(NSDPost.NBML, group = NULL, TPs = 101:200, decreasing = TRUE)
 NCSD.FPs <- 1:nrow(simSeg) - getTPs(NCSDPost.NBML, group = NULL, TPs = 101:200, decreasing = TRUE)
 plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
 lines(x = 1:1000, y = log(NCSD.FPs[1:1000]), type = "l", col = "red")
-lines(x = 1:1000, y = log(NSD.FPs[1:1000]), type = "l", col = "blue")
+lines(x = 1:1000, y = log(NSD.FPs[1:1000]), type = "l", lty = 2, col = "red")
+legend(x = "topleft", lty = c(1,2), col = c("red", "red"), legend = c("Negative Binomial (ignoring segment lengths)", "Negative Binomial (including segment lengths)"))
 @
-\caption{(Log) false positive rates for discovery of regions with no genuine expression in a simulated dataset using the the Negative Binomial approach considering region lengths (blue) and neglecting region lengths (red).}
+\caption{(Log) false positive rates for discovery of regions with no genuine expression in a simulated dataset using the the Negative Binomial approach considering region lengths (solid) and neglecting region lengths (dashed).}
 \label{fpNull}
 \end{center}
 \end{figure}
@@ -374,7 +386,7 @@ plotPriors(SDP.NBML, group = 1)
 <<label=figPriors, fig=TRUE,echo=FALSE>>=
 <<pltPriors>>
 @ 
-\caption{Density of the (log) values estimated for the mean of the data by negative binomial methods. The data are bimodally distributed, suggesting that some regions have no true expresssion.}
+\caption{Density of the (log) values estimated for the mean of the data by Negative Binomial methods. The data are bimodally distributed, suggesting that some regions have no true expresssion.}
 \label{plotPriors}
 \end{center}
 \end{figure}

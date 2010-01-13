@@ -73,15 +73,22 @@ function(cD, samplesize = 10^5, iterations = 10^3)
       len <- y[,1:(ncol(y) / 2)]
 
       sampcts <- sample(1:nrow(y), size = samplesize, replace = FALSE)
-
-      
       
       us <- cts[sampcts, seluu, drop = FALSE]
       lens <- len[sampcts, seluu, drop = FALSE]
+      ns <- libsizes[seluu]
+      
+      if(is.null(initial))
+        {
+          m <- mean(apply(t(t(us / lens) / ns), 1, mean))
+          v <- var(apply(t(t(us / lens) / ns), 1, mean))
+          initial <- c(m^2 / v, m / v)
+        }
+      
       optim(initial, 
             PgivenPois, control = list(fnscale = -1),
             us = us, lens = lens,
-            ns = libsizes[seluu])$par
+            ns = ns)$par
     }
   
   clustAssignData <- function(y)
@@ -103,7 +110,7 @@ function(cD, samplesize = 10^5, iterations = 10^3)
   priors <- list()
   libsizes <- cD@libsizes
   y <- cbind(seglens, cD@data)
-
+  
   if(!is.null(cl))
     clusterCall(cl, clustAssignData, y)
     
@@ -112,7 +119,7 @@ function(cD, samplesize = 10^5, iterations = 10^3)
     if (takemean) {
       priors[[gg]] <- matrix(NA, ncol = 2, nrow = length(unique(groups[[gg]])))
     } else priors[[gg]] <- list()
-    initial <- c(0.2, 1100)
+    initial <- NULL
     for (uu in 1:length(unique(groups[[gg]]))) {
       tempPriors <- NULL
       seluu <- which(groups[[gg]] == unique(groups[[gg]])[uu])

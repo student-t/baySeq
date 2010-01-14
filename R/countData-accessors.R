@@ -20,15 +20,15 @@ setMethod("initialize", "countData", function(.Object, ...) {
 })
 
 setMethod("initialize", "segData", function(.Object, ..., seglens) {
+  .Object <- callNextMethod(.Object, ...)
   if(!missing(seglens))
     {
       if(is.vector(seglens))
         seglens <- matrix(seglens, ncol = 1)
       .Object@seglens <- seglens
     }
-  .Object <- callNextMethod(.Object, ...)
-    if(nrow(.Object@seglens) != nrow(.Object@data))
-      stop("Number of rows (or length if submitting as vector) of '@seglens' slot must equal number of rows of '@data' slot.")
+  if(nrow(.Object@seglens) != nrow(.Object@data))
+    stop("Number of rows (or length if submitting as vector) of '@seglens' slot must equal number of rows of '@data' slot.")
   .Object
 })
 

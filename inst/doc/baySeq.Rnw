@@ -1,7 +1,7 @@
 \documentclass[a4paper]{article}
 % \VignetteIndexEntry{baySeq}
 
-\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data (v.1.1.6)}
+\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data (v.1.1.7)}
 \author{Thomas J. Hardcastle}
 
 \begin{document}
@@ -163,7 +163,7 @@ NBML.TPs <- getTPs(CDPost.NBML, group = 2, TPs = 1:100)
 Poi.TPs <- getTPs(CDPost.Poi, group = 2, TPs = 1:100)
 @ 
 
-<<echo = TRUE, fig = TRUE, label=FPsPlot>>=
+<<echo = FALSE, fig = FALSE, label=FPsPlot>>=
 plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")
 lines(x = 1:1000, y = log(1:1000 - NBML.TPs[1:1000]), type = "l", col = "red")
 lines(x = 1:1000, y = log(1:1000 - Poi.TPs[1:1000]), type = "l", col = "blue")

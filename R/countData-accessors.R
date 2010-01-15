@@ -47,13 +47,28 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   if(missing(i))
     i <- 1:nrow(x@data)
   
-  x@data <- x@data[i,j, drop = drop]
+  x@data <- x@data[i,j, drop = FALSE]
   x@libsizes <- x@libsizes[j]
   x@annotation <- x@annotation[i,, drop = FALSE]
   if(nrow(x@posteriors) > 0)
     x@posteriors <- x@posteriors[i,]
   x
 })
+
+setMethod("[", "segData", function(x, i, j, ..., drop = FALSE) {
+  if(missing(i))
+    i <- 1:nrow(x@data)
+  if(missing(j))
+    j <- 1:ncol(x@data)
+  x <- callNextMethod(x, i, j, ..., drop = FALSE)
+
+  if(ncol(x@seglens) == 1) {
+    x@seglens <- x@seglens[i,, drop = FALSE]
+  } else x@seglens <- x@seglens[i, j, drop = FALSE]
+
+  x
+})
+
 
 setMethod("dim", "countData", function(x) {
   dim(x@data)

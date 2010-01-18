@@ -4,7 +4,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, cl)
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
-    if(cD@priors$type != "Dir") stop("Incorrect prior type for this method of likelihood estimation")
+    if(cD@priors@type != "Dir") stop("Incorrect prior type for this method of likelihood estimation")
     if(class(cD) != "countData")
       stop("variable 'countData' in 'getGroupPriors' must be of class 'countData'")
     if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
@@ -32,7 +32,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, cl)
                 for(gg in 1:length(unique(group)))
                   pD <- pD +
                     lbeta.over.beta(apply(matrix(us[group == unique(group)[gg],], ncol = ncol(us)), 2, sum),
-                                    prior[gg,])
+                                    prior[[gg]])
                 pD
               }
 
@@ -52,9 +52,9 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, cl)
       }
     
     if(is.null(cl)) {
-      ps <- apply(cD@data[subset,], 1, PrgivenD.Dirichlet, cD@libsizes, cD@priors$priors, cD@groups)
+      ps <- apply(cD@data[subset,], 1, PrgivenD.Dirichlet, cD@libsizes, cD@priors@priors, cD@groups)
     } else {
-      ps <- parRapply(cl, cD@data[subset,], PrgivenD.Dirichlet, cD@libsizes, cD@priors$priors, cD@groups)
+      ps <- parRapply(cl, cD@data[subset,], PrgivenD.Dirichlet, cD@libsizes, cD@priors@priors, cD@groups)
     }
     ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
     pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, cl = cl)
@@ -76,7 +76,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
-    if(cD@priors$type != "Poi") stop("Incorrect prior type for this method of likelihood estimation")
+    if(cD@priors@type != "Poi") stop("Incorrect prior type for this method of likelihood estimation")
     if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
     
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
@@ -100,11 +100,12 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
                 pD <- sum(cts * log(ns * seglen)) - sum(lfactorial(cts))
                 for(gg in 1:length(unique(group)))
                   {
+                    gprior <- matrix(unlist(prior[[gg]]), nrow = length(prior[[gg]]), byrow = TRUE)
                     selcts <- group == gg
                     pD <- pD +
-                      lgamma(sum(cts[selcts]) + prior[gg,1]) - lgamma(prior[gg,1]) -
-                        sum(cts[selcts]) * log(sum(ns[selcts] * seglen[selcts]) + prior[gg,2]) -
-                          prior[gg,1] * log(1 + sum(ns[selcts] * seglen[selcts]) / prior[gg,2])
+                      lgamma(sum(cts[selcts]) + prior[[gg]][1]) - lgamma(prior[[gg]][1]) -
+                        sum(cts[selcts]) * log(sum(ns[selcts] * seglen[selcts]) + prior[[gg]][2]) -
+                          prior[[gg]][1] * log(1 + sum(ns[selcts] * seglen[selcts]) / prior[[gg]][2])
                   }
                 pD
               }
@@ -147,9 +148,9 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
       }
     
     if(is.null(cl)) {
-      ps <- apply(cbind(seglens, cD@data)[subset,], 1, PrgivenD.Pois, cD@libsizes, cD@priors$priors, cD@groups, distpriors)
+      ps <- apply(cbind(seglens, cD@data)[subset,], 1, PrgivenD.Pois, cD@libsizes, cD@priors@priors, cD@groups, distpriors)
     } else {
-      ps <- parRapply(cl, cbind(seglens, cD@data)[subset,], PrgivenD.Pois, cD@libsizes, cD@priors$priors, cD@groups, distpriors)
+      ps <- parRapply(cl, cbind(seglens, cD@data)[subset,], PrgivenD.Pois, cD@libsizes, cD@priors@priors, cD@groups, distpriors)
       }                        
     ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
     pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, cl = cl)
@@ -172,7 +173,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
-    if(cD@priors$type != "NB") stop("Incorrect prior type for this method of likelihood estimation")
+    if(cD@priors@type != "NB") stop("Incorrect prior type for this method of likelihood estimation")
     if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
 
     if(any(prs < 0))
@@ -188,10 +189,10 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
       stop("'subset' must be integer, numeric, or NULL")
     
     if(is.null(subset)) subset <- 1:nrow(cD@data)
-    sy <- cD@priors$sampled
+    sy <- cD@priors@sampled
     groups <- cD@groups
 
-    NBpriors <- cD@priors$priors
+    NBpriors <- cD@priors@priors
 
     NBbootStrap <- function(us, libsizes, groups) {
       PDgivenr.NB <- function (us, seglen, ns, prior, group, sampled)
@@ -255,7 +256,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
         NBpriors[[ndenulGroup]] <- NBpriors[[ndelocGroup]]
         
         NZLs <- apply(cD@data[sy,, drop = FALSE] != 0, 1, any)
-        NZLpriors <- log(cD@priors$priors[[ndelocGroup]][[1]][NZLs,1])
+        NZLpriors <- log(cD@priors@priors[[ndelocGroup]][[1]][NZLs,1])
         
         dsortp <- sort(NZLpriors, decreasing = TRUE)
         dcummeans <- cumsum(dsortp) / 1:length(dsortp)

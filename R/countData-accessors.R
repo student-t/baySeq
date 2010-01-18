@@ -108,9 +108,9 @@ setMethod("show", "countData", function(object) {
       cat('\nSlot "estProps":\n')
       print(object@estProps)
     }
-  if(length(object@priors) > 1)
+  if(length(object@priors@type) > 1)
     {
       cat('Slot "priors":\n')
-      cat(paste('Priors are of type:', object@priors$type), '\n')
+      cat(paste('Priors are of type:', object@priors@type), '\n')
     }
 })

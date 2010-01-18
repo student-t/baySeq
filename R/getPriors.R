@@ -18,7 +18,7 @@ function(cD, samplesize = 10^5, iterations = 10^3)
     groups <- cD@groups
     for(gg in 1:length(groups))
       {
-        priors[[gg]] <- matrix(NA, ncol = 2, nrow = length(unique(groups[[gg]])))
+        priors[[gg]] <- list()
         for(uu in 1:length(unique(groups[[gg]])))
           {
             cat(".")
@@ -34,11 +34,11 @@ function(cD, samplesize = 10^5, iterations = 10^3)
                                                         us = rowSums(data.frame(y[sample(1:nrow(y), samplesize, replace = FALSE),groups[[gg]] == unique(groups[[gg]])[uu]])),
                                                         ns = sum(libsizes[groups[[gg]] == unique(groups[[gg]])[uu]]))$par)
               }
-            priors[[gg]][uu,] <- apply(temp.priors, 2, mean)
+            priors[[gg]][[uu]] <- apply(temp.priors, 2, mean)
           }
       }
     names(priors) <- names(groups)
-    new(class(cD), cD, priors = list(type = "Dir", priors = priors))
+    new(class(cD), cD, priors = new("priorData", type = "Dir", priors = priors))
   }
 
 
@@ -116,9 +116,7 @@ function(cD, samplesize = 10^5, iterations = 10^3)
     
   groups <- cD@groups
   for (gg in 1:length(groups)) {
-    if (takemean) {
-      priors[[gg]] <- matrix(NA, ncol = 2, nrow = length(unique(groups[[gg]])))
-    } else priors[[gg]] <- list()
+    priors[[gg]] <- list()
     initial <- NULL
     for (uu in 1:length(unique(groups[[gg]]))) {
       tempPriors <- NULL
@@ -139,12 +137,12 @@ function(cD, samplesize = 10^5, iterations = 10^3)
       }
       cat(".")
       if(takemean) 
-        priors[[gg]][uu, ] <- apply(tempPriors, 2, mean)
+        priors[[gg]][[uu]] <- apply(tempPriors, 2, mean)
       else priors[[gg]][[uu]] <- tempPriors
     }
   }
   names(priors) <- names(groups)
-  new(class(cD), cD, priors = list(type = "Poi", priors = priors))
+  new(class(cD), cD, priors = new("priorData", type = "Poi", priors = priors))
 }
 
 
@@ -228,6 +226,6 @@ function (cD, samplesize = 10^5, estimation = "ML", cl)
     }
   }
   names(NBpar) <- names(groups)
-  NBpar <- list(type = "NB", sampled = sy, priors = NBpar)
+  NBpar <- new("priorData", type = "NB", sampled = sy, priors = NBpar)
   new(class(cD), cD, priors = NBpar)
 }

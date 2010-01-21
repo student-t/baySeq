@@ -1,5 +1,5 @@
-setMethod("initialize", "countData", function(.Object, ...) {
-  .Object <- callNextMethod()
+setMethod("initialize", "countData", function(.Object, ..., seglens) {
+  .Object <- callNextMethod(.Object, ...)
   if(length(.Object@libsizes) != ncol(.Object@data))
     stop("Length of '@libsizes' slot must equal number of columns of '@data' slot.")
   if(nrow(.Object@annotation) > 0 & nrow(.Object@annotation) != nrow(.Object@data))
@@ -16,19 +16,16 @@ setMethod("initialize", "countData", function(.Object, ...) {
   
   if(length(.Object@estProps) != length(.Object@groups) & length(.Object@estProps) != 0)
     stop("Length of '@estProps' slot must equal length of '@groups' slot.")
-  .Object
-})
 
-setMethod("initialize", "segData", function(.Object, ..., seglens) {
-  .Object <- callNextMethod(.Object, ...)
   if(!missing(seglens))
     {
       if(is.vector(seglens))
         seglens <- matrix(seglens, ncol = 1)
       .Object@seglens <- seglens
     }
-  if(nrow(.Object@seglens) != nrow(.Object@data))
-    stop("Number of rows (or length if submitting as vector) of '@seglens' slot must equal number of rows of '@data' slot.")
+  if(nrow(.Object@seglens) != nrow(.Object@data) & nrow(.Object@seglens) != 0)
+    stop("If 'seglens' specified, the number of rows (or length if submitting as vector) of '@seglens' slot must equal number of rows of '@data' slot.")
+
   .Object
 })
 
@@ -52,23 +49,16 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   x@annotation <- x@annotation[i,, drop = FALSE]
   if(nrow(x@posteriors) > 0)
     x@posteriors <- x@posteriors[i,]
+
+  if(nrow(x@seglens) > 0)
+    {
+      if(ncol(x@seglens) == 1) {
+        x@seglens <- x@seglens[i,, drop = FALSE]
+      } else x@seglens <- x@seglens[i, j, drop = FALSE]
+    }
+  
   x
 })
-
-setMethod("[", "segData", function(x, i, j, ..., drop = FALSE) {
-  if(missing(i))
-    i <- 1:nrow(x@data)
-  if(missing(j))
-    j <- 1:ncol(x@data)
-  x <- callNextMethod(x, i, j, ..., drop = FALSE)
-
-  if(ncol(x@seglens) == 1) {
-    x@seglens <- x@seglens[i,, drop = FALSE]
-  } else x@seglens <- x@seglens[i, j, drop = FALSE]
-
-  x
-})
-
 
 setMethod("dim", "countData", function(x) {
   dim(x@data)

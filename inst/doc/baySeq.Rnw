@@ -1,7 +1,7 @@
 \documentclass[a4paper]{article}
 % \VignetteIndexEntry{baySeq}
 
-\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data (v.1.1.9)}
+\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data}
 \author{Thomas J. Hardcastle}
 
 \begin{document}
@@ -265,7 +265,7 @@ topCounts(CDfactPost.NBML, group = 3)
 \label{Section::seglen}
 
 So far, we have assumed that the count data deals with individual tags from a sequencing machine. If we consider count data derived from grouping together tags relating to genomic regions, for example, in looking at the number of tags that match to a gene in mRNA-Seq, we need to include the region length in the calculations of differential expression. The reasons for this are clear; if a region of length 200 bases has 200 tags in sample A and 400 tags in sample B, this may be good evidence for differential expression. If we saw the same difference in a region 2e6 bases
-long, this would be much poorer evidence of differential expression. We can use the 'segData' class to explore such data.
+long, this would be much poorer evidence of differential expression. We can specify values for the '@seglens' slot of the 'countData' class to explore such data.
 
 We load a simulated data set consisting of count data on one thousand counts and library sizes for ten libraries. We use the same library sizes as before, but now the first column of 'simSeg' contains the length of the segment
 
@@ -283,19 +283,19 @@ groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1),
                DE = c(1,1,1,1,1,2,2,2,2,2))
 @
 
-We now combine the count data, library sizes and user-defined groups, together with the segment lengths, into a \verb'segData' object.
+We now combine the count data, library sizes and user-defined groups into a \verb'countData' object as before, but now we additionally specifiy segment lengths by setting the '@seglens' slot.
 
 <<>>=
-SD <- new("segData", data = simSeg[,-1], libsizes = libsizes, groups = groups, seglens = simSeg[,1])
+SD <- new("countData", data = simSeg[,-1], libsizes = libsizes, groups = groups, seglens = simSeg[,1])
 @
 
-We can also optionally add annotation details into the \verb'@annotation' slot of the \verb'segData' object.
+We can also optionally add annotation details into the \verb'@annotation' slot of the \verb'countData' object.
 
 <<>>=
 SD@annotation <- data.frame(name = paste("gene", 1:1000, sep = "_"))
 @ 
 
-We can calculate the priors for this segData object as before, for both the Poisson-Gamma method and the Negative Binomial method.
+We can calculate the priors for this countData object as before, for both the Poisson-Gamma method and the Negative Binomial method.
 
 <<>>=
 SDP.NBML <- getPriors.NB(SD, samplesize = 1000, estimation = "ML", cl = cl)
@@ -343,7 +343,7 @@ legend(x = "topleft", lty = c(1,2,1,2), col = c("red", "red", "blue", "blue"), l
 \end{center}
 \end{figure}
 
-We are also, using the Negative Binomial methods, able to ask if any segments have no true expression by setting \verb'nullData = TRUE'. If the distribution of rates at each segment is bimodal, this approach will be able to differentiate between segments which have no true expression of any kind, and those which have expression (and may be differentially expressed). If we use this option, we implicitly introduce another grouping. The \verb'prs' vector, which defines the prior likelihood of each grouping, should thus sum to less than 1, with the residual going to the implicit group. We can use this method with either \verb'countData' or \verb'segData' objects; however, to ignore segment length may have a significant effect on the results.
+We are also, using the Negative Binomial methods, able to ask if any segments have no true expression by setting \verb'nullData = TRUE'. If the distribution of rates at each segment is bimodal, this approach will be able to differentiate between segments which have no true expression of any kind, and those which have expression (and may be differentially expressed). If we use this option, we implicitly introduce another grouping. The \verb'prs' vector, which defines the prior likelihood of each grouping, should thus sum to less than 1, with the residual going to the implicit group. We can use this method whether or not segment lengths are specified; however, to ignore segment length may have a significant effect on the results.
 
 In the \verb'simSeg' object, the second hundred rows are simulated to show no true expression.
 
@@ -352,7 +352,7 @@ NSDPost.NBML <- getLikelihoods.NBboot(SDP.NBML, prs = c(0.4,0.3), estimatePriors
 NCSDPost.NBML <- getLikelihoods.NBboot(CSDP.NBML, prs = c(0.4,0.3), estimatePriors = TRUE, nullData = TRUE, bootStraps = 3, cl = cl)
 @
 
-We can see the top segments for which there is no true expression by setting \verb'group = NULL' in the \verb'topCounts' function. Similarly, we can find true positive rates for by setting \verb'group = NULL' in the \verb'getTPs' function. Figure~\ref{fpNull} shows that neglecting the segment lengths causes a substantial difference in false positive rates in the analysis of the \verb'countData' object (blue) compared to the analysis of the \verb'segData' object (red) in the identification of segments for which there is no true expression.
+We can see the top segments for which there is no true expression by setting \verb'group = NULL' in the \verb'topCounts' function. Similarly, we can find true positive rates for by setting \verb'group = NULL' in the \verb'getTPs' function. Figure~\ref{fpNull} shows that neglecting the segment lengths causes a substantial difference in false positive rates in the analysis of the data negelecting segment lengths (blue) compared to the analysis of the data including segment length information (red) in the identification of segments for which there is no true expression.
 
 <<>>=
 topCounts(NSDPost.NBML, group = NULL)
@@ -374,7 +374,7 @@ legend(x = "topleft", lty = c(1,2), col = c("red", "red"), legend = c("Negative 
 \end{center}
 \end{figure}
 
-In order to look for segments for which there is no true expression, we assume that the rates of production of tags are bimodally distributed. If this is not the case, then this approach may cause serious problems in the analysis of the data. It is possible to gain some idea of whether the rates are bimodally distributed by examining the priors estimated (by Negative Binomial methods) for a \verb'countData' or \verb'segData' object by using the function \verb'plotPriors' for some group; ideally, the group which defines non-differentially expressed data. Figure~\ref{plotPriors} shows that these data are truly bimodal and thus this is a sensible approach.
+In order to look for segments for which there is no true expression, we assume that the rates of production of tags are bimodally distributed. If this is not the case, then this approach may cause serious problems in the analysis of the data. It is possible to gain some idea of whether the rates are bimodally distributed by examining the priors estimated (by Negative Binomial methods) for a \verb'countData' object by using the function \verb'plotPriors' for some group; ideally, the group which defines non-differentially expressed data. Figure~\ref{plotPriors} shows that these data are truly bimodal and thus this is a sensible approach.
 
 <<pltPriors>>=
 plotPriors(SDP.NBML, group = 1)

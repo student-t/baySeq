@@ -24,7 +24,8 @@ bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{cD}{An object of type \code{\link{countData}} or \code{\link{segData}}.}
+  \item{cD}{An object of type \code{\link{countData}}, or descending
+    from this class.}
   \item{prs}{(Initial) prior probabilities for each of the groups in the
     'countDP' object. Should sum to 1, unless nullData is TRUE, in which
   case it should sum to less than 1.}

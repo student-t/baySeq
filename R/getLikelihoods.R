@@ -84,7 +84,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
 
     if(is.null(subset)) subset <- 1:nrow(cD@data)
 
-    if(class(cD) == "segData") seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
+    if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
 
     if(is.matrix(seglens))
       if(ncol(seglens) == 1) seglens <- matrix(seglens[,1], ncol = ncol(cD@data), nrow = nrow(cD@data))
@@ -239,8 +239,8 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
     posteriors <- matrix(1 / length(cD@groups), ncol = length(cD@groups), nrow = nrow(cD@data))
     propest <- NULL
 
-    if(class(cD) == "segData") seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
-
+    if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
+    
     if(is.matrix(seglens))
       if(ncol(seglens) == 1) seglens <- matrix(seglens[,1], ncol = ncol(cD@data), nrow = nrow(cD@data))
     

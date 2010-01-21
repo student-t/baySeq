@@ -7,20 +7,13 @@
 \alias{dim,countData-method}
 \alias{[,countData-method}
 \alias{show,countData-method}
-\alias{segData}
-\alias{segData-class}
-\alias{dim,segData-method}
-\alias{[,segData-method}
-\alias{show,segData-method}
-
 
 \title{baySeq - classes}
 
 \description{
   The \code{countData} class defines a class for summarising count data
   and estiablishing prior and posterior parameters on distributions defined upon the
-  count data. The \code{segData} class extends the \code{countData} class
-  by including segment lengths.}
+  count data.}
 
 \section{Slots}{
   Objects of these class should contain the following list components:  
@@ -40,7 +33,8 @@
     \code{nullPosts}:\tab If calculated, the posterior likelihoods for
   the data having no true expression of any kind. \cr
     \code{seglens}:\tab Lengths of segments containing the counts
-    described in \code{data}. Only in 'segData' class. See Details. \cr
+    described in \code{data}. A matrix, but may be initialised with a
+  vector, or ignored altogether. See Details. \cr
 }}
 
 \section{Details}{
@@ -48,11 +42,16 @@ The \code{seglens} slot describes, for each row of the \code{data}
 object, the length of the 'segment' that contains the number of counts
 described by that row. For example, if we are looking at the number of
 hits matching genes, the \code{seglens} object would consist of
-transcript lengths.
+transcript lengths. Exceptionally, we may want to use different segment
+lengths for different samples and so the slot takes the form of a
+matrix. If the matrix has only one column, it is duplicated for all
+samples. Otherwise, it should have the same number of columns as the
+'@data' slot. If the slot is the empty matrix, then it is assumed that
+all segments have the same length.
 }
 
 \section{Methods}{
-  Methods 'dim', '[' and 'show' have been defined for these classes.
+  Methods 'new', 'dim', '[' and 'show' have been defined for these classes.
 }
 
 \author{Thomas J. Hardcastle}

@@ -101,7 +101,7 @@ function(cD, samplesize = 10^5, iterations = 10^3)
   environment(clustAssignData) <- getPriorEnv
   environment(priorPars) <- getPriorEnv
   
-  if(class(cD) == "segData") seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
+  if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
   
   if(is.matrix(seglens))
     if(ncol(seglens) == 1) seglens <- matrix(seglens[,1], ncol = ncol(cD@data), nrow = nrow(cD@data))
@@ -200,7 +200,7 @@ function (cD, samplesize = 10^5, estimation = "ML", cl)
   sy <- sample(1:nrow(y), samplesize, replace = FALSE)
   sy <- sort(sy)
 
-  if(class(cD) == "segData") seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
+  if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
   
   if(is.matrix(seglens))
     if(ncol(seglens) == 1) seglens <- matrix(seglens[,1], ncol = ncol(cD@data), nrow = nrow(cD@data))

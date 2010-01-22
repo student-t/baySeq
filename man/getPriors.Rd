@@ -13,8 +13,9 @@
   of describing the 'count' data.
 }
 \usage{
-getPriors.Dirichlet(cD, samplesize = 10^5, iterations = 10^3)
-getPriors.Pois(cD, samplesize = 10^5, perSE = 1e-1, takemean = TRUE, cl)
+getPriors.Dirichlet(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
+getPriors.Pois(cD, samplesize = 10^5, perSE = 1e-1, takemean = TRUE,
+maxit = 10^6, cl)
 getPriors.NB(cD, samplesize = 10^5, estimation = "ML", cl)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -24,8 +25,8 @@ getPriors.NB(cD, samplesize = 10^5, estimation = "ML", cl)
     priors?}
   \item{perSE}{What should the relative standard error of the estimated
     parameters fall below?}
-  \item{iterations}{Over how many iterations should we take samples and
-    re-estimate the priors?}
+  \item{maxit}{Over how many iterations (at most) should we take samples and
+    re-estimate the priors in order to achieve convergence?}
   \item{takemean}{If TRUE (recommended), we take the mean of the
     estimated priors to define a gamma distribution. If FALSE, we use
     all estimated priors to define an empirical distribtion on the
@@ -46,6 +47,10 @@ getPriors.NB(cD, samplesize = 10^5, estimation = "ML", cl)
   A 'cluster' object is recommended in order to estimate the priors for
   the negative binomial distribution. Passing NULL to this variable will
   cause the function to run in non-parallel mode.
+
+  getPriors.Dirichlet and getPriors.Pois will issue warnings if the
+  estimation of any priors fails to achieve less than the relative
+  standard error specified in the maximum number of iterations.
 }
 \value{
   A \code{\link{countData}} object.

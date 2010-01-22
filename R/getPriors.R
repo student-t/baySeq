@@ -1,9 +1,11 @@
 `getPriors.Dirichlet` <-
-function(cD, samplesize = 10^5, iterations = 10^3)
+function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
+    cat("Finding priors...")
+    
     `PgivenDir` <-
       function(alphas, us, ns)
         {
@@ -22,19 +24,24 @@ function(cD, samplesize = 10^5, iterations = 10^3)
         for(uu in 1:length(unique(groups[[gg]])))
           {
             cat(".")
-            temp.priors <- NULL
-            for(ii in 1:iterations)
+            tempPriors <- NULL
+            for(rr in 1:maxit)
               {
                 initial <- c(0.2, 1100)
-                if(!is.null(temp.priors))
-                  initial <- apply(temp.priors, 2, mean)
+                if(!is.null(tempPriors))
+                  initial <- apply(tempPriors, 2, mean)
                 
-                temp.priors <- rbind(temp.priors, optim(initial, PgivenDir,
+                tempPriors <- rbind(tempPriors, optim(initial, PgivenDir,
                                                         control = list(fnscale = -1),
                                                         us = rowSums(data.frame(y[sample(1:nrow(y), samplesize, replace = FALSE),groups[[gg]] == unique(groups[[gg]])[uu]])),
                                                         ns = sum(libsizes[groups[[gg]] == unique(groups[[gg]])[uu]]))$par)
+
+                if(nrow(tempPriors) > 1)
+                  if(all((apply(tempPriors, 2, sd) / sqrt(nrow(tempPriors))) / apply(tempPriors, 2, mean) < perSE)) break()
               }
-            priors[[gg]][[uu]] <- apply(temp.priors, 2, mean)
+            if(rr == maxit)
+              warning(paste("Convergence not achieved to required accuracy for model ", gg, ", group ", uu, sep = ""))
+            priors[[gg]][[uu]] <- apply(tempPriors, 2, mean)
           }
       }
     names(priors) <- names(groups)
@@ -44,10 +51,12 @@ function(cD, samplesize = 10^5, iterations = 10^3)
 
 `getPriors.Pois` <-
   function (cD, samplesize = 10^5, perSE = 1e-1
-            , takemean = TRUE, cl) 
+            , takemean = TRUE, maxit = 10^6, cl) 
 {
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
+
+  cat("Finding priors...")
   
   priorPars <- function(y, libsizes, samplesize, seluu, initial)
     {
@@ -121,7 +130,7 @@ function(cD, samplesize = 10^5, iterations = 10^3)
     for (uu in 1:length(unique(groups[[gg]]))) {
       tempPriors <- NULL
       seluu <- which(groups[[gg]] == unique(groups[[gg]])[uu])
-      repeat {
+      for(rr in 1:maxit) {
         if (!is.null(tempPriors)) 
           initial <- apply(tempPriors, 2, mean)
         if(!is.null(cl))
@@ -135,6 +144,8 @@ function(cD, samplesize = 10^5, iterations = 10^3)
         if(nrow(tempPriors) > 1)
           if(all((apply(tempPriors, 2, sd) / sqrt(nrow(tempPriors))) / apply(tempPriors, 2, mean) < perSE)) break()
       }
+      if(rr == maxit)
+        warning(paste("Convergence not achieved to required accuracy for model ", gg, ", group ", uu, sep = ""))
       cat(".")
       if(takemean) 
         priors[[gg]][[uu]] <- apply(tempPriors, 2, mean)
@@ -152,7 +163,8 @@ function (cD, samplesize = 10^5, estimation = "ML", cl)
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
 
-
+  cat("Finding priors...")
+  
   ML.optimover <- function(x, libsizes)
     {
       ML.NB <- function(alphas, y, libsizes, seglen)

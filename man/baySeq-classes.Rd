@@ -11,8 +11,8 @@
 \title{baySeq - classes}
 
 \description{
-  The \code{countData} class defines a class for summarising count data
-  and estiablishing prior and posterior parameters on distributions defined upon the
+  The \code{countData} class is used to define summaries of count data
+  and establishing prior and posterior parameters on distributions defined upon the
   count data.}
 
 \section{Slots}{
@@ -51,7 +51,7 @@ all segments have the same length.
 }
 
 \section{Methods}{
-  Methods 'new', 'dim', '[' and 'show' have been defined for these classes.
+  Methods 'new', 'dim', '[' and 'show' have been defined for this class.
 }
 
 \author{Thomas J. Hardcastle}

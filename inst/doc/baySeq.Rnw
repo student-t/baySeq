@@ -10,7 +10,7 @@
 
 \section{Introduction}
 
-This vignette is intended to give a rapid introduction to the commands used in implementing two methods of evaluating differential expression in Solexa-type, or \textsl{count} data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly \cite{hardcastle}. The major improvement made in this release is the option to include region length in evaluating differential expression between genomic regions (e.g. genes). See Section~\ref{Section::seglen} for more details.
+This vignette is intended to give a rapid introduction to the commands used in implementing two methods of evaluating differential expression in Solexa-type, or \textsl{count} data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly \cite{hardcastle}. The major improvement made in this release is the option to include region length in evaluating differential expression between genomic regions (e.g. genes). See Section \ref{Section::seglen} for more details.
 
 We assume that we have discrete data from a set of sequencing or other high-throughput experiments, arranged in a matrix such that each column describes a sample and each row describes some entity for which counts exist. For example, the rows may correspond to the different sequences observed in a sequencing experiment. The data then consists of the number of times each sequence is observed in each sample. We wish to determine which, if any, rows of the data correspond to some patterns of differential expression across the samples. This problem has been addressed for pairwise differential expression by the \verb'edgeR' \cite{edgeR} package. 
 
@@ -65,7 +65,7 @@ Each member (vector) contained within the 'groups' list corresponds to one model
 
 We also expect that some tags will show differential expression between the first five libraries and the second five libraries. For these tags, the two sets of libraries belong to different groups, and so we have the model 'DE', or vector \verb'c(1,1,1,1,1,2,2,2,2,2)' - the first five libraries belong to group 1 and the second five libraries to group 2. 
 
-In a more complex experimental design (Section~\ref{factorial}) we might have several additional models. The key to constructing vectors corresponding to a model is to see for which groups of libraries we expect equivalent expression of tags.
+In a more complex experimental design (Section \ref{factorial}) we might have several additional models. The key to constructing vectors corresponding to a model is to see for which groups of libraries we expect equivalent expression of tags.
 
 The ultimate aim of the \verb'baySeq' package is to evaluate posterior likelihoods of each model for each row of the data.
 

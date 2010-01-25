@@ -85,17 +85,17 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
     if(is.null(subset)) subset <- 1:nrow(cD@data)
 
     if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
-
-    if(is.matrix(seglens))
-      if(ncol(seglens) == 1) seglens <- matrix(seglens[,1], ncol = ncol(cD@data), nrow = nrow(cD@data))
-
+    
+    if(ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE
     
     `PrgivenD.Pois` <-
-      function(us, libsizes, priors, groups, distpriors = FALSE)
+      function(us, libsizes, priors, groups, distpriors = FALSE, lensameFlag)
         {
           `PDgivenr.Pois` <-
             function(cts, ns, seglen, prior, group)
               {
+                if(length(seglen) == 1 & length(cts) > 1)
+                  seglen <- rep(seglen, length(cts))
                 pD <- 0
                 pD <- sum(cts * log(ns * seglen)) - sum(lfactorial(cts))
                 for(gg in 1:length(unique(group)))
@@ -113,6 +113,8 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
           `PDgivenr.PoisIndie` <-
             function(cts, ns, seglen, prior, group)
               {
+                if(length(seglen) == 1 & length(cts) > 1)
+                  seglen <- rep(seglen, length(cts))
                 `logsum` <-
                   function(x)
                     max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
@@ -129,9 +131,15 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
                 pD
               }
 
-          
-          cts <- us[-(1:(length(us) / 2))]
-          lens <- us[1:(length(us) / 2)]
+
+          if(lensameFlag)
+            {
+              cts <- us[-1]
+              lens <- us[1]
+            } else {
+              cts <- us[-(1:(length(us) / 2))]
+              lens <- us[1:(length(us) / 2)]
+            }
           
           ps <- c()
           for(ii in 1:length(groups))
@@ -148,9 +156,9 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
       }
     
     if(is.null(cl)) {
-      ps <- apply(cbind(seglens, cD@data)[subset,], 1, PrgivenD.Pois, cD@libsizes, cD@priors@priors, cD@groups, distpriors)
+      ps <- apply(cbind(seglens, cD@data)[subset,], 1, PrgivenD.Pois, cD@libsizes, cD@priors@priors, cD@groups, distpriors, lensameFlag = lensameFlag)
     } else {
-      ps <- parRapply(cl, cbind(seglens, cD@data)[subset,], PrgivenD.Pois, cD@libsizes, cD@priors@priors, cD@groups, distpriors)
+      ps <- parRapply(cl, cbind(seglens, cD@data)[subset,], PrgivenD.Pois, cD@libsizes, cD@priors@priors, cD@groups, distpriors, lensameFlag = lensameFlag)
       }                        
     ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
     pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, cl = cl)
@@ -194,9 +202,11 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
 
     NBpriors <- cD@priors@priors
 
-    NBbootStrap <- function(us, libsizes, groups) {
+    NBbootStrap <- function(us, libsizes, groups, lensameFlag) {
       PDgivenr.NB <- function (us, seglen, ns, prior, group, sampled)
           {
+            if(length(seglen) == 1 & length(us) > 1)
+              seglen <- rep(seglen, length(us))
             `logsum` <-
               function(x)
                 max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
@@ -215,21 +225,30 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
             pD
           }
 
+          if(lensameFlag)
+            {
+              cts <- us[-1]
+              lens <- us[1]
+            } else {
+              cts <- us[-(1:(length(us) / 2))]
+              lens <- us[1:(length(us) / 2)]
+            }
+
       
       ps <- c()
       for (ii in 1:length(NBpriors))
-        ps[ii] <- PDgivenr.NB(us[-(1:(length(us) / 2))], us[1:(length(us) / 2)], libsizes, NBpriors[[ii]], groups[[ii]], sampPriors[[ii]])
+        ps[ii] <- PDgivenr.NB(cts, lens, libsizes, NBpriors[[ii]], groups[[ii]], sampPriors[[ii]])
       ps
     }
     
-    clustAssign <- function(object, name)
-      {
-        assign(name, object, envir = .GlobalEnv)
-        NULL
-      }
-
     if(!is.null(cl))
       {
+        clustAssign <- function(object, name)
+          {
+            assign(name, object, envir = .GlobalEnv)
+            NULL
+          }
+        
         getLikelihoodsEnv <- new.env(parent = .GlobalEnv)
         environment(clustAssign) <- getLikelihoodsEnv
         environment(NBbootStrap) <- getLikelihoodsEnv
@@ -241,8 +260,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
 
     if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
     
-    if(is.matrix(seglens))
-      if(ncol(seglens) == 1) seglens <- matrix(seglens[,1], ncol = ncol(cD@data), nrow = nrow(cD@data))
+    if(ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE
     
     if(nullData)
       {
@@ -305,11 +323,11 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
 
         if (is.null(cl)) {
           ps <- apply(cbind(seglens, cD@data)[union(sy, subset),,drop = FALSE],
-                      1, NBbootStrap, libsizes = cD@libsizes, groups = groups)
+                      1, NBbootStrap, libsizes = cD@libsizes, groups = groups, lensameFlag = lensameFlag)
         } else {
           clusterCall(cl, clustAssign, sampPriors, "sampPriors")
           ps <- parRapply(cl, cbind(seglens, cD@data)[union(sy, subset),, drop = FALSE],
-                          NBbootStrap, libsizes = cD@libsizes, groups = groups)
+                          NBbootStrap, libsizes = cD@libsizes, groups = groups, lensameFlag = lensameFlag)
         }
         
         ps <- matrix(ps, ncol = length(groups), byrow = TRUE)

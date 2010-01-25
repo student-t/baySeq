@@ -15,7 +15,7 @@
 \usage{
 getPriors.Dirichlet(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
 getPriors.Pois(cD, samplesize = 10^5, perSE = 1e-1, takemean = TRUE,
-maxit = 10^6, cl)
+maxit = 10^5, cl)
 getPriors.NB(cD, samplesize = 10^5, estimation = "ML", cl)
 }
 %- maybe also 'usage' for other objects documented here.

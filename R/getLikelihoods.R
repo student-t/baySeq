@@ -1,5 +1,5 @@
 `getLikelihoods.Dirichlet` <-
-function(cD, prs, estimatePriors = TRUE, subset = NULL, cl)
+function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, cl)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
@@ -12,6 +12,13 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, cl)
       stop("'subset' must be integer, numeric, or NULL")
 
     if(is.null(subset)) subset <- 1:nrow(cD@data)
+
+    if(!is.null(priorSubset))
+      {
+        priorSub <- rep(FALSE, nrow(cD@data))
+        priorSub[priorSubset] <- TRUE
+        priorSubset <- priorSub[subset]
+      }
     
     `PrgivenD.Dirichlet` <-
       function(us, libsizes, priors, groups, priorgroups = c(0.99, 0.01))
@@ -57,7 +64,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, cl)
       ps <- parRapply(cl, cD@data[subset,], PrgivenD.Dirichlet, cD@libsizes, cD@priors@priors, cD@groups)
     }
     ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
-    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, cl = cl)
+    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, priorSubset = priorSubset, cl = cl)
 
     posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
     posteriors[subset,] <- t(pps$posteriors)
@@ -71,7 +78,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, cl)
 
 
 `getLikelihoods.Pois` <-
-function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
+function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, distpriors = FALSE, cl)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
@@ -84,6 +91,13 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
 
     if(is.null(subset)) subset <- 1:nrow(cD@data)
 
+    if(!is.null(priorSubset))
+      {
+        priorSub <- rep(FALSE, nrow(cD@data))
+        priorSub[priorSubset] <- TRUE
+        priorSubset <- priorSub[subset]
+      }
+    
     if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
     
     if(ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE
@@ -161,7 +175,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
       ps <- parRapply(cl, cbind(seglens, cD@data)[subset,], PrgivenD.Pois, cD@libsizes, cD@priors@priors, cD@groups, distpriors, lensameFlag = lensameFlag)
       }                        
     ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
-    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, cl = cl)
+    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, priorSubset = priorSubset, cl = cl)
 
     posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
     posteriors[subset,] <- pps$posteriors
@@ -175,7 +189,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, distpriors = FALSE, cl)
 
 
 `getLikelihoods.NBboot` <-
-function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
+function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
   {
     
     if(!inherits(cD, what = "countData"))
@@ -197,6 +211,14 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
       stop("'subset' must be integer, numeric, or NULL")
     
     if(is.null(subset)) subset <- 1:nrow(cD@data)
+
+    if(!is.null(priorSubset))
+      {
+        priorSub <- rep(FALSE, nrow(cD@data))
+        priorSub[priorSubset] <- TRUE
+        priorSubset <- priorSub[subset]
+      }
+    
     sy <- cD@priors@sampled
     groups <- cD@groups
 
@@ -334,9 +356,9 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
         rps[union(sy, subset),] <- ps
         
-        pps <- getPosteriors(rps[subset,], prs, estimatePriors = TRUE, cl = cl)
+        pps <- getPosteriors(rps[subset,], prs, estimatePriors = TRUE, priorSubset = priorSubset, cl = cl)
         print(pps$priors)
-        pps <- getPosteriors(rps[union(sy,subset),], pps$priors, estimatePriors = FALSE, cl = cl)
+        pps <- getPosteriors(rps[union(sy,subset),], pps$priors, estimatePriors = FALSE, priorSubset = NULL, cl = cl)
 
         if(any(!is.na(posteriors)))
           if(all(abs(exp(posteriors[union(sy,subset),]) - exp(pps$posteriors)) < conv)) converged <- TRUE
@@ -369,7 +391,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, bootStraps = 2, conv = 1
 
 
 `getPosteriors` <-
-function(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy = 1e-5, cl = cl)
+function(ps, prs, estimatePriors = FALSE, priorSubset = NULL, maxit = 100, accuracy = 1e-5, cl = cl)
   {
     getPosts <- function(x, prs)
       {
@@ -381,6 +403,9 @@ function(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy = 1e-5, cl = cl)
         posts <- posts - logsum(posts)
         posts
       }
+
+    if(is.null(priorSubset))
+      priorSubset <- 1:nrow(ps)
 
     if(!is.null(cl))
       {
@@ -394,8 +419,8 @@ function(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy = 1e-5, cl = cl)
         for(ii in 1:maxit)
           {
             if(!is.null(cl)) {
-              posteriors <- matrix(parRapply(cl, ps, getPosts, prs), ncol = ncol(ps), byrow = TRUE)
-            } else posteriors <- matrix(apply(ps, 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE)
+              posteriors <- matrix(parRapply(cl, ps[priorSubset,], getPosts, prs), ncol = ncol(ps), byrow = TRUE)
+            } else posteriors <- matrix(apply(ps[priorSubset,], 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE)
             prs <- colSums(exp(posteriors)) / nrow(posteriors)
             if(all(abs(oldprs - prs) < accuracy)) break
             oldprs <- prs
@@ -403,5 +428,5 @@ function(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy = 1e-5, cl = cl)
         if(ii == maxit)
           warning("Convergence not achieved to required accuracy.")
       }
-list(posteriors = posteriors <- matrix(apply(ps, 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE), priors = prs)
+    list(posteriors = posteriors <- matrix(apply(ps, 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE), priors = prs)
   }

@@ -16,7 +16,7 @@
   count data.}
 
 \section{Slots}{
-  Objects of these class should contain the following list components:  
+  Objects of these class should contain the following components:  
   \tabular{ll}{
     \code{data}:\tab Count data (matrix).\cr
     \code{libsizes}:\tab Vector of library size for each sample.\cr

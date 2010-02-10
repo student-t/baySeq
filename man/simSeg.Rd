@@ -22,9 +22,9 @@
   (acquired by sequencing) observed at each region.}
 \source{Simulation.}
 \seealso{\code{\link{libsizes}}}
-\references{Hardcastle T.J., and Kelly, K (2009). Empirical Bayesian
-  methods for differential expression in count data. In submission.
-}
+\references{Hardcastle T.J., and Kelly, K (2010). Identifying Patterns
+  of Differential Expression in Count Data. In submission.}
+
 
 \keyword{datasets}
     

@@ -19,9 +19,9 @@
   and each row some discrete data (acquired by sequencing).}
 \source{Simulation.}
 \seealso{\code{\link{factlibsizes}}}
-\references{Hardcastle T.J., and Kelly, K (2009). Empirical Bayesian
-  methods for differential expression in count data. In submission.
-}
+\references{Hardcastle T.J., and Kelly, K (2010). Identifying Patterns
+  of Differential Expression in Count Data. In submission.}
+
 
 \keyword{datasets}
     

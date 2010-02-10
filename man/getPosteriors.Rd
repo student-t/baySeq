@@ -9,7 +9,7 @@
   the user.
 }
 \usage{
-getPosteriors(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy =
+getPosteriors(ps, prs, estimatePriors = FALSE, priorSubset = NULL, maxit = 100, accuracy =
 1e-5, cl = cl)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -19,6 +19,9 @@ getPosteriors(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy =
   \item{prs}{(Initial) prior probabilities for each of the models.}
   \item{estimatePriors}{Should the prior probabilities on each of the
     groups be estimated by bootstrap from the data? Defaults to FALSE.}
+  \item{priorSubset}{If \code{'estimatePriors = TRUE'}, what subset of
+    the data should be used to re-estimate the priors? Defaults to NULL,
+    implying all data will be used.}
   \item{maxit}{What is the maximum number of iterations that should be
     tried if we are bootstrapping prior probabilities from the data?}
   \item{accuracy}{How small should the difference in estimated priors be
@@ -40,8 +43,9 @@ getPosteriors(ps, prs, estimatePriors = FALSE, maxit = 100, accuracy =
   count (log-scale)
   priors: estimated (or given) prior probabilities of the model
 }
-\references{Hardcastle T.J., and Kelly, K (2009). Empirical Bayesian
-  methods for differential expression in count data. In submission.}
+
+\references{Hardcastle T.J., and Kelly, K (2010). Identifying Patterns
+  of Differential Expression in Count Data. In submission.}
 \author{Thomas J. Hardcastle}
 
 \seealso{\code{\link{getLikelihoods}}}

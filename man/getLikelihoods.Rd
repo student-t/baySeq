@@ -17,6 +17,8 @@
   For a comparison of the methods, see Hardcastle & Kelly, 2009.
 }
 \usage{
+getLikelihoods(cD, prs, estimatePriors = TRUE, subset = NULL,
+priorSubset = NULL, ..., cl)
 getLikelihoods.Dirichlet(cD, prs, estimatePriors = TRUE, subset = NULL,
 priorSubset = NULL, cl)
 getLikelihoods.Pois(cD, prs, estimatePriors = TRUE, subset = NULL,
@@ -48,6 +50,9 @@ priorSubset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
   \item{nullData}{If TRUE, looks for segments or counts with no true
     expression. See Details.}
   \item{cl}{A SNOW cluster object.}
+  \item{...}{Any additional information to be passed by the
+    \code{'getLikelihoods'} wrapper function to the individual functions
+    which calculate the likelihoods.}
 }
 
 \details{
@@ -94,6 +99,11 @@ priorSubset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
   the estimation of posterior likelihoods, particularly for the
   negative binomial method. However, passing NULL to the \code{cl}
   variable will allow the functions to run in non-parallel mode.
+
+  The \code{'getLikelihoods'} function will infer the correct
+  distribution to use from the information stored in the
+  \code{'@priors'} slot of the \code{\link{countData}} object
+  \code{'sD'} and call the appropriate function.
 }
 \value{
   A \code{\link{countData}} object.

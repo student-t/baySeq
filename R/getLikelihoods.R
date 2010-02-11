@@ -1,3 +1,12 @@
+'getLikelihoods' <- function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, ..., cl)
+  {
+    type = cD@priors@type
+    switch(type,
+           "Dir" = getLikelihoods.Dirichlet(cD = cD, prs = prs, estimatePriors = estimatePriors, subset = subset, priorSubset = priorSubset, cl = cl),
+           "Poi" = getLikelihoods.Pois(cD = cD, prs = prs, estimatePriors = estimatePriors, subset = subset, priorSubset = priorSubset, ..., cl = cl),
+           "NB" = getLikelihoods.NBboot(cD = cD, prs = prs, estimatePriors = estimatePriors, subset = subset, priorSubset = priorSubset, ..., cl = cl))
+  }
+           
 `getLikelihoods.Dirichlet` <-
 function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, cl)
   {
@@ -355,10 +364,12 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, boot
         ps <- matrix(ps, ncol = length(groups), byrow = TRUE)
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
         rps[union(sy, subset),] <- ps
-        
-        pps <- getPosteriors(rps[subset,], prs, estimatePriors = TRUE, priorSubset = priorSubset, cl = cl)
-        print(pps$priors)
-        pps <- getPosteriors(rps[union(sy,subset),], pps$priors, estimatePriors = FALSE, priorSubset = NULL, cl = cl)
+
+        if(estimatePriors)
+          {
+            pps <- getPosteriors(rps[subset,], prs, estimatePriors = TRUE, priorSubset = priorSubset, cl = cl)
+            pps <- getPosteriors(rps[union(sy,subset),], pps$priors, estimatePriors = FALSE, priorSubset = NULL, cl = cl)
+          } else pps <- getPosteriors(rps[union(sy,subset),], prs, estimatePriors = FALSE, priorSubset = NULL, cl = cl)
 
         if(any(!is.na(posteriors)))
           if(all(abs(exp(posteriors[union(sy,subset),]) - exp(pps$posteriors)) < conv)) converged <- TRUE
@@ -373,6 +384,8 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, boot
         estProps <- pps$priors
         names(estProps) <- names(cD@groups)
 
+        cat(".")
+        
         if(converged)
           break()
       }

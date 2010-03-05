@@ -358,8 +358,8 @@ We are also, using the Negative Binomial methods, able to ask if any segments ha
 In the \verb'simSeg' object, the second hundred rows are simulated to show no true expression.
 
 <<>>=
-NSDPost.NBML <- getLikelihoods.NB(SDP.NBML, pET = "BIC", nullData = TRUE, bootStraps = 3, cl = cl)
-NCSDPost.NBML <- getLikelihoods.NB(CSDP.NBML, pET = "BIC", nullData = TRUE, bootStraps = 3, cl = cl)
+NSDPost.NBML <- getLikelihoods.NB(SDP.NBML, pET = "BIC", nullData = TRUE, bootStraps = 1, cl = cl)
+NCSDPost.NBML <- getLikelihoods.NB(CSDP.NBML, pET = "BIC", nullData = TRUE, bootStraps = 1, cl = cl)
 @
 
 We can see the top segments for which there is no true expression by setting \verb'group = NULL' in the \verb'topCounts' function. Similarly, we can find true positive rates for by setting \verb'group = NULL' in the \verb'getTPs' function. Figure~\ref{fpNull} shows that neglecting the segment lengths causes a substantial difference in false positive rates in the analysis of the data negelecting segment lengths (blue) compared to the analysis of the data including segment length information (red) in the identification of segments for which there is no true expression.

@@ -13,16 +13,19 @@
 \description{
   The \code{countData} class is used to define summaries of count data
   and establishing prior and posterior parameters on distributions defined upon the
-  count data.}
+  count data.
+}
 
 \section{Slots}{
-  Objects of these class should contain the following components:  
+  Objects of the \code{'countData'} class should contain the following components:  
   \tabular{ll}{
     \code{data}:\tab Count data (matrix).\cr
     \code{libsizes}:\tab Vector of library size for each sample.\cr
     \code{groups}:\tab Group (model) structure to test on the data
     (list). \cr
     \code{annotation}:\tab Annotation data for each count (data.frame). \cr
+    \code{priorType}:\tab Character string describing the type of prior
+  information available in slot \code{'priors'}. \cr
     \code{priors}:\tab Prior parameter information. Calculated by the
     functions described in \code{\link{getPriors}}. \cr
     \code{posteriors}:\tab Estimated posterior likelihoods for each group
@@ -63,10 +66,11 @@ library(baySeq)
 data(simCount)
 data(libsizes)
 
+replicates <- c(1,1,1,1,1,2,2,2,2,2)
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
 
 #create new 'countData' object
-CD <- new("countData", data = simCount, libsizes = libsizes, groups = groups)
+CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
 
 CD[1:10,]
 dim(CD)

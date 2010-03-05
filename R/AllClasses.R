@@ -1,3 +1,1 @@
-setClass("priorData", representation(type = "character", priors = "list", sampled = "numeric"))
-
-setClass("countData", representation(data = "matrix", libsizes = "numeric", groups = "list", annotation = "data.frame", priors = "priorData", posteriors = "matrix", nullPosts = "numeric", estProps = "numeric", seglens = "matrix"))
+setClass("countData", representation(data = "matrix", replicates = "numeric", libsizes = "numeric", groups = "list", annotation = "data.frame", priorType = "character", priors = "list", posteriors = "matrix", nullPosts = "numeric", estProps = "numeric", seglens = "matrix"))

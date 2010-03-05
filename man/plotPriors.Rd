@@ -39,9 +39,10 @@ plotPriors(cD, group)
 # Create a {countData} object and estimate priors for the Poisson methods.
 data(simSeg)
 data(libsizes)
+replicates <- c(1,1,1,1,1,2,2,2,2,2)
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simSeg[,-1], seglens = simSeg[,1], libsizes = libsizes, groups = groups)
-CDP.NB <- getPriors.NB(CD, samplesize = 1000, estimation = "ML", cl = NULL)
+CD <- new("countData", data = simSeg[,-1], replicates = replicates, seglens = simSeg[,1], libsizes = libsizes, groups = groups)
+CDP.NB <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = NULL)
 
 plotPriors(CDP.NB, group = 1)
 }

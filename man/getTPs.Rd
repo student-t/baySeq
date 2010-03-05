@@ -39,14 +39,15 @@ getTPs(cD, group, decreasing = TRUE, TPs)
 # Create a {countData} object and estimate priors for the Poisson methods.
 data(simCount)
 data(libsizes)
+replicates <- c(1,1,1,1,1,2,2,2,2,2)
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simCount, libsizes = libsizes, groups = groups)
+CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
 CDP.Poi <- getPriors.Pois(CD, samplesize = 20,
 takemean = TRUE, cl = NULL)
 
 # Get likelihoods for data with Poisson method
 CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5),
-estimatePriors = TRUE, cl = NULL)
+pET = "BIC", cl = NULL)
 
 # If the first hundred rows in the 'simCount' matrix are known to be
 # truly differentially expressed (the second hypothesis defined in the

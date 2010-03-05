@@ -1,6 +1,7 @@
 \name{getLikelihoods}
 \alias{getLikelihoods}
 \alias{getLikelihoods.Dirichlet}
+\alias{getLikelihoods.NB}
 \alias{getLikelihoods.NBboot}
 \alias{getLikelihoods.Pois}
 %- Also NEED an '\alias' for EACH other topic documented here.
@@ -17,14 +18,15 @@
   For a comparison of the methods, see Hardcastle & Kelly, 2009.
 }
 \usage{
-getLikelihoods(cD, prs, estimatePriors = TRUE, subset = NULL,
+getLikelihoods(cD, prs, pET = "BIC", subset = NULL,
 priorSubset = NULL, ..., cl)
-getLikelihoods.Dirichlet(cD, prs, estimatePriors = TRUE, subset = NULL,
+getLikelihoods.Dirichlet(cD, prs, pET = "BIC", subset = NULL,
 priorSubset = NULL, cl)
-getLikelihoods.Pois(cD, prs, estimatePriors = TRUE, subset = NULL,
+getLikelihoods.Pois(cD, prs, pET = "BIC", subset = NULL,
 priorSubset = NULL, distpriors = FALSE, cl)
-getLikelihoods.NBboot(cD, prs, estimatePriors = TRUE, subset = NULL,
-priorSubset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
+getLikelihoods.NB(cD, prs, pET = "BIC", subset = NULL,
+priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE,
+returnAll = FALSE, cl)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -32,9 +34,10 @@ priorSubset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
     from this class.}
   \item{prs}{(Initial) prior probabilities for each of the groups in the
     'countDP' object. Should sum to 1, unless nullData is TRUE, in which
-  case it should sum to less than 1.}
-  \item{estimatePriors}{Should the prior probabilities on each of the
-    groups be estimated by bootstrap from the data? Defaults to TRUE.}
+    case it should sum to less than 1.}
+  \item{pET}{What type of prior re-estimation should be
+    attempted? Defaults to "BIC"; "none" and "iteratively" are also
+    available.}
   \item{subset}{Numeric vector giving the subset of counts for which
     posterior likelihoods should be estimated.}
   \item{priorSubset}{Numeric vector giving the subset of counts which may be
@@ -49,6 +52,9 @@ priorSubset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
     bootstraps drops below this value.}
   \item{nullData}{If TRUE, looks for segments or counts with no true
     expression. See Details.}
+  \item{returnAll}{If TRUE, and bootStraps > 1 instead of returning a
+    single countData object, the function returns a list of countData
+    objects; one for each bootstrap. Largely used for debugging purposes.}
   \item{cl}{A SNOW cluster object.}
   \item{...}{Any additional information to be passed by the
     \code{'getLikelihoods'} wrapper function to the individual functions
@@ -65,11 +71,19 @@ priorSubset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
   likelihoods are calculated in this form, and ordering of the counts is
   better done on these log-likelihoods than on the likelihoods.
   
-  If \code{'estimatePriors = TRUE'} then an attempt is made to
-  re-estimate the prior likelihoods given in the \code{'prs'} variable
-  by examining the posterior expectations for each group. This often works well
+  If \code{'pET = "none"'} then no attempt is made to re-estimate the
+  prior likelihoods given in the \code{'prs'} variable. However, if
+  \code{'pET = "BIC"'}, then the function will attempt to estimate the
+  prior likelihoods by using the Bayesian Information Criterion to
+  identify the proportion of the data best explained by each 
+  model and taking these proportions as prior. Alternatively, an
+  iterative re-estimation of priors is possible (\code{'pET = "iteratively"'}),
+  in which an inital estimate for the prior likelihoods of the models is
+  used to calculated the posteriors and then the priors are updated by
+  taking the mean of the posterior likelihoods for each model across all
+  data. This often works well, particularly if the 'BIC' method is used
   (see Hardcastle & Kelly 2010 for details). However, if the data are
-  sufficiently non-independent, this re-estimation may substantially
+  sufficiently non-independent, this approach may substantially
   mis-estimate the true priors. If it is possible to select a
   representative subset of the data by setting the variable
   \code{'subsetPriors'} that is sufficiently independent, then better
@@ -78,9 +92,7 @@ priorSubset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
   The Dirichlet and Poisson methods produce almost identical
   results in simulation. The Negative Binomial method produces results
   with much lower false discovery rates, but takes considerably longer
-  to run. The quality of the results of the Negative Binomial is further
-  improved by increasing the amount of bootstrapping. However, this
-  further increases the run time.
+  to run.
   
   Filtering the data may be extremely advantageous in reducing run
   time. This can be done by passing a numeric vector to 'subset'
@@ -125,23 +137,24 @@ library(baySeq)
 # Poisson methods.
 data(simCount)
 data(libsizes)
+replicates <- c(1,1,1,1,1,2,2,2,2,2)
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simCount, libsizes = libsizes, groups = groups)
+CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
 CDP.Poi <- getPriors.Pois(CD, samplesize = 20,
 takemean = TRUE, cl = NULL)
 
 # Get likelihoods for data with Poisson method
 CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5),
-estimatePriors = TRUE, cl = NULL)
+pET = "BIC", cl = NULL)
 
 
 # Alternatively, get priors for negative binomial method
-CDP.NBML <- getPriors.NB(CD, samplesize = 10^5, estimation = "ML", cl = NULL)
+CDP.NB <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = NULL)
 
 # Get likelihoods for data with negative binomial method with bootstrapping
 
-CDPost.NBML <- getLikelihoods.NBboot(CDP.NBML, prs = c(0.5, 0.5),
-estimatePriors = TRUE, bootStraps = 2, cl = NULL)
+CDPost.NB <- getLikelihoods.NBboot(CDP.NB, prs = c(0.5, 0.5),
+pET = "BIC", bootStraps = 1, cl = NULL)
 
 # Alternatively, if we have the 'snow' package installed we
 # can parallelise the functions. This will usually (not always) offer
@@ -152,9 +165,9 @@ estimatePriors = TRUE, bootStraps = 2, cl = NULL)
 library(snow)
 cl <- makeCluster(4, 'SOCK')
 
-CDP.NBML <- getPriors.NB(CD, samplesize = 10^5, estimation = "ML", cl = cl)
-CDPost.NBML <- getLikelihoods.NBboot(CDP.NBML, prs = c(0.5, 0.5), 
-estimatePriors = TRUE, bootStraps = 2, cl = cl)
+CDP.NB <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
+CDPost.NB <- getLikelihoods.NBboot(CDP.NB, prs = c(0.5, 0.5), 
+pET = "BIC", bootStraps = 2, cl = cl)
 }
 
 

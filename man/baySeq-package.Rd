@@ -49,11 +49,14 @@ Maintainer: Thomas J. Hardcastle <tjh48@cam.ac.uk>
 data(simCount)
 data(libsizes)
 
+# replicate structure of data
+replicates <- c(1,1,1,1,1,2,2,2,2,2)
+
 # define hypotheses on data
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
 
 # construct 'countData' object
-CD <- new("countData", data = simCount, libsizes = libsizes, groups = groups)
+CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
 CD[1:10,]
 
 # estimate prior distributions on 'countData' object using Poisson
@@ -61,7 +64,7 @@ CD[1:10,]
 CDP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = NULL)
 
 # estimate posterior likelihoods for each row of data belonging to each hypothesis
-CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), estimatePriors = TRUE, cl = NULL)
+CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), pET = "BIC", cl = NULL)
 
 # display the rows of data showing greatest association with the second
 # hypothesis (differential expression)

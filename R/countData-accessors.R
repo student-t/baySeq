@@ -5,6 +5,9 @@ setMethod("initialize", "countData", function(.Object, ..., seglens) {
   if(nrow(.Object@annotation) > 0 & nrow(.Object@annotation) != nrow(.Object@data))
     warning("Number of rows of '@annotation' slot not same as '@data' slot.")
 
+  if(length(.Object@replicates) != ncol(.Object@data) & length(.Object@replicates) != 0)
+    stop("The length of the '@replicates' slot, if provided, must equal number of columns of '@data' slot.")
+  
   if(any(lapply(.Object@groups, length) != ncol(.Object@data)))
     stop("All vectors in '@groups' slot must equal number of columns of '@data' slot.")
 
@@ -98,9 +101,9 @@ setMethod("show", "countData", function(object) {
       cat('\nSlot "estProps":\n')
       print(object@estProps)
     }
-  if(length(object@priors@type) > 1)
+  if(length(object@priorType) > 1)
     {
       cat('Slot "priors":\n')
-      cat(paste('Priors are of type:', object@priors@type), '\n')
+      cat(paste('Priors are of type:', object@priorType), '\n')
     }
 })

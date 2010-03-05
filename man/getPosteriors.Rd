@@ -9,7 +9,7 @@
   the user.
 }
 \usage{
-getPosteriors(ps, prs, estimatePriors = FALSE, priorSubset = NULL, maxit = 100, accuracy =
+getPosteriors(ps, prs, pET = "none", groups, priorSubset = NULL, maxit = 100, accuracy =
 1e-5, cl = cl)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -17,8 +17,11 @@ getPosteriors(ps, prs, estimatePriors = FALSE, priorSubset = NULL, maxit = 100, 
   \item{ps}{A matrix containing likelihoods of the data for each count
     (rows) under each model (columns).}
   \item{prs}{(Initial) prior probabilities for each of the models.}
-  \item{estimatePriors}{Should the prior probabilities on each of the
-    groups be estimated by bootstrap from the data? Defaults to FALSE.}
+  \item{pET}{What type of prior re-estimation should be
+    attempted? Defaults to "none"; "BIC" and "iteratively" are also
+    available.}
+  \item{groups}{Group structure from which likelihoods in \code{'ps'}
+    were defined.}
   \item{priorSubset}{If \code{'estimatePriors = TRUE'}, what subset of
     the data should be used to re-estimate the priors? Defaults to NULL,
     implying all data will be used.}
@@ -32,10 +35,17 @@ getPosteriors(ps, prs, estimatePriors = FALSE, priorSubset = NULL, maxit = 100, 
 \details{
   An internal function, that will not in general be called by the
   user. It takes the log-likelihoods of the data given the models being
-  tested and returns the posterior likelihoods of the models. An initial
-  estimate for the prior likelihoods of the models is required but can
-  be iteratively re-estimated from the data by taking the mean of the
-  posterior likelihoods across all data.
+  tested and returns the posterior likelihoods of the models.
+
+  The function may attempt to estimate the prior likelihoods
+  either by using the Bayesian Information Criterion (\code{'pET =
+  "BIC"'}) to identify the proportion of the data best explained by each
+  model and taking these proportions as prior. Alternatively, an
+  iterative re-estimation of priors is possible (\code{'pET = "iteratively"'},
+  in which an inital estimate for the prior likelihoods of the models is
+  used to calculated the posteriors and then the priors are updated by
+  taking the mean of the posterior likelihoods for each model across all
+  data.
 }
 \value{
   A list containing
@@ -61,7 +71,7 @@ ps <- log(rbind(
 # get posterior log-likelihoods of model, estimating prior likelihoods
 # of each model from the data.
 
-pps <- getPosteriors(ps, prs <- c(0.5, 0.5), estimatePriors = TRUE, cl =
+pps <- getPosteriors(ps, prs <- c(0.5, 0.5), pET = "none", cl =
 NULL)
 
 pps$priors

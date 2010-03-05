@@ -45,7 +45,7 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
           }
       }
     names(priors) <- names(groups)
-    new(class(cD), cD, priors = new("priorData", type = "Dir", priors = priors))
+    new(class(cD), cD, priorType = "Dir", priors = list(priors = priors))
   }
 
 
@@ -162,46 +162,89 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
     }
   }
   names(priors) <- names(groups)
-  new(class(cD), cD, priors = new("priorData", type = "Poi", priors = priors))
+  new(class(cD), cD, priorType = "Poi", priors = list(priors = priors))
 }
 
 
 `getPriors.NB` <-
-function (cD, samplesize = 10^5, estimation = "ML", cl)
+function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", cl)
 {
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
 
   cat("Finding priors...")
   
-  ML.optimover <- function(x, libsizes, lensameFlag)
+  optimoverPriors <- function(x, estimation, replicates, groups, libsizes, equalDispersions, lensameFlag)
     {
-      ML.NB <- function(alphas, y, libsizes, seglen)
-        if (all(alphas > 0)) 
-          sum(dnbinom(y, size = 1/alphas[2], mu = alphas[1] * libsizes * seglen, log = TRUE)) else return(NA)
-
-      if(lensameFlag)
-        {
-          cts <- x[-1]
-          len <- x[1]
-        } else {
-          cts <- x[-(1:(length(x) / 2))]
-          len <- x[1:(length(x) / 2)]
-        }
-      
-      optim(par = c(mean(cts/(libsizes * len)) + abs(rnorm(1, 0, 0.001)) * as.numeric(all(cts == 0)), 0.01),
-            fn = ML.NB, control = list(fnscale = -1), 
-            y = cts, libsizes = libsizes, seglen = len)$par
-    }
-  
-  QL.optimover <- function(x, libsizes, lensameFlag)
-    {
-      dispalt <- function(dispersion, cts, mu, libsizes, len)
-        abs(2 * (sum(cts[cts > 0] * log(cts[cts > 0]/(mu * libsizes[cts > 0] * len))) -
-                 sum((cts + dispersion^-1) * log((cts + dispersion^-1) / (mu * libsizes * len + dispersion^-1)))) - (length(cts)-1))
+      dispalt <- function(dispersion, cts, mus, libsizes, len)
+        abs(2 * (sum(cts[cts > 0] * log(cts[cts > 0]/(mus[cts > 0] * libsizes[cts > 0] * len[cts > 0]))) -
+                 sum((cts + dispersion^-1) * log((cts + dispersion^-1) / (mus * libsizes * len + dispersion^-1)))) - (length(cts)-1))
       mualt <- function(mu, cts, dispersion, libsizes, len)
         sum(dnbinom(cts, size = 1/ dispersion, mu = mu * libsizes * len, log = TRUE))
 
+      dispML <- function(alphas, replicates, y, libsizes, seglen)
+        {
+          if(any(alphas[-1] < 0) | alphas[1] <= 0) return(NA)
+          
+          dispersion <- alphas[1]
+          mus <- alphas[-1]
+          
+          sum(sapply(unique(replicates), function(unqrep) sum(dnbinom(y[replicates == unqrep], size = 1 / dispersion,
+                                                                      mu = mus[unique(replicates) == unqrep] * libsizes[unique(replicates) == unqrep] * seglen[unique(replicates) == unqrep], log = TRUE))))
+        }
+
+
+      findDisp.QL <- function(repdata)
+        {
+          replicates <- repdata$replicates
+          cts <- repdata$cts
+          len <- repdata$len
+          libsizes <- repdata$libsizes
+
+          if(all(cts == 0))
+            return(NA)
+          
+          repmus <- sapply(unique(replicates), function(rep) mean(cts[replicates == rep] / (libsizes * len)[replicates == rep]))
+          mus <- c()
+          musmat <- matrix(unlist(lapply(unique(replicates), function(rep) rbind(which(replicates == rep), repmus[unique(replicates) == rep]))), ncol = 2, byrow = TRUE)
+          mus[musmat[,1]] <- musmat[,2]
+          
+          newmus <- repmus
+          newdisp <- 0
+          for(ii in 1:1000) {
+            disp <- optimise(dispalt, interval = c(0, 1e6), cts = cts, mus = mus, libsizes = libsizes, len = len, tol = 1e-30)$minimum
+            newdisp <- c(newdisp, disp)
+            repmus <- sapply(unique(replicates), function(rep) optimise(mualt, interval = c(0, 1000), cts = cts[replicates == rep], dispersion = disp, libsizes = libsizes[replicates == rep], len = len[replicates == rep], tol = 1e-50, maximum = TRUE)$maximum)
+
+            musmat <- matrix(unlist(lapply(unique(replicates), function(rep) rbind(which(replicates == rep), repmus[unique(replicates) == rep]))), ncol = 2, byrow = TRUE)
+            mus[musmat[,1]] <- musmat[,2]
+
+            newmus <- rbind(newmus, repmus)
+            
+            if(any(abs(newdisp[-length(newdisp)] - disp) < 1e-10))
+              break
+          }
+          disp
+        }
+
+      findDisp.ML <- function(repdata)
+        {
+          replicates <- repdata$replicates
+          cts <- repdata$cts
+          len <- repdata$len
+          libsizes <- repdata$libsizes
+          
+          if(all(cts == 0))
+            return(NA)
+
+
+          repmus <- sapply(unique(replicates), function(rep) mean(cts[replicates == rep] / (libsizes * len)[replicates == rep]))
+          
+          optim(par = c(0.01, repmus),
+                fn = dispML, control = list(fnscale = -1), 
+                y = cts, replicates = replicates, libsizes = libsizes, seglen = len)$par[1]
+        }
+  
       if(lensameFlag)
         {
           cts <- x[-1]
@@ -210,24 +253,37 @@ function (cD, samplesize = 10^5, estimation = "ML", cl)
           cts <- x[-(1:(length(x) / 2))]
           len <- x[1:(length(x) / 2)]
         }
+      if(length(len) == 1) len <- rep(len, length(cts))
 
-      mu <- mean(cts / (libsizes * len))
-      disp <- 0
-      newmu <- newdisp <- -1
-      repeat {
-        newdisp <- c(newdisp, optimise(dispalt, interval = c(0, 100), cts = cts, mu = mu, libsizes = libsizes, len = len, tol = 1e-30)$minimum)
-        disp <- newdisp[length(newdisp)]
-        newmu <- c(newmu, optimise(mualt, interval = c(0, 1000), cts = cts, dispersion = disp, libsizes = libsizes, len = len, maximum = TRUE)$maximum)
-        if(any(abs(newmu[-length(newmu)] - newmu[length(newmu)]) < 1e-10 &
-               abs(newdisp[-length(newdisp)] - newdisp[length(newdisp)]) < 1e-10))break
-        mu <- newmu[length(newmu)]
-      }
-      c(newmu[length(newmu)], newdisp[length(newdisp)])
+      if(equalDispersions)
+        {
+          disp <- switch(estimation,
+                         QL = findDisp.QL(list(replicates = replicates, cts = cts, len = len, libsizes = libsizes)),
+                         ML = findDisp.ML(list(replicates = replicates, cts = cts, len = len, libsizes = libsizes))
+                         )
+          
+          groupness <- lapply(groups, function(group) list(dispersion = rep(disp, length(unique(group))), mus = sapply(unique(group), function(unqgrp) optimise(mualt, interval = c(0, 1000), cts = cts[group == unqgrp], dispersion = disp, libsizes = libsizes[group == unqgrp], len = len[group == unqgrp], tol = 1e-50, maximum = TRUE)$maximum)))
+        } else {
+          repgroups <- lapply(groups, function(group) list(group = group, repData = lapply(unique(group), function(unqgrp) list(replicates = replicates[group == unqgrp], cts = cts[group == unqgrp], len = len[group == unqgrp], libsizes = libsizes[group == unqgrp]))))
+
+          dispgroups <- switch(estimation,
+                               QL = lapply(repgroups, function(repgroup) list(group = repgroup$group, dispersion = sapply(repgroup$repData, findDisp.QL))),
+                               ML = lapply(repgroups, function(repgroup) list(group = repgroup$group, dispersion = sapply(repgroup$repData, findDisp.ML)))
+                               )
+
+          groupness <- lapply(dispgroups, function(dispgroup) list(dispersion = dispgroup$dispersion, mus = sapply(unique(dispgroup$group), function(unqgrp)
+                                                                                                        if(is.na(dispgroup$dispersion[unique(dispgroup$group) == unqgrp])) return(0) else
+                                                                                                        optimise(mualt, interval = c(0, 1000), cts = cts[dispgroup$group == unqgrp], dispersion = dispgroup$dispersion[unique(dispgroup$group) == unqgrp], libsizes = libsizes[dispgroup$group == unqgrp], len = len[dispgroup$group == unqgrp], tol = 1e-50, maximum = TRUE)$maximum)))
+        }
+      
+      groupness
+      
     }
   
   libsizes <- cD@libsizes
   y <- cD@data
   groups <- cD@groups
+  replicates <- cD@replicates
 
   if(nrow(y) < samplesize) samplesize <- nrow(y)
   sy <- sample(1:nrow(y), samplesize, replace = FALSE)
@@ -236,34 +292,22 @@ function (cD, samplesize = 10^5, estimation = "ML", cl)
   if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
   
   if(ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE
-
-  
   
   NBpar <- list()
-  for (ii in 1:length(groups)) {
-    NBpar[[ii]] <- list()
-    for (jj in unique(groups[[ii]])) {
-      NBpar.group <- c()
-      if(lensameFlag)
-        {
-          z <- cbind(seglens[sy,], y[sy, groups[[ii]] == jj, drop = FALSE])
-        } else {
-          z <- cbind(seglens[sy,groups[[ii]] == jj], y[sy, groups[[ii]] == jj, drop = FALSE])
-        }
-      if (estimation == "ML") {
-        if (is.null(cl)) 
-          parEach <- t(apply(z, 1, ML.optimover, libsizes[groups[[ii]] == jj], lensameFlag = lensameFlag))
-        else parEach <- t(parApply(cl, z, 1, ML.optimover, 
-                                   libsizes[groups[[ii]] == jj], lensameFlag = lensameFlag))
-        cat(".")
-      } else if (estimation == "QL") {
-        if(is.null(cl)) parEach <- t(apply(z, 1, QL.optimover, libsizes[groups[[ii]] == jj], lensameFlag = lensameFlag)) else parEach <- t(parApply(cl, z, 1, QL.optimover, libsizes[groups[[ii]] == jj], lensameFlag = lensameFlag))
-      }
-      rownames(parEach) <- sy
-      NBpar[[ii]][[jj]] <- parEach
+  z <- cbind(seglens[sy,], y[sy, ])
+  
+  if(is.null(cl)) parEach <- apply(z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag) else parEach <- parApply(cl, z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag)
+
+  NBpar <- list()
+  for(gg in 1:length(groups))
+    {
+      NBpar[[gg]] <- list()
+      for(ii in unique(groups[[gg]]))
+        NBpar[[gg]][[ii]] <- t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], 1)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))
     }
-  }
+  
   names(NBpar) <- names(groups)
-  NBpar <- new("priorData", type = "NB", sampled = sy, priors = NBpar)
-  new(class(cD), cD, priors = NBpar)
+  NBpar <- list(sampled = sy, priors = NBpar)
+  new(class(cD), cD, priorType = "NB", priors = NBpar)
 }
+

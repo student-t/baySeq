@@ -16,7 +16,7 @@
 getPriors.Dirichlet(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
 getPriors.Pois(cD, samplesize = 10^5, perSE = 1e-1, takemean = TRUE,
 maxit = 10^5, cl)
-getPriors.NB(cD, samplesize = 10^5, estimation = "ML", cl)
+getPriors.NB(cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", cl)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -31,9 +31,11 @@ getPriors.NB(cD, samplesize = 10^5, estimation = "ML", cl)
     estimated priors to define a gamma distribution. If FALSE, we use
     all estimated priors to define an empirical distribtion on the
     parameters of the gamma distribution.}
-  \item{estimation}{Defaults to "ML", indicating maximum likelihood
-    estimation of priors. Currently, the only other possibility is "QL",
-  a quasi-likelihood method.}
+  \item{equalDispersions}{Should we assume equal dispersions of data
+    across all groups in the \code{'cD'} object? Defaults to TRUE; see Details.}
+  \item{estimation}{Defaults to "QL", indicating quasi-likelihood
+    estimation of priors. Currently, the only other possibility is "ML",
+    a maximum-likelihood method.}
   \item{cl}{A SNOW cluster object.}
 }
 \details{
@@ -43,7 +45,16 @@ getPriors.NB(cD, samplesize = 10^5, estimation = "ML", cl)
   for estimating the prior parameters will depend on the choice of which
   method is being used to estimate the posterior likeihoods (see
   \link{getLikelihoods}).
-
+  
+  The priors estimated for the negative binomial methods
+  (\code{'getPriors.NB'}) may assume that the dispersion of data for a
+  given row is identical for all group structures defined in
+  \code{'cD@groups'} (\code{'equalDispersions = TRUE'}). Alternatively,
+  the dispersions may be estimated individually for each group structure
+  (\code{'equalDispersions = FALSE'}). Unless there is a strong reason
+  for believing that the data are differently dispersed between groups,
+  \code{'equalDispersions = TRUE'} is recommended.
+  
   A 'cluster' object is recommended in order to estimate the priors for
   the negative binomial distribution. Passing NULL to this variable will
   cause the function to run in non-parallel mode.
@@ -66,8 +77,9 @@ getPriors.NB(cD, samplesize = 10^5, estimation = "ML", cl)
 # Create a {countData} object.
 data(simCount)
 data(libsizes)
+replicates <- c(1,1,1,1,1,2,2,2,2,2)
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simCount, libsizes = libsizes, groups =
+CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups =
 groups)
 
 # Estimate priors using Poisson method.

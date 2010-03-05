@@ -55,24 +55,32 @@ simCount[1:10,]
 libsizes
 @
 
-The data are simulated such that the first hundred counts show differential expression between the first five libraries and the second five libraries. We can therefore establish two groups. 
+The data are simulated such that the first hundred counts show differential expression between the first five libraries and the second five libraries. Our replicate structure, used to estimate the prior distributions on the data, can thus be defined as
+<<>>=
+  replicates <- c(1,1,1,1,1,2,2,2,2,2)
+@ 
+
+We can also establish two group structures for the data.
+
+Each member (vector) contained within the 'groups' list corresponds to one model upon the data. In this setting, a model describes the patterns of data we expect to see at least some of the tags correspond to. In this simple example, we expect that some of the tags will be equivalently expressed between all ten libraries. This corresponds to the 'NDE' model, or vector \verb'c(1,1,1,1,1,1,1,1,1,1)' - all libraries belong to the same group for these tags. 
+
+We also expect that some tags will show differential expression between the first five libraries and the second five libraries. For these tags, the two sets of libraries belong to different groups, and so we have the model 'DE', or vector \verb'c(1,1,1,1,1,2,2,2,2,2)' - the first five libraries belong to group 1 and the second five libraries to group 2. We thus have the following group structure
 
 <<>>=
 groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1),
                DE = c(1,1,1,1,1,2,2,2,2,2))
-@
-Each member (vector) contained within the 'groups' list corresponds to one model upon the data. In this setting, a model describes the patterns of data we expect to see at least some of the tags correspond to. In this simple example, we expect that some of the tags will be equivalently expressed between all ten libraries. This corresponds to the 'NDE' model, or vector \verb'c(1,1,1,1,1,1,1,1,1,1)' - all libraries belong to the same group for these tags. 
-
-We also expect that some tags will show differential expression between the first five libraries and the second five libraries. For these tags, the two sets of libraries belong to different groups, and so we have the model 'DE', or vector \verb'c(1,1,1,1,1,2,2,2,2,2)' - the first five libraries belong to group 1 and the second five libraries to group 2. 
+@ 
 
 In a more complex experimental design (Section \ref{factorial}) we might have several additional models. The key to constructing vectors corresponding to a model is to see for which groups of libraries we expect equivalent expression of tags.
+
+We note that the group for DE corresponds to the replicate structure. This will often be the case, but need not be in more complex experimental designs.
 
 The ultimate aim of the \verb'baySeq' package is to evaluate posterior likelihoods of each model for each row of the data.
 
 We begin by combining the count data, library sizes and user-defined groups into a \verb'countData' object.
 
 <<>>=
-CD <- new("countData", data = simCount, libsizes = libsizes, groups = groups)
+CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
 @
 
 We can also optionally add annotation details into the \verb'@annotation' slot of the \verb'countData' object.
@@ -98,7 +106,7 @@ We begin by trying to establish the parameters of the Gamma distribution by boot
 
 We then take the mean of the maximum likelihood estimates to acquire a prior on the rate distribution.
 <<>>=
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = cl)
+  CDP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = cl)
 @
 
 The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced.
@@ -109,10 +117,10 @@ The calculated priors are stored in the \verb'@priors' slot of the \verb'countDa
 
 For each model, we get a set of priors. In the Poisson-Gamma approch, we get, for each group in the model, a pair of parameters which define the Gamma distribution that we shall use as a prior distribution for the rates of the Poisson distributions that describe how many counts we see in each row of the data. Thus, in the model of differential expression, there are two groups in the data and we find two sets of parameters.
 
-Having acquired a set of prior distributions on the rate parameter of the Poisson distribution, we can calculate the posterior likelihoods of each model for each tag. We need to pass an initial prior likelihood on each model; the \verb'prs' parameter. If \verb'estimatePriors = TRUE' then the prior likelihood on each model will be iteratively updated.
+Having acquired a set of prior distributions on the rate parameter of the Poisson distribution, we can calculate the posterior likelihoods of each model for each tag. We need to either provide an initial prior likelihood on each model via the \verb'prs' parameter, or provide some other means of estimating the prior likelihood on the model. If 'pET =  ``BIC'' then the prior likelihood on each model will be estimated from the Bayesian Information Criterion, and the 'prs' parameter is not necessary (and will be ignored).
 
 <<>>=
-CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), estimatePriors = TRUE, cl = cl)
+CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, pET = "BIC", cl = cl)
 CDPost.Poi@estProps
 CDPost.Poi@posteriors[1:10,]
 CDPost.Poi@posteriors[101:110,]
@@ -128,16 +136,16 @@ as the proportion of differential expressed counts in the simulated data, where 
 
 \section{Negative-Binomial Approach}
 
-We next try the same analysis assuming a Negative Binomial distribution on the data. We first estimate an empirical distribution on the parameters of the Negative Binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a Negative Binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
+We next try the same analysis assuming a Negative Binomial distribution on the data. We first estimate an empirical distribution on the parameters of the Negative Binomial distribution by bootstrapping from the data, taking individual counts and finding the quasi-likelihood parameters for a Negative Binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
 <<>>=
-CDP.NBML <- getPriors.NB(CD, samplesize = 1000, estimation = "ML", cl = cl)
+CDP.NBML <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
 @
 
 The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced as before. For the negative-binomial method, we are unable to form a conjugate prior distribution. Instead, we build an empirical prior distribution which we record in the list object \verb'$priors' of the slot \verb'@priors'. Each member of this list object corresponds to one of the models defined by the \verb'group' slot of the \verb'countData' object and contains the estimated parameters for each of the individual counts selected under the models. The vector \verb'$sampled' contained in the slot \verb'@priors' describes which rows were sampled to create these sets of parameters.
 
 We then acquire posterior likelihoods as before, estimating the proportions of differentially expressed counts. We can repeatedly bootstrap the prior estimatation to improve accuracy; here three bootstraps are used.
 <<>>=
-CDPost.NBML <- getLikelihoods.NBboot(CDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 3, cl = cl)
+CDPost.NBML <- getLikelihoods.NB(CDP.NBML, pET = 'BIC', cl = cl)
 CDPost.NBML@estProps
 CDPost.NBML@posteriors[1:10,]
 CDPost.NBML@posteriors[101:110,]
@@ -229,9 +237,10 @@ data(factData)
 data(factlibsizes)
 @
 
-We establish three group structures on the data.
+We establish our replicate structure, together with three group structures on the data. We observe that in this case, the replicate structure does not correspond to any of the group structures.
 
 <<>>=
+  replicates <- c(1,1,2,2,3,3,4,4)
 factgroups <- list(NDE = c(1,1,1,1,1,1,1,1),
                    DE.A.B = c(1,1,1,1,2,2,2,2),
                    DE.C.D = c(1,1,2,2,1,1,2,2))
@@ -244,10 +253,10 @@ We could also consider the possibility of interactions between effects, by consi
 Having established a group structure, we proceed as before.
 
 <<>>=
-CDfact <- new("countData", data = factCount, libsizes = factlibsizes, groups = factgroups)
+CDfact <- new("countData", data = factCount, replicates = replicates, libsizes = factlibsizes, groups = factgroups)
 CDfact@annotation <- data.frame(name = paste("count", 1:1000, sep = "_"))
-CDfactP.NBML <- getPriors.NB(CDfact, samplesize = 1000, estimation = "ML", cl = cl)
-CDfactPost.NBML <- getLikelihoods.NBboot(CDfactP.NBML, prs = c(0.2, 0.3,0.5), estimatePriors = TRUE, bootStraps = 3, cl = cl)
+CDfactP.NBML <- getPriors.NB(CDfact, samplesize = 1000, estimation = "QL", cl = cl)
+CDfactPost.NBML <- getLikelihoods.NB(CDfactP.NBML, pET = "BIC", cl = cl)
 CDfactPost.NBML@estProps
 @
 
@@ -267,7 +276,7 @@ topCounts(CDfactPost.NBML, group = 3)
 So far, we have assumed that the count data deals with individual tags from a sequencing machine. If we consider count data derived from grouping together tags relating to genomic regions, for example, in looking at the number of tags that match to a gene in mRNA-Seq, we need to include the region length in the calculations of differential expression. The reasons for this are clear; if a region of length 200 bases has 200 tags in sample A and 400 tags in sample B, this may be good evidence for differential expression. If we saw the same difference in a region 2e6 bases
 long, this would be much poorer evidence of differential expression. We can specify values for the '@seglens' slot of the 'countData' class to explore such data.
 
-We load a simulated data set consisting of count data on one thousand counts and library sizes for ten libraries. We use the same library sizes as before, but now the first column of 'simSeg' contains the length of the segment
+We load a simulated data set consisting of count data on one thousand counts and library sizes for ten libraries. We use the same library sizes as before, but now the first column of 'simSeg' contains the length of the segment.
 
 <<>>=
 data(simSeg)
@@ -276,9 +285,10 @@ simSeg[1:10,]
 libsizes
 @
 
-As before, the data are simulated such that the first hundred segments show differential expression between the first five libraries and the second five libraries. We thus establish two groups.
+As before, the data are simulated such that the first hundred segments show differential expression between the first five libraries and the second five libraries. We thus establish two groups and a replicate structure as before.
 
 <<>>=
+replicates <- c(1,1,1,1,1,2,2,2,2,2)
 groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1),
                DE = c(1,1,1,1,1,2,2,2,2,2))
 @
@@ -286,7 +296,7 @@ groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1),
 We now combine the count data, library sizes and user-defined groups into a \verb'countData' object as before, but now we additionally specifiy segment lengths by setting the '@seglens' slot.
 
 <<>>=
-SD <- new("countData", data = simSeg[,-1], libsizes = libsizes, groups = groups, seglens = simSeg[,1])
+SD <- new("countData", data = simSeg[,-1], replicates = replicates, libsizes = libsizes, groups = groups, seglens = simSeg[,1])
 @
 
 We can also optionally add annotation details into the \verb'@annotation' slot of the \verb'countData' object.
@@ -298,26 +308,26 @@ SD@annotation <- data.frame(name = paste("gene", 1:1000, sep = "_"))
 We can calculate the priors for this countData object as before, for both the Poisson-Gamma method and the Negative Binomial method.
 
 <<>>=
-SDP.NBML <- getPriors.NB(SD, samplesize = 1000, estimation = "ML", cl = cl)
+SDP.NBML <- getPriors.NB(SD, samplesize = 1000, estimation = "QL", cl = cl)
 SDP.Pois <- getPriors.Pois(SD, samplesize = 20, cl = cl)
 @
 
 We can then calculate the posterior likelihoods as before.
 <<>>=
-SDPost.Pois <- getLikelihoods.Pois(SDP.Pois, prs = c(0.5,0.5), estimatePriors = TRUE, cl = cl)  
-SDPost.NBML <- getLikelihoods.NBboot(SDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 3, cl = cl)
+SDPost.Pois <- getLikelihoods.Pois(SDP.Pois, pET = "BIC", cl = cl)  
+SDPost.NBML <- getLikelihoods.NB(SDP.NBML, pET = "BIC", cl = cl)
 @
 
 If we ignore segment length, and merely use the count data, we could acquire posteriors as before.
 
 <<>>=
-CSD <- new("countData", data = simSeg[,-1], libsizes = libsizes, groups = groups)
+CSD <- new("countData", data = simSeg[,-1], replicates = replicates, libsizes = libsizes, groups = groups)
 CSD@annotation <- data.frame(name = paste("gene", 1:1000, sep = "_"))
 
-CSDP.NBML <- getPriors.NB(CSD, samplesize = 1000, estimation = "ML", cl = cl)
-CSDPost.NBML <- getLikelihoods.NBboot(CSDP.NBML, prs = c(0.5,0.5), estimatePriors = TRUE, bootStraps = 3, cl = cl)
+CSDP.NBML <- getPriors.NB(CSD, samplesize = 1000, estimation = "QL", cl = cl)
+CSDPost.NBML <- getLikelihoods.NB(CSDP.NBML, pET = "BIC", cl = cl)
 CSDP.Pois <- getPriors.Pois(CSD, samplesize = 20, cl = cl)
-CSDPost.Pois <- getLikelihoods.Pois(CSDP.Pois, prs = c(0.5,0.5), estimatePriors = TRUE, cl = cl)
+CSDPost.Pois <- getLikelihoods.Pois(CSDP.Pois, pET = "BIC", cl = cl)
 @
 
 If we look at the false discovery rates (Figure~\ref{FPseglen}), we find that the Negative Binomial method (red) handles data with different segment lengths much better than the Poisson-Gamma method (blue). We also see that, for the Negative Binomial method, ignoring segment lengths can have a small negative effect on the results.
@@ -348,8 +358,8 @@ We are also, using the Negative Binomial methods, able to ask if any segments ha
 In the \verb'simSeg' object, the second hundred rows are simulated to show no true expression.
 
 <<>>=
-NSDPost.NBML <- getLikelihoods.NBboot(SDP.NBML, prs = c(0.4,0.3), estimatePriors = TRUE, nullData = TRUE, bootStraps = 3, cl = cl)
-NCSDPost.NBML <- getLikelihoods.NBboot(CSDP.NBML, prs = c(0.4,0.3), estimatePriors = TRUE, nullData = TRUE, bootStraps = 3, cl = cl)
+NSDPost.NBML <- getLikelihoods.NB(SDP.NBML, pET = "BIC", nullData = TRUE, bootStraps = 3, cl = cl)
+NCSDPost.NBML <- getLikelihoods.NB(CSDP.NBML, pET = "BIC", nullData = TRUE, bootStraps = 3, cl = cl)
 @
 
 We can see the top segments for which there is no true expression by setting \verb'group = NULL' in the \verb'topCounts' function. Similarly, we can find true positive rates for by setting \verb'group = NULL' in the \verb'getTPs' function. Figure~\ref{fpNull} shows that neglecting the segment lengths causes a substantial difference in false positive rates in the analysis of the data negelecting segment lengths (blue) compared to the analysis of the data including segment length information (red) in the identification of segments for which there is no true expression.

@@ -7,7 +7,7 @@
   lowest) likelihood of association with a given group.
 }
 \usage{
-topCounts(cD, group, decreasing = TRUE, number = 10)
+topCounts(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -16,6 +16,8 @@ topCounts(cD, group, decreasing = TRUE, number = 10)
   \item{group}{Which group should we give the counts for? See Details.}
   \item{decreasing}{Ordering on posterior likelihoods.}
   \item{number}{How many results should be returned?}
+  \item{normaliseData}{Should the displayed counts be normalised by library
+    size? Defaults to FALSE.}
 }
 
 \value{
@@ -37,10 +39,11 @@ data(libsizes)
 
 # Make 'countData' object and calculate posterior likelihoods for each
 # item belonging to each hypothesis.
+replicates <- c(1,1,1,1,1,2,2,2,2,2)
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simCount, libsizes = libsizes, groups = groups)
+CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
 CDP.Poi <- getPriors.Pois(CD, samplesize = 20, cl = NULL)
-CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), estimatePriors = TRUE, cl = NULL)
+CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), pET = "BIC", cl = NULL)
 
 # Report the top ten rows of data that have highest (log) likelihood of belonging to
 # group 2 of the data (i.e., differentially expressed)

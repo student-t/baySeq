@@ -1,22 +1,31 @@
-'getLikelihoods' <- function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, ..., cl)
+'getLikelihoods' <- function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, ..., cl)
   {
-    type = cD@priors@type
+    type = cD@priorType
     switch(type,
-           "Dir" = getLikelihoods.Dirichlet(cD = cD, prs = prs, estimatePriors = estimatePriors, subset = subset, priorSubset = priorSubset, cl = cl),
-           "Poi" = getLikelihoods.Pois(cD = cD, prs = prs, estimatePriors = estimatePriors, subset = subset, priorSubset = priorSubset, ..., cl = cl),
-           "NB" = getLikelihoods.NBboot(cD = cD, prs = prs, estimatePriors = estimatePriors, subset = subset, priorSubset = priorSubset, ..., cl = cl))
+           "Dir" = getLikelihoods.Dirichlet(cD = cD, prs = prs, pET = pET, subset = subset, priorSubset = priorSubset, cl = cl),
+           "Poi" = getLikelihoods.Pois(cD = cD, prs = prs, pET = pET, subset = subset, priorSubset = priorSubset, ..., cl = cl),
+           "NB" = getLikelihoods.NB(cD = cD, prs = prs, pET = pET, subset = subset, priorSubset = priorSubset, ..., cl = cl))
   }
            
 `getLikelihoods.Dirichlet` <-
-function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, cl)
+function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, cl)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
-    if(cD@priors@type != "Dir") stop("Incorrect prior type for this method of likelihood estimation")
+    if(cD@priorType != "Dir") stop("Incorrect prior type for this method of likelihood estimation")
     if(class(cD) != "countData")
       stop("variable 'countData' in 'getGroupPriors' must be of class 'countData'")
-    if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
+
+    if(pET %in% c("none", "iteratively"))
+      {
+        if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
+        if(any(prs < 0))
+          stop("Negative values in the 'prs' vector are not permitted")
+      } else if(pET %in% c("BIC"))
+        prs <- rep(NA, length(cD@groups))
+
+    
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
       stop("'subset' must be integer, numeric, or NULL")
 
@@ -68,18 +77,20 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, cl)
       }
     
     if(is.null(cl)) {
-      ps <- apply(cD@data[subset,], 1, PrgivenD.Dirichlet, cD@libsizes, cD@priors@priors, cD@groups)
+      ps <- apply(cD@data[subset,], 1, PrgivenD.Dirichlet, cD@libsizes, cD@priors$priors, cD@groups)
     } else {
-      ps <- parRapply(cl, cD@data[subset,], PrgivenD.Dirichlet, cD@libsizes, cD@priors@priors, cD@groups)
+      ps <- parRapply(cl, cD@data[subset,], PrgivenD.Dirichlet, cD@libsizes, cD@priors$priors, cD@groups)
     }
     ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
-    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, priorSubset = priorSubset, cl = cl)
+    groups <- cD@groups
 
+    pps <- getPosteriors(ps = ps, prs = prs, pET = pET, groups = groups, priorSubset = priorSubset, cl = cl)
+    
     posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
     posteriors[subset,] <- t(pps$posteriors)
 
     colnames(posteriors) <- names(cD@groups)
-    estProps <- pps$priors
+    estProps <- apply(exp(posteriors), 2, mean)
     names(estProps) <- names(cD@groups)
     
     new(class(cD), cD, posteriors = posteriors, estProps = estProps)
@@ -87,13 +98,21 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, cl)
 
 
 `getLikelihoods.Pois` <-
-function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, distpriors = FALSE, cl)
+function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, distpriors = FALSE, cl)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
-    if(cD@priors@type != "Poi") stop("Incorrect prior type for this method of likelihood estimation")
-    if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
+    if(cD@priorType != "Poi") stop("Incorrect prior type for this method of likelihood estimation")
+
+    if(pET %in% c("none", "iteratively"))
+      {
+        if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
+        if(any(prs < 0))
+          stop("Negative values in the 'prs' vector are not permitted")
+      } else if(pET %in% c("BIC"))
+        prs <- rep(NA, length(cD@groups))
+
     
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
       stop("'subset' must be integer, numeric, or NULL")
@@ -179,43 +198,112 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, dist
       }
     
     if(is.null(cl)) {
-      ps <- apply(cbind(seglens, cD@data)[subset,], 1, PrgivenD.Pois, cD@libsizes, cD@priors@priors, cD@groups, distpriors, lensameFlag = lensameFlag)
+      ps <- apply(cbind(seglens, cD@data)[subset,], 1, PrgivenD.Pois, cD@libsizes, cD@priors$priors, cD@groups, distpriors, lensameFlag = lensameFlag)
     } else {
-      ps <- parRapply(cl, cbind(seglens, cD@data)[subset,], PrgivenD.Pois, cD@libsizes, cD@priors@priors, cD@groups, distpriors, lensameFlag = lensameFlag)
+      ps <- parRapply(cl, cbind(seglens, cD@data)[subset,], PrgivenD.Pois, cD@libsizes, cD@priors$priors, cD@groups, distpriors, lensameFlag = lensameFlag)
       }                        
     ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
-    pps <- getPosteriors(ps, prs, estimatePriors = estimatePriors, priorSubset = priorSubset, cl = cl)
-
+    groups <- cD@groups
+    
+    pps <- getPosteriors(ps = ps, prs = prs, pET = pET, groups = groups, priorSubset = priorSubset, cl = cl)
+    
     posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
     posteriors[subset,] <- pps$posteriors
 
     colnames(posteriors) <- names(cD@groups)
-    estProps <- pps$priors
+    estProps <- apply(exp(posteriors), 2, mean)
     names(estProps) <- names(cD@groups)
     
     new(class(cD), cD, posteriors = posteriors, estProps = estProps)
   }
 
 
-`getLikelihoods.NBboot` <-
-function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, bootStraps = 2, conv = 1e-4, nullData = FALSE, cl)
+getLikelihoods.NBboot <- function(...)
   {
+    warning("This function has been deprecated and will soon be removed. Use 'getLikelihoods.NB' instead. Passing arguments to this function now.")
+    getLikelihoods.NB(...)
+  }
+
+
+`getPosteriors` <-
+function(ps, prs, pET = "none", groups, priorSubset = NULL, maxit = 100, accuracy = 1e-5, cl = cl)
+  {
+    getPosts <- function(x, prs)
+      {
+        `logsum` <-
+          function(x)
+            max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
+
+        posts <- x + log(prs)
+        posts <- posts - logsum(posts)
+        posts
+
+      }
+    
+    if(is.null(priorSubset))
+      priorSubset <- 1:nrow(ps)
+
+    if(!is.null(cl))
+      {
+        getPostsEnv <- new.env(parent = .GlobalEnv)
+        environment(getPosts) <- getPostsEnv
+      }
+
+    prs <- switch(pET,
+                  iteratively = {
+                    oldprs <- prs
+                    for(ii in 1:maxit)
+                      {
+                        if(!is.null(cl)) {
+                          posteriors <- matrix(parRapply(cl, ps[priorSubset,], getPosts, prs), ncol = ncol(ps), byrow = TRUE)
+                        } else posteriors <- matrix(apply(ps[priorSubset,], 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE)
+                        prs <- colSums(exp(posteriors)) / nrow(posteriors)
+                        if(all(abs(oldprs - prs) < accuracy)) break
+                        oldprs <- prs
+                      }
+                    if(ii == maxit)
+                      warning("Convergence not achieved to required accuracy.")
+                    prs
+                  },
+                  BIC = {
+                    sampleSize <- length(groups[[1]][[1]])
+                    bicps <- t(-2 * t(ps[priorSubset,]) + (unlist(lapply(lapply(groups, unique), length))) * log(sampleSize))
+                    minbicps <- apply(bicps, 1, which.min)
+                    prs <- sapply(1:length(groups), function(x) sum(minbicps == x))
+                    if(any(prs == 0)) prs[prs == 0] <- 1
+                    prs <- prs / sum(prs)
+                    prs
+                  },
+                  none = prs
+                  )
+           
+    list(posteriors = matrix(apply(ps, 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE), priors = prs)
+  }
+
+`getLikelihoods.NB` <-
+function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE, returnAll = FALSE, cl)
+  {
+    listPosts <- list()
     
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
-    if(cD@priors@type != "NB") stop("Incorrect prior type for this method of likelihood estimation")
-    if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
+    if(cD@priorType != "NB") stop("Incorrect prior type for this method of likelihood estimation")
 
-    if(any(prs < 0))
-      stop("Negative values in the 'prs' vector are not permitted")
+    if(pET %in% c("none", "iteratively"))
+      {
+        if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
+        if(any(prs < 0))
+          stop("Negative values in the 'prs' vector are not permitted")
+        if(!nullData & sum(prs) != 1)
+          stop("If 'nullData = FALSE' then the 'prs' vector should sum to 1.")
+        
+        if(nullData & sum(prs) >= 1)
+          stop("If 'nullData = TRUE' then the 'prs' vector should sum to less than 1.")
+        
+      } else if(pET %in% c("BIC"))
+        prs <- rep(NA, length(cD@groups))
     
-    if(!nullData & sum(prs) != 1)
-      stop("If 'nullData = FALSE' then the 'prs' vector should sum to 1.")
-
-    if(nullData & sum(prs) >= 1)
-            stop("If 'nullData = TRUE' then the 'prs' vector should sum to less than 1.")
-
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
       stop("'subset' must be integer, numeric, or NULL")
     
@@ -228,30 +316,35 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, boot
         priorSubset <- priorSub[subset]
       }
     
-    sy <- cD@priors@sampled
+    sy <- cD@priors$sampled
     groups <- cD@groups
 
-    NBpriors <- cD@priors@priors
+    NBpriors <- cD@priors$priors
 
     NBbootStrap <- function(us, libsizes, groups, lensameFlag) {
-      PDgivenr.NB <- function (us, seglen, ns, prior, group, sampled)
+      `logsum` <-
+        function(x)
+          max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
+      
+      PDgivenr.NB <- function (us, seglen, ns, prior, group, sampDist)
           {
             if(length(seglen) == 1 & length(us) > 1)
               seglen <- rep(seglen, length(us))
-            `logsum` <-
-              function(x)
-                max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
-
             pD <- 0
             for (gg in 1:length(unique(group))) {
               selus <- group == gg
-              pD <- pD + logsum(
-                                rowSums(matrix(
-                                               dnbinom(rep(us[selus], each = nrow(prior[[gg]])),
-                                                       size = 1 / prior[[gg]][,2],
-                                                       mu = rep(ns[selus] * seglen[selus], each = nrow(prior[[gg]])) * prior[[gg]][,1], log = TRUE),
-                                               ncol = sum(selus))
-                                        ) + log(sampled))
+              pD <- pD +
+                logsum(
+                       rowSums(
+                               matrix(
+                                      dnbinom(rep(us[selus], each = nrow(prior[[gg]])),
+                                              size = 1 / prior[[gg]][,2],
+                                              mu = rep(ns[selus] * seglen[selus], each = nrow(prior[[gg]])) * prior[[gg]][,1]
+                                              , log = TRUE),
+                                      ncol = sum(selus))
+                               ) +
+                       log(sampDist) - log(1 / length(sampDist))
+                       ) - log(length(sampDist))
             }
             pD
           }
@@ -264,11 +357,36 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, boot
               cts <- us[-(1:(length(us) / 2))]
               lens <- us[1:(length(us) / 2)]
             }
-
       
       ps <- c()
-      for (ii in 1:length(NBpriors))
-        ps[ii] <- PDgivenr.NB(cts, lens, libsizes, NBpriors[[ii]], groups[[ii]], sampPriors[[ii]])
+      commonps <- c()
+      for (gg in 1:length(NBpriors))
+        {
+          ps[gg] <- PDgivenr.NB(cts, lens, libsizes, NBpriors[[gg]], groups[[gg]], sampPriors[[gg]])
+
+#          commonps[gg] <- 0
+#          for(ii in unique(groups[[gg]]))
+#              {
+#                selcts <- which(groups[[gg]] == ii)
+#                disp <- commonDist[[gg]][[ii]][3]
+#
+#                mcts <- mean((cts / libsizes / lens)[selcts])
+#                mus <- rgamma(10000, shape = mcts / commonDist[[gg]][[ii]][2], scale = commonDist[[gg]][[ii]][2])
+#                
+#                commonInt <- function(mus)
+#                  {
+#                    sapply(mus, function(mu) exp(sum(
+#                                                     dnbinom(cts[selcts],
+#                                                             size = 1 / disp,
+#                                                             mu = (lens * libsizes)[selcts] * mu , log = TRUE)) +
+#                                                 dgamma(mu, shape = commonDist[[gg]][[ii]][1], scale = commonDist[[gg]][[ii]][2], log = TRUE)))
+#                  }
+
+#                commonps[gg] <- commonps[gg] + log(integrate(commonInt, lower = 0, upper = Inf)$value)
+
+#              }                
+        }
+      
       ps
     }
     
@@ -305,7 +423,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, boot
         NBpriors[[ndenulGroup]] <- NBpriors[[ndelocGroup]]
         
         NZLs <- apply(cD@data[sy,, drop = FALSE] != 0, 1, any)
-        NZLpriors <- log(cD@priors@priors[[ndelocGroup]][[1]][NZLs,1])
+        NZLpriors <- log(cD@priors$priors[[ndelocGroup]][[1]][NZLs,1])
         
         dsortp <- sort(NZLpriors, decreasing = TRUE)
         dcummeans <- cumsum(dsortp) / 1:length(dsortp)
@@ -345,6 +463,7 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, boot
 
     if(!is.null(cl))
       clusterCall(cl, clustAssign, NBpriors, "NBpriors")
+
     
     for(cc in 1:bootStraps)
       {
@@ -365,12 +484,13 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, boot
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
         rps[union(sy, subset),] <- ps
 
-        if(estimatePriors)
+        if(pET != "none")
           {
-            pps <- getPosteriors(rps[subset,], prs, estimatePriors = TRUE, priorSubset = priorSubset, cl = cl)
-            pps <- getPosteriors(rps[union(sy,subset),], pps$priors, estimatePriors = FALSE, priorSubset = NULL, cl = cl)
-          } else pps <- getPosteriors(rps[union(sy,subset),], prs, estimatePriors = FALSE, priorSubset = NULL, cl = cl)
-
+            restprs <- getPosteriors(rps[subset,], prs, pET = pET, groups = groups, priorSubset = priorSubset, cl = cl)$priors
+          } else restprs <- prs
+        
+        pps <- getPosteriors(rps[union(sy,subset),], prs = restprs, pET = "none", groups = groups, priorSubset = priorSubset, cl = cl)
+        
         if(any(!is.na(posteriors)))
           if(all(abs(exp(posteriors[union(sy,subset),]) - exp(pps$posteriors)) < conv)) converged <- TRUE
         
@@ -384,62 +504,32 @@ function(cD, prs, estimatePriors = TRUE, subset = NULL, priorSubset = NULL, boot
         estProps <- pps$priors
         names(estProps) <- names(cD@groups)
 
-        cat(".")
-        
+        cat(".")        
+
+        if(returnAll | converged | cc == bootStraps)
+          {
+            retPosts <- posteriors
+            retPosts[sy[!(sy %in% subset)],] <- NA
+            
+            nullPosts <- numeric(0)
+            if(nullData) {
+              nullPosts <- retPosts[,ndenulGroup]
+              retPosts <- retPosts[,-ndenulGroup, drop = FALSE]
+            }
+            estProps <- apply(exp(retPosts), 2, mean, na.rm = TRUE)
+            
+            colnames(retPosts) <- names(cD@groups)
+            listPosts[[cc]] <- (new(class(cD), cD, posteriors = retPosts, estProps = estProps, nullPosts = nullPosts))
+          }
+
         if(converged)
           break()
       }
 
-    posteriors[sy[!(sy %in% subset)],] <- NA
-
-    nullPosts <- numeric(0)
-    if(nullData) {
-      nullPosts <- posteriors[,ndenulGroup]
-      estProps <- pps$priors[-ndenulGroup]
-      posteriors <- posteriors[,-ndenulGroup, drop = FALSE]
+    if(!returnAll) return(listPosts[[cc]]) else {
+      if(length(listPosts) == 1) return(listPosts[[1]]) else return(listPosts)
     }
-    colnames(posteriors) <- names(cD@groups)
-    return(new(class(cD), cD, posteriors = posteriors, estProps = estProps, nullPosts = nullPosts))
-  }
-
-
-`getPosteriors` <-
-function(ps, prs, estimatePriors = FALSE, priorSubset = NULL, maxit = 100, accuracy = 1e-5, cl = cl)
-  {
-    getPosts <- function(x, prs)
-      {
-        `logsum` <-
-          function(x)
-            max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
-        
-        posts <- x + log(prs)
-        posts <- posts - logsum(posts)
-        posts
-      }
-
-    if(is.null(priorSubset))
-      priorSubset <- 1:nrow(ps)
-
-    if(!is.null(cl))
-      {
-        getPostsEnv <- new.env(parent = .GlobalEnv)
-        environment(getPosts) <- getPostsEnv
-      }
     
-    if(estimatePriors)
-      {
-        oldprs <- prs
-        for(ii in 1:maxit)
-          {
-            if(!is.null(cl)) {
-              posteriors <- matrix(parRapply(cl, ps[priorSubset,], getPosts, prs), ncol = ncol(ps), byrow = TRUE)
-            } else posteriors <- matrix(apply(ps[priorSubset,], 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE)
-            prs <- colSums(exp(posteriors)) / nrow(posteriors)
-            if(all(abs(oldprs - prs) < accuracy)) break
-            oldprs <- prs
-          }
-        if(ii == maxit)
-          warning("Convergence not achieved to required accuracy.")
-      }
-    list(posteriors = posteriors <- matrix(apply(ps, 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE), priors = prs)
-  }
+}
+
+# LocalWords:  getLikelihoods

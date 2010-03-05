@@ -160,16 +160,13 @@ pET = "BIC", bootStraps = 1, cl = NULL)
 # can parallelise the functions. This will usually (not always) offer
 # significant performance gain.
 
-\dontrun{
-
-library(snow)
-cl <- makeCluster(4, 'SOCK')
+cl <- NULL
+try(library(snow))
+try(cl <- makeCluster(4, "SOCK"))
 
 CDP.NB <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
-CDPost.NB <- getLikelihoods.NBboot(CDP.NB, prs = c(0.5, 0.5), 
-pET = "BIC", bootStraps = 2, cl = cl)
-}
-
+CDPost.NB <- getLikelihoods.NB(CDP.NB, prs = c(0.5, 0.5), 
+pET = "BIC", cl = cl)
 
 }
 

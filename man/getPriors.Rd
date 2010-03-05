@@ -82,27 +82,23 @@ groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
 CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups =
 groups)
 
+# If we have the 'snow' package installed we can parallelise the prior
+# estimation. This will usually (depending on your parallelisation
+# set-up) offer significant performance gains. 
+
+cl <- NULL
+try(library(snow))
+try(cl <- makeCluster(4, "SOCK"))
+
 # Estimate priors using Poisson method.
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = NULL)
+DP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = cl)
 
-\dontrun{
+# Alternatively, get priors for negative binomial method.
 
-# Alternatively, get priors for negative binomial method
-
-CDP.NBML <- getPriors.NB(CD, samplesize = 10^5, estimation = "ML", cl = NULL)
-
-# Alternatively, if we have the 'snow' package installed we
-# can parallelise the prior estimation (for the negative binomial
-# methods only). This will usually (not always) offer
-# significant performance gain.
-
-library(snow)
-cl <- makeCluster(4, 'SOCK')
-
-CDP.NBML <- getPriors.NB(CD, samplesize = 10^5, estimation = "ML", cl = cl)
+CDP.NBML <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
 }
 
-}
+
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
 \keyword{distribution}

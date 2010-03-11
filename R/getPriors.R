@@ -4,7 +4,7 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
-    cat("Finding priors...")
+    message("Finding priors...", appendLF = FALSE)
     
     `PgivenDir` <-
       function(alphas, us, ns)
@@ -18,32 +18,31 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
     libsizes <- cD@libsizes
     y <- cD@data
     groups <- cD@groups
-    for(gg in 1:length(groups))
-      {
-        priors[[gg]] <- list()
-        for(uu in 1:length(unique(groups[[gg]])))
-          {
-            cat(".")
-            tempPriors <- NULL
-            for(rr in 1:maxit)
-              {
-                initial <- c(0.2, 1100)
-                if(!is.null(tempPriors))
-                  initial <- apply(tempPriors, 2, mean)
-                
-                tempPriors <- rbind(tempPriors, optim(initial, PgivenDir,
-                                                        control = list(fnscale = -1),
-                                                        us = rowSums(data.frame(y[sample(1:nrow(y), samplesize, replace = FALSE),groups[[gg]] == unique(groups[[gg]])[uu]])),
-                                                        ns = sum(libsizes[groups[[gg]] == unique(groups[[gg]])[uu]]))$par)
-
-                if(nrow(tempPriors) > 1)
-                  if(all((apply(tempPriors, 2, sd) / sqrt(nrow(tempPriors))) / apply(tempPriors, 2, mean) < perSE)) break()
-              }
-            if(rr == maxit)
-              warning(paste("Convergence not achieved to required accuracy for model ", gg, ", group ", uu, sep = ""))
-            priors[[gg]][[uu]] <- apply(tempPriors, 2, mean)
-          }
-      }
+    priors <- lapply(1:length(groups), function(gg) {
+      lapply(unique(groups[[gg]]), function(uu)
+             {
+               tempPriors <- NULL
+               initial <- c(0.2, 1100)
+               for(rr in 1:maxit)
+                 {
+                   if(!is.null(tempPriors))
+                     initial <- apply(tempPriors, 2, mean)
+                   
+                   tempPriors <- rbind(tempPriors, optim(initial, PgivenDir,
+                                                         control = list(fnscale = -1),
+                                                         us = rowSums(data.frame(y[sample(1:nrow(y), samplesize, replace = FALSE),groups[[gg]] == unique(groups[[gg]])[uu]])),
+                                                         ns = sum(libsizes[groups[[gg]] == unique(groups[[gg]])[uu]]))$par)
+                   
+                   if(nrow(tempPriors) > 1)
+                     if(all((apply(tempPriors, 2, sd) / sqrt(nrow(tempPriors))) / apply(tempPriors, 2, mean) < perSE)) break()
+                 }
+               if(rr == maxit)
+                 warning(paste("Convergence not achieved to required accuracy for model ", gg, ", group ", uu, sep = ""))
+               message(".", appendLF = FALSE)
+               apply(tempPriors, 2, mean)
+             })
+    })
+    message("done.")
     names(priors) <- names(groups)
     new(class(cD), cD, priorType = "Dir", priors = list(priors = priors))
   }
@@ -56,7 +55,7 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
 
-  cat("Finding priors...")
+  message("Finding priors...", appendLF = FALSE)
   
   priorPars <- function(libsizes, samplesize, seluu, initial, lensameFlag)
     {
@@ -133,11 +132,9 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
     
     
   groups <- cD@groups
-  for (gg in 1:length(groups)) {
-    priors[[gg]] <- list()
-    initial <- NULL
-    for (uu in 1:length(unique(groups[[gg]]))) {
-      tempPriors <- NULL
+  priors <- lapply(1:length(groups), function(gg) {
+    lapply(unique(groups[[gg]]), function(uu) {
+      initial <- tempPriors <- NULL  
       seluu <- which(groups[[gg]] == unique(groups[[gg]])[uu])
       for(rr in 1:maxit) {
         if (!is.null(tempPriors)) 
@@ -155,12 +152,14 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
       }
       if(rr == maxit)
         warning(paste("Convergence not achieved to required accuracy for model ", gg, ", group ", uu, sep = ""))
-      cat(".")
+      message(".", appendLF = FALSE)
       if(takemean) 
-        priors[[gg]][[uu]] <- apply(tempPriors, 2, mean)
-      else priors[[gg]][[uu]] <- tempPriors
-    }
-  }
+        return(apply(tempPriors, 2, mean))
+      else return(tempPriors)
+    })
+  })
+  
+  message("done.")
   names(priors) <- names(groups)
   new(class(cD), cD, priorType = "Poi", priors = list(priors = priors))
 }
@@ -172,7 +171,7 @@ function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", cl)
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
 
-  cat("Finding priors...")
+  message("Finding priors...", appendLF = FALSE)
   
   optimoverPriors <- function(x, estimation, replicates, groups, libsizes, equalDispersions, lensameFlag)
     {
@@ -298,13 +297,10 @@ function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", cl)
   
   if(is.null(cl)) parEach <- apply(z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag) else parEach <- parApply(cl, z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag)
 
-  NBpar <- list()
-  for(gg in 1:length(groups))
-    {
-      NBpar[[gg]] <- list()
-      for(ii in unique(groups[[gg]]))
-        NBpar[[gg]][[ii]] <- t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], 1)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))
-    }
+  NBpar <- lapply(1:length(groups), function(gg)
+                  lapply(unique(groups[[gg]]), function(ii) t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], 1)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))))
+
+  message("done.")
   
   names(NBpar) <- names(groups)
   NBpar <- list(sampled = sy, priors = NBpar)

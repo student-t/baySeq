@@ -13,10 +13,12 @@
   of describing the 'count' data.
 }
 \usage{
-getPriors.Dirichlet(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
+getPriors.Dirichlet(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6,
+verbose = TRUE)
 getPriors.Pois(cD, samplesize = 10^5, perSE = 1e-1, takemean = TRUE,
-maxit = 10^5, cl)
-getPriors.NB(cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", cl)
+maxit = 10^5, verbose = TRUE, cl)
+getPriors.NB(cD, samplesize = 10^5, equalDispersions = TRUE, estimation
+= "QL", verbose = TRUE, cl, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -34,17 +36,30 @@ getPriors.NB(cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", 
   \item{equalDispersions}{Should we assume equal dispersions of data
     across all groups in the \code{'cD'} object? Defaults to TRUE; see Details.}
   \item{estimation}{Defaults to "QL", indicating quasi-likelihood
-    estimation of priors. Currently, the only other possibility is "ML",
-    a maximum-likelihood method.}
+    estimation of priors. Currently, the only other possibilities are "ML",
+    a maximum-likelihood method, and "edgeR", the moderated dispersion
+    estimates produced by the 'edgeR' package. See Details.}
+  \item{verbose}{Should status messages be displayed? Defaults to TRUE.}
   \item{cl}{A SNOW cluster object.}
+  \item{...}{Additional parameters to be passed to the
+    \code{\link[edgeR:edgeR-package]{estimateTagwiseDisp}} function if
+    \code{'estimation = "edgeR"'}.}
 }
 \details{
   These functions empirically estimate prior parameters for different
   distributions used in estimating posterior likelihoods of each count
   belonging to a particular group. The choice of which function to use
   for estimating the prior parameters will depend on the choice of which
-  method is being used to estimate the posterior likeihoods (see
+  method is being used to estimate the posterior likelihoods (see
   \link{getLikelihoods}).
+
+  For priors estimated for the negative binomial methods, three options
+  are available. Differences in the options focus on the way in which
+  the dispersion is estimated for the data. In simulation studies,
+  quasi-likelihood methods (\code{'estimation = "QL"'}) performed best
+  and so these are used by default. Alternatives are maximum-likelihood
+  methods (\code{'estimation = "ML"'}), and the 'edgeR' packages
+  moderated dispersion estimates (\code{'estimation = "edgeR"'}). 
   
   The priors estimated for the negative binomial methods
   (\code{'getPriors.NB'}) may assume that the dispersion of data for a
@@ -53,7 +68,9 @@ getPriors.NB(cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", 
   the dispersions may be estimated individually for each group structure
   (\code{'equalDispersions = FALSE'}). Unless there is a strong reason
   for believing that the data are differently dispersed between groups,
-  \code{'equalDispersions = TRUE'} is recommended.
+  \code{'equalDispersions = TRUE'} is recommended. If \code{'estimation
+  = "edgeR"'} then this parameter is ignored and dispersion is assumed
+  identical for all group structures.
   
   A 'cluster' object is recommended in order to estimate the priors for
   the negative binomial distribution. Passing NULL to this variable will

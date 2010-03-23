@@ -1,10 +1,10 @@
 `getPriors.Dirichlet` <-
-function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
+function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6, verbose = TRUE)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
-    message("Finding priors...", appendLF = FALSE)
+    if(verbose) message("Finding priors...", appendLF = FALSE)
     
     `PgivenDir` <-
       function(alphas, us, ns)
@@ -38,11 +38,11 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
                  }
                if(rr == maxit)
                  warning(paste("Convergence not achieved to required accuracy for model ", gg, ", group ", uu, sep = ""))
-               message(".", appendLF = FALSE)
+               if(verbose) message(".", appendLF = FALSE)
                apply(tempPriors, 2, mean)
              })
     })
-    message("done.")
+    if(verbose) message("done.")
     names(priors) <- names(groups)
     new(class(cD), cD, priorType = "Dir", priors = list(priors = priors))
   }
@@ -50,12 +50,12 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
 
 `getPriors.Pois` <-
   function (cD, samplesize = 10^5, perSE = 1e-1
-            , takemean = TRUE, maxit = 10^5, cl) 
+            , takemean = TRUE, maxit = 10^5, verbose = TRUE, cl) 
 {
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
 
-  message("Finding priors...", appendLF = FALSE)
+  if(verbose) message("Finding priors...", appendLF = FALSE)
   
   priorPars <- function(libsizes, samplesize, seluu, initial, lensameFlag)
     {
@@ -77,33 +77,41 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
         
       }
 
-      sampcts <- sample(1:nrow(y), size = samplesize, replace = FALSE)
-      
-      if(lensameFlag)
+      us <- 0
+      while(all(us == 0))
         {
-          cts <- y[,-1,drop = FALSE]
-          lens <- y[sampcts,1]
-        } else {
-          cts <- y[,-(1:(ncol(y) / 2)),drop = FALSE]
-          len <- y[,1:(ncol(y) / 2), drop = FALSE]
-          lens <- len[sampcts, seluu, drop = FALSE]
+          sampcts <- sample(1:nrow(y), size = samplesize, replace = FALSE)
+          
+          if(lensameFlag)
+            {
+              cts <- y[,-1,drop = FALSE]
+              lens <- y[sampcts,1]
+            } else {
+              cts <- y[,-(1:(ncol(y) / 2)),drop = FALSE]
+              len <- y[,1:(ncol(y) / 2), drop = FALSE]
+              lens <- len[sampcts, seluu, drop = FALSE]
+            }
+          
+          us <- cts[sampcts, seluu, drop = FALSE]
         }
-
-      us <- cts[sampcts, seluu, drop = FALSE]
-      
       ns <- libsizes[seluu]
       
       if(is.null(initial))
         {
-          m <- mean(apply(t(t(us / lens) / ns), 1, mean))
-          v <- var(apply(t(t(us / lens) / ns), 1, mean))
+          m <- mean(apply(t(us / lens) / ns, 2, mean))
+          v <- var(apply(t(us / lens) / ns, 2, mean))
           initial <- c(m^2 / v, m / v)
         }
-      
-      optim(initial, 
-            PgivenPois, control = list(fnscale = -1),
-            us = us, lens = lens,
-            ns = ns, lensameFlag = lensameFlag)$par
+
+      save(initial, us, lens, ns, file = "optim_fail.RData")
+      if(all(!is.na(initial) & initial > 0 & initial < Inf))
+        {
+          pars <- optim(initial, 
+                        PgivenPois, control = list(fnscale = -1),
+                        us = us, lens = lens,
+                        ns = ns, lensameFlag = lensameFlag)$par
+          return(pars)
+        } else return(c(NA, NA))
     }
 
   if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
@@ -138,7 +146,7 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
       seluu <- which(groups[[gg]] == unique(groups[[gg]])[uu])
       for(rr in 1:maxit) {
         if (!is.null(tempPriors)) 
-          initial <- apply(tempPriors, 2, mean)
+          initial <- apply(tempPriors, 2, mean, na.rm = TRUE)
         if(!is.null(cl))
           {
             pars <- clusterCall(cl, priorPars, libsizes, samplesize, seluu, initial, lensameFlag = lensameFlag)
@@ -152,26 +160,26 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6)
       }
       if(rr == maxit)
         warning(paste("Convergence not achieved to required accuracy for model ", gg, ", group ", uu, sep = ""))
-      message(".", appendLF = FALSE)
+      if(verbose) message(".", appendLF = FALSE)
       if(takemean) 
         return(apply(tempPriors, 2, mean))
       else return(tempPriors)
     })
   })
   
-  message("done.")
+  if(verbose) message("done.")
   names(priors) <- names(groups)
   new(class(cD), cD, priorType = "Poi", priors = list(priors = priors))
 }
 
 
 `getPriors.NB` <-
-function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", cl)
+function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", verbose = TRUE, cl, ...)
 {
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
 
-  message("Finding priors...", appendLF = FALSE)
+  if(verbose) message("Finding priors...", appendLF = FALSE)
   
   optimoverPriors <- function(x, estimation, replicates, groups, libsizes, equalDispersions, lensameFlag)
     {
@@ -294,13 +302,44 @@ function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", cl)
   
   NBpar <- list()
   z <- cbind(seglens[sy,], y[sy, ])
-  
-  if(is.null(cl)) parEach <- apply(z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag) else parEach <- parApply(cl, z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag)
+
+  if(estimation == "edgeR")
+    {
+      dge <- new("DGEList")
+      dge$counts = y[sy,]
+      dge$samples = data.frame(group = replicates, lib.size = libsizes)
+      dge <- estimateCommonDisp(dge)
+      dge <- estimateTagwiseDisp(dge, ...)
+      disps <- dge$tagwise.dispersion
+
+      parEach <- apply(cbind(disps, z), 1, function(x)
+            {
+              disp <- x[1]
+              x <- x[-1]
+              if(lensameFlag)
+                {
+                  cts <- x[-1]
+                  len <- x[1]
+                } else {
+                  cts <- x[-(1:(length(x) / 2))]
+                  len <- x[1:(length(x) / 2)]
+                }
+              if(length(len) == 1) len <- rep(len, length(cts))
+
+              mualt <- function(mu, cts, dispersion, libsizes, len)
+                sum(dnbinom(cts, size = 1/ dispersion, mu = mu * libsizes * len, log = TRUE))
+              
+              groupness <- lapply(groups, function(group) list(dispersion = rep(disp, length(unique(group))), mus = sapply(unique(group), function(unqgrp) optimise(mualt, interval = c(0, 1000), cts = cts[group == unqgrp], dispersion = disp, libsizes = libsizes[group == unqgrp], len = len[group == unqgrp], tol = 1e-50, maximum = TRUE)$maximum)))
+            })
+      
+    } else {
+      if(is.null(cl)) parEach <- apply(z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag) else parEach <- parApply(cl, z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag)
+    }
 
   NBpar <- lapply(1:length(groups), function(gg)
                   lapply(unique(groups[[gg]]), function(ii) t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], 1)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))))
 
-  message("done.")
+  if(verbose) message("done.")
   
   names(NBpar) <- names(groups)
   NBpar <- list(sampled = sy, priors = NBpar)

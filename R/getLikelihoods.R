@@ -1,14 +1,14 @@
-'getLikelihoods' <- function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, ..., cl)
+'getLikelihoods' <- function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, verbose = TRUE, ..., cl)
   {
     type = cD@priorType
     switch(type,
-           "Dir" = getLikelihoods.Dirichlet(cD = cD, prs = prs, pET = pET, subset = subset, priorSubset = priorSubset, cl = cl),
-           "Poi" = getLikelihoods.Pois(cD = cD, prs = prs, pET = pET, subset = subset, priorSubset = priorSubset, ..., cl = cl),
-           "NB" = getLikelihoods.NB(cD = cD, prs = prs, pET = pET, subset = subset, priorSubset = priorSubset, ..., cl = cl))
+           "Dir" = getLikelihoods.Dirichlet(cD = cD, prs = prs, pET = pET, subset = subset, priorSubset = priorSubset, verbose = verbose, cl = cl),
+           "Poi" = getLikelihoods.Pois(cD = cD, prs = prs, pET = pET, subset = subset, priorSubset = priorSubset, verbose = verbose, ..., cl = cl),
+           "NB" = getLikelihoods.NB(cD = cD, prs = prs, pET = pET, subset = subset, priorSubset = priorSubset, verbose = verbose, ..., cl = cl))
   }
            
 `getLikelihoods.Dirichlet` <-
-function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, cl)
+function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, verbose = TRUE, cl)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
@@ -70,7 +70,7 @@ function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, cl)
         environment(PrgivenD.Dirichlet) <- getLikelihoodsEnv
       }
 
-    message("Finding posterior likelihoods...", appendLF = FALSE)
+    if(verbose) message("Finding posterior likelihoods...", appendLF = FALSE)
     
     if(is.null(cl)) {
       ps <- apply(cD@data[subset,], 1, PrgivenD.Dirichlet, cD@libsizes, cD@priors$priors, cD@groups)
@@ -85,7 +85,7 @@ function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, cl)
     posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
     posteriors[subset,] <- t(pps$posteriors)
 
-    message("done.")
+    if(verbose) message("done.")
     
     colnames(posteriors) <- names(cD@groups)
     estProps <- apply(exp(posteriors), 2, mean)
@@ -96,7 +96,7 @@ function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, cl)
 
 
 `getLikelihoods.Pois` <-
-function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, distpriors = FALSE, cl)
+function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, distpriors = FALSE, verbose = TRUE, cl)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
@@ -192,7 +192,7 @@ function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, distpriors = F
         environment(PrgivenD.Pois) <- getLikelihoodsEnv
       }
 
-    message("Finding posterior likelihoods...", appendLF = FALSE)
+    if(verbose) message("Finding posterior likelihoods...", appendLF = FALSE)
     
     if(is.null(cl)) {
       ps <- apply(cbind(seglens, cD@data)[subset,], 1, PrgivenD.Pois, cD@libsizes, cD@priors$priors, cD@groups, distpriors, lensameFlag = lensameFlag)
@@ -207,7 +207,7 @@ function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, distpriors = F
     posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
     posteriors[subset,] <- pps$posteriors
 
-    message("done.")
+    if(verbose) message("done.")
 
     colnames(posteriors) <- names(cD@groups)
     estProps <- apply(exp(posteriors), 2, mean)
@@ -280,7 +280,7 @@ function(ps, prs, pET = "none", groups, priorSubset = NULL, maxit = 100, accurac
   }
 
 `getLikelihoods.NB` <-
-function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE, returnAll = FALSE, cl)
+function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE, returnAll = FALSE, verbose = TRUE, cl)
   {
     listPosts <- list()
     
@@ -438,7 +438,7 @@ function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, bootStraps = 1
         clusterCall(cl, clustAssign, numintSamp, "numintSamp")
       }
 
-    message("Finding posterior likelihoods...", appendLF = FALSE)
+    if(verbose) message("Finding posterior likelihoods...", appendLF = FALSE)
     
     for(cc in 1:bootStraps)
       {
@@ -502,7 +502,7 @@ function(cD, prs, pET = "BIC", subset = NULL, priorSubset = NULL, bootStraps = 1
           break()
       }
 
-    message("done.")
+    if(verbose) message("done.")
     
     if(!returnAll) return(listPosts[[cc]]) else {
       if(length(listPosts) == 1) return(listPosts[[1]]) else return(listPosts)

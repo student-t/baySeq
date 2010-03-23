@@ -19,14 +19,14 @@
 }
 \usage{
 getLikelihoods(cD, prs, pET = "BIC", subset = NULL,
-priorSubset = NULL, ..., cl)
+priorSubset = NULL, verbose = TRUE, ..., cl)
 getLikelihoods.Dirichlet(cD, prs, pET = "BIC", subset = NULL,
-priorSubset = NULL, cl)
+priorSubset = NULL, verbose = TRUE, cl)
 getLikelihoods.Pois(cD, prs, pET = "BIC", subset = NULL,
-priorSubset = NULL, distpriors = FALSE, cl)
+priorSubset = NULL, distpriors = FALSE, verbose = TRUE, cl)
 getLikelihoods.NB(cD, prs, pET = "BIC", subset = NULL,
 priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE,
-returnAll = FALSE, cl)
+returnAll = FALSE, verbose = TRUE, cl)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -54,7 +54,9 @@ returnAll = FALSE, cl)
     expression. See Details.}
   \item{returnAll}{If TRUE, and bootStraps > 1 instead of returning a
     single countData object, the function returns a list of countData
-    objects; one for each bootstrap. Largely used for debugging purposes.}
+    objects; one for each bootstrap. Largely used for debugging
+    purposes.}
+  \item{verbose}{Should status messages be displayed? Defaults to TRUE.}
   \item{cl}{A SNOW cluster object.}
   \item{...}{Any additional information to be passed by the
     \code{'getLikelihoods'} wrapper function to the individual functions

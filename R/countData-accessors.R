@@ -107,3 +107,4 @@ setMethod("show", "countData", function(object) {
       cat(paste('Priors are of type:', object@priorType), '\n')
     }
 })
+

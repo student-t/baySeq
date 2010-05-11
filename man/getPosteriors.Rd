@@ -9,7 +9,7 @@
   the user.
 }
 \usage{
-getPosteriors(ps, prs, pET = "none", groups, priorSubset = NULL, maxit = 100, accuracy =
+getPosteriors(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL, maxit = 100, accuracy =
 1e-5, cl = cl)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -20,6 +20,10 @@ getPosteriors(ps, prs, pET = "none", groups, priorSubset = NULL, maxit = 100, ac
   \item{pET}{What type of prior re-estimation should be
     attempted? Defaults to "none"; "BIC" and "iteratively" are also
     available.}
+  \item{marginalise}{Should an attempt be made to numerically
+    marginalise over a prior distribution iteratively estimated from the
+    posterior distribution? Defaults to FALSE, as in general offers
+    little performance gain and increases computational cost considerably.}
   \item{groups}{Group structure from which likelihoods in \code{'ps'}
     were defined.}
   \item{priorSubset}{If \code{'estimatePriors = TRUE'}, what subset of

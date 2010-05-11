@@ -18,13 +18,13 @@
   For a comparison of the methods, see Hardcastle & Kelly, 2009.
 }
 \usage{
-getLikelihoods(cD, prs, pET = "BIC", subset = NULL,
+getLikelihoods(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
 priorSubset = NULL, verbose = TRUE, ..., cl)
-getLikelihoods.Dirichlet(cD, prs, pET = "BIC", subset = NULL,
+getLikelihoods.Dirichlet(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
 priorSubset = NULL, verbose = TRUE, cl)
-getLikelihoods.Pois(cD, prs, pET = "BIC", subset = NULL,
+getLikelihoods.Pois(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
 priorSubset = NULL, distpriors = FALSE, verbose = TRUE, cl)
-getLikelihoods.NB(cD, prs, pET = "BIC", subset = NULL,
+getLikelihoods.NB(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
 priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE,
 returnAll = FALSE, verbose = TRUE, cl)
 }
@@ -38,6 +38,10 @@ returnAll = FALSE, verbose = TRUE, cl)
   \item{pET}{What type of prior re-estimation should be
     attempted? Defaults to "BIC"; "none" and "iteratively" are also
     available.}
+  \item{marginalise}{Should an attempt be made to numerically
+    marginalise over a prior distribution iteratively estimated from the
+    posterior distribution? Defaults to FALSE, as in general offers
+    little performance gain and increases computational cost considerably.}
   \item{subset}{Numeric vector giving the subset of counts for which
     posterior likelihoods should be estimated.}
   \item{priorSubset}{Numeric vector giving the subset of counts which may be
@@ -147,7 +151,7 @@ takemean = TRUE, cl = NULL)
 
 # Get likelihoods for data with Poisson method
 CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5),
-pET = "BIC", cl = NULL)
+pET = "BIC", marginalise = FALSE, cl = NULL)
 
 
 # Alternatively, get priors for negative binomial method
@@ -156,7 +160,7 @@ CDP.NB <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = NULL)
 # Get likelihoods for data with negative binomial method with bootstrapping
 
 CDPost.NB <- getLikelihoods.NBboot(CDP.NB, prs = c(0.5, 0.5),
-pET = "BIC", bootStraps = 1, cl = NULL)
+pET = "BIC", marginalise = FALSE, bootStraps = 1, cl = NULL)
 
 # Alternatively, if we have the 'snow' package installed we
 # can parallelise the functions. This will usually (not always) offer
@@ -168,7 +172,7 @@ try(cl <- makeCluster(4, "SOCK"))
 
 CDP.NB <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
 CDPost.NB <- getLikelihoods.NB(CDP.NB, prs = c(0.5, 0.5), 
-pET = "BIC", cl = cl)
+pET = "BIC", marginalise = FALSE, cl = cl)
 
 }
 

@@ -38,11 +38,23 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   if(!missing(j))
     if(!all(1:ncol(x@data) %in% j))
       {
-        newgroups <- list()
-        for(gg in 1:length(x@groups))
-            newgroups[[gg]] <- x@groups[[gg]][j]
-        warning("Selection of samples (columns) may adversely affect the argument in slot 'groups' and invalidate the values calculated in slot 'posteriors'.")
-        x@groups <- newgroups
+        x@replicates <- x@replicates[j]
+
+        if(length(cD@groups) > 0)
+          {
+            newgroups <- list()
+            newgroups <- lapply(cD@groups, function(x) {
+              x[j]
+              rep(1:length(unique(x[j])), sapply(unique(x[j]), function(z) sum(x[j] == z)))[unlist(sapply(unique(x[j]), function(z) which(x[j] == z)))]
+            })
+            x@groups <- newgroups[!duplicated(newgroups)]
+          }
+            
+        if(length(x@posteriors) > 0)
+          {
+            warning("Selection of samples (columns) will invalidate the values calculated in slot 'posteriors', and so these will be discarded.")
+            x@posteriors <- matrix(nrow = 0, ncol = 0)
+          }
       }
   if(missing(i))
     i <- 1:nrow(x@data)
@@ -51,7 +63,7 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   x@libsizes <- x@libsizes[j]
   x@annotation <- x@annotation[i,, drop = FALSE]
   if(nrow(x@posteriors) > 0)
-    x@posteriors <- x@posteriors[i,]
+    x@posteriors <- x@posteriors[i,, drop = FALSE]
 
   if(nrow(x@seglens) > 0)
     {

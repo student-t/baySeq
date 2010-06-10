@@ -141,7 +141,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                          {
                            gprior <- matrix(unlist(prior[[gg]]), nrow = length(prior[[gg]]), byrow = TRUE)
                            selcts <- group == gg
-                           lgamma(sum(cts[selcts]) + prior[[gg]][1]) - lgamma(prior[[gg]][1]) -
+                           lgamma(sum(cts[selcts]) + prior[[gg]][1]) - lgamma(prior[[gg]][1]) +
                              prior[[gg]][1] * log(prior[[gg]][2]) - (prior[[gg]][1] + sum(cts[selcts])) * log(prior[[gg]][2] + sum(ns[selcts] * seglen[selcts]))
                          }))
               }

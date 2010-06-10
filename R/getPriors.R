@@ -103,7 +103,6 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6, verbose = TRUE)
           initial <- c(m^2 / v, m / v)
         }
 
-      save(initial, us, lens, ns, file = "optim_fail.RData")
       if(all(!is.na(initial) & initial > 0 & initial < Inf))
         {
           pars <- optim(initial, 

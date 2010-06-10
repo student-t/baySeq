@@ -40,10 +40,10 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
       {
         x@replicates <- x@replicates[j]
 
-        if(length(cD@groups) > 0)
+        if(length(x@groups) > 0)
           {
             newgroups <- list()
-            newgroups <- lapply(cD@groups, function(x) {
+            newgroups <- lapply(x@groups, function(x) {
               x[j]
               rep(1:length(unique(x[j])), sapply(unique(x[j]), function(z) sum(x[j] == z)))[unlist(sapply(unique(x[j]), function(z) which(x[j] == z)))]
             })

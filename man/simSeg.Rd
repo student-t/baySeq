@@ -22,8 +22,8 @@
   (acquired by sequencing) observed at each region.}
 \source{Simulation.}
 \seealso{\code{\link{libsizes}}}
-\references{Hardcastle T.J., and Kelly, K (2010). Identifying Patterns
-  of Differential Expression in Count Data. In submission.}
+\references{Hardcastle T.J., and Kelly, K. baySeq: Empirical Bayesian
+  Methods For Identifying Differential Expression In Sequence Count Data. BMC Bioinformatics (2010)}
 
 
 \keyword{datasets}

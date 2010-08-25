@@ -126,8 +126,8 @@ returnAll = FALSE, verbose = TRUE, cl)
 \value{
   A \code{\link{countData}} object.
 }
-\references{Hardcastle T.J., and Kelly, K (2010). Identifying Patterns
-  of Differential Expression in Count Data. In submission.}
+\references{Hardcastle T.J., and Kelly, K. baySeq: Empirical Bayesian
+  Methods For Identifying Differential Expression In Sequence Count Data. BMC Bioinformatics (2010)}
 \author{Thomas J. Hardcastle}
 
 

@@ -287,25 +287,71 @@ function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", ver
     }
   
   libsizes <- cD@libsizes
-  y <- cD@data
   groups <- cD@groups
   replicates <- cD@replicates
 
-  if(nrow(y) < samplesize) samplesize <- nrow(y)
-  sy <- sample(1:nrow(y), samplesize, replace = FALSE)
-  sy <- sort(sy)
+  if(nrow(cD@seglens) > 0) seglens <- cD@seglens[,,drop = TRUE] else seglens <- rep(1, nrow(cD@data))
+  if(is.vector(seglens)) lensameFlag <- TRUE else lensameFlag <- FALSE
 
-  if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
+  tupData <- cbind(cD@data, seglens)
   
-  if(ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE
-  
+  ordData <- do.call(order, as.data.frame(tupData))
+  dups <- c(1, which(rowSums(tupData[ordData[-1],] == (tupData)[ordData[-length(ordData)],]) != ncol(tupData)) + 1)
+
+  if(length(dups) <= samplesize) {
+    y <- cD@data[ordData[dups],,drop = FALSE]
+    weights <- rep(1, nrow(y))
+    copies <- diff(c(dups, nrow(cD@data) + 1))
+    sy <- cbind(sampled = (1:nrow(cD))[ordData], representative = rep(1:length(copies), copies))
+
+    if(lensameFlag) seglensy <- seglens[ordData[dups]] else seglensy <- seglens[ordData[dups],]
+  } else {
+    sampData <- colSums(t(cD@Data/seglens) / cD@libsizes) / ncol(cD)
+    
+    sqnum <- length(sampData) / 1000
+    squant <- quantile(sampData, 1:sqnum / sqnum)
+    sqdup <- c(1, which(diff(squant) > min(1 / libsizes) / 10))
+    z <- cbind(as.numeric(squant[sqdup]), c(as.numeric(squant[sqdup[-1]]), max(sampData)))
+    z[1,1] <- -Inf
+
+    sy <- apply(z, 1, function(w) {
+      inbetweener <- which(sampData > w[1] & sampData <= w[2])
+      samplenum <- min(length(inbetweener), ceiling(samplesize / nrow(z)))
+      rbind(sample(inbetweener, size = samplenum, replace = FALSE), samplenum / length(inbetweener))
+    })
+
+    sy <- matrix(as.vector(sy), ncol = 2, byrow = TRUE)
+    weights <- sy[,2]
+    sy <- sy[,1]
+
+    y <- cD@data[sy,,drop = FALSE]
+    if(lensameFlag) seglensy <- seglens[sy] else seglensy <- seglens[sy,]
+    
+    ordData <- do.call(order, as.data.frame(cbind(y, seglensy)))
+    weights <- weights[ordData]
+    y <- y[ordData,]
+    if(lensameFlag) seglensy <- seglens[ordData] else seglensy <- seglens[ordData,]
+    
+    dups <- c(1, which(rowSums((cbind(y,seglensy))[-1,] == (cbind(y, seglensy))[-nrow(y),]) != ncol(cbind(y, seglensy)) + 1))
+    copies <- diff(c(dups, nrow(y) + 1))
+
+    sy <- cbind(sampled = sy[ordData], representative = rep(1:length(copies), copies))
+
+    y <- y[dups,]
+    if(lensameFlag) seglensy <- seglens[dups] else seglensy <- seglens[dups,]
+    weights <- weights[dups]
+    copies <- copies / weights
+  }
+
+  z <- cbind(seglensy, y)
+
   NBpar <- list()
-  z <- cbind(seglens[sy,], y[sy, ])
+
 
   if(estimation == "edgeR")
     {
       dge <- new("DGEList")
-      dge$counts = y[sy,]
+      dge$counts = y
       dge$samples = data.frame(group = replicates, lib.size = libsizes)
       dge <- estimateCommonDisp(dge)
       dge <- estimateTagwiseDisp(dge, ...)
@@ -341,7 +387,7 @@ function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", ver
   if(verbose) message("done.")
   
   names(NBpar) <- names(groups)
-  NBpar <- list(sampled = sy, priors = NBpar)
+  NBpar <- list(copies = copies, sampled = sy, priors = NBpar)
   new(class(cD), cD, priorType = "NB", priors = NBpar)
 }
 

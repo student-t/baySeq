@@ -405,7 +405,7 @@ plotPriors(SDP.NBML, group = 1)
 
 
 \begin{thebibliography}{99}
-\bibitem{hardcastle} Thomas J. Hardcastle and Krystyna A. Kelly. \textsl{Empirical Bayesian methods for differential expression in count data}. In submission. 2009.
+\bibitem{hardcastle} Thomas J. Hardcastle and Krystyna A. Kelly. \textsl{baySeq: Empirical Bayesian Methods For Identifying Differential Expression In Sequence Count Data.} BMC Bioinformatics (2010)
 \bibitem{edgeR} Mark Robinson \verb'edgeR'\textsl{:' Methods for differential expression in digital gene expression datasets}. Bioconductor.
 \end{thebibliography}
 

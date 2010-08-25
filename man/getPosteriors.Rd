@@ -58,8 +58,8 @@ getPosteriors(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = 
   priors: estimated (or given) prior probabilities of the model
 }
 
-\references{Hardcastle T.J., and Kelly, K (2010). Identifying Patterns
-  of Differential Expression in Count Data. In submission.}
+\references{Hardcastle T.J., and Kelly, K. baySeq: Empirical Bayesian
+  Methods For Identifying Differential Expression In Sequence Count Data. BMC Bioinformatics (2010)}
 \author{Thomas J. Hardcastle}
 
 \seealso{\code{\link{getLikelihoods}}}

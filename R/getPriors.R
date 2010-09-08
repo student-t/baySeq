@@ -80,7 +80,7 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6, verbose = TRUE)
       us <- 0
       while(all(us == 0))
         {
-          sampcts <- sample(1:nrow(y), size = samplesize, replace = FALSE)
+          sampcts <- sample((1:nrow(y))[rowSums(is.na(y)) == 0], size = samplesize, replace = FALSE)
           
           if(lensameFlag)
             {
@@ -173,7 +173,7 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6, verbose = TRUE)
 
 
 `getPriors.NB` <-
-function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", verbose = TRUE, cl, ...)
+function (cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TRUE, estimation = "QL", verbose = TRUE, cl, ...)
 {
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
@@ -285,28 +285,42 @@ function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", ver
       groupness
       
     }
-  
-  libsizes <- cD@libsizes
-  groups <- cD@groups
-  replicates <- cD@replicates
 
-  if(nrow(cD@seglens) > 0) seglens <- cD@seglens[,,drop = TRUE] else seglens <- rep(1, nrow(cD@data))
+    if(!is.null(cl))
+      {
+        getPriorsEnv <- new.env(parent = .GlobalEnv)
+        environment(optimoverPriors) <- getPriorsEnv
+      }
+
+  
+  if(is.null(samplingSubset))
+    samplingSubset <- 1:nrow(cD)
+
+  samplingSubset <- setdiff(samplingSubset, which(rowSums(cD@data == 0) == ncol(cD) | rowSums(is.na(cD@data)) > 0 | rowSums(is.na(cD@seglens)) > 0))
+  
+  sD <- cD[samplingSubset,]
+  
+  libsizes <- sD@libsizes
+  groups <- sD@groups
+  replicates <- sD@replicates
+
+  if(nrow(sD@seglens) > 0) seglens <- sD@seglens[,,drop = TRUE] else seglens <- rep(1, nrow(sD@data))
   if(is.vector(seglens)) lensameFlag <- TRUE else lensameFlag <- FALSE
 
-  tupData <- cbind(cD@data, seglens)
+  tupData <- cbind(sD@data, seglens)
   
   ordData <- do.call(order, as.data.frame(tupData))
   dups <- c(1, which(rowSums(tupData[ordData[-1],] == (tupData)[ordData[-length(ordData)],]) != ncol(tupData)) + 1)
 
   if(length(dups) <= samplesize) {
-    y <- cD@data[ordData[dups],,drop = FALSE]
+    y <- sD@data[ordData[dups],,drop = FALSE]
     weights <- rep(1, nrow(y))
-    copies <- diff(c(dups, nrow(cD@data) + 1))
-    sy <- cbind(sampled = (1:nrow(cD))[ordData], representative = rep(1:length(copies), copies))
+    copies <- diff(c(dups, nrow(sD@data) + 1))
+    sy <- cbind(sampled = (1:nrow(sD))[ordData], representative = rep(1:length(copies), copies))
 
     if(lensameFlag) seglensy <- seglens[ordData[dups]] else seglensy <- seglens[ordData[dups],]
   } else {
-    sampData <- colSums(t(cD@Data/seglens) / cD@libsizes) / ncol(cD)
+    sampData <- colSums(t(sD@data/seglens) / sD@libsizes) / ncol(sD)
     
     sqnum <- length(sampData) / 1000
     squant <- quantile(sampData, 1:sqnum / sqnum)
@@ -324,7 +338,7 @@ function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", ver
     weights <- sy[,2]
     sy <- sy[,1]
 
-    y <- cD@data[sy,,drop = FALSE]
+    y <- sD@data[sy,,drop = FALSE]
     if(lensameFlag) seglensy <- seglens[sy] else seglensy <- seglens[sy,]
     
     ordData <- do.call(order, as.data.frame(cbind(y, seglensy)))
@@ -381,11 +395,16 @@ function (cD, samplesize = 10^5, equalDispersions = TRUE, estimation = "QL", ver
       if(is.null(cl)) parEach <- apply(z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag) else parEach <- parApply(cl, z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag)
     }
 
+  if(!is.null(cl))
+    clusterEvalQ(cl, rm(list = ls()))
+
+  
   NBpar <- lapply(1:length(groups), function(gg)
                   lapply(unique(groups[[gg]]), function(ii) t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], 1)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))))
 
   if(verbose) message("done.")
-  
+
+  sy[,1] <- samplingSubset[sy[,1]]
   names(NBpar) <- names(groups)
   NBpar <- list(copies = copies, sampled = sy, priors = NBpar)
   new(class(cD), cD, priorType = "NB", priors = NBpar)

@@ -10,6 +10,6 @@ function(cD, group)
     
     par(mfrow = c(1, length(ungroup)))
     for(ii in ungroup)
-      plot(density(log(cD@priors$priors[[group]][[ii]][apply(cD@data[,cD@groups[[group]] == ii, drop = FALSE] != 0, 1, any),1])), main = paste("Log prior means for group:", group))
+      plot(density(rep(log(cD@priors$priors[[group]][[1]]), each = cD@priors$copies)), main = paste("Log prior means for group:", group))
   }
 

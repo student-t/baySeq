@@ -17,7 +17,7 @@ getPriors.Dirichlet(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6,
 verbose = TRUE)
 getPriors.Pois(cD, samplesize = 10^5, perSE = 1e-1, takemean = TRUE,
 maxit = 10^5, verbose = TRUE, cl)
-getPriors.NB(cD, samplesize = 10^5, equalDispersions = TRUE, estimation
+getPriors.NB(cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TRUE, estimation
 = "QL", verbose = TRUE, cl, ...)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -25,6 +25,8 @@ getPriors.NB(cD, samplesize = 10^5, equalDispersions = TRUE, estimation
   \item{cD}{A \code{\link{countData}} object.}
   \item{samplesize}{How large a sample should be taken in estimating the
     priors?}
+  \item{samplingSubset}{If given, the priors will be sampled only from
+    the subset specified.}
   \item{perSE}{What should the relative standard error of the estimated
     parameters fall below?}
   \item{maxit}{Over how many iterations (at most) should we take samples and

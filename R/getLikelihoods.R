@@ -80,6 +80,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
     groups <- cD@groups
 
+    if(!is.null(cl))
+      clusterEvalQ(cl, rm(list = ls()))
+    
     pps <- getPosteriors(ps = ps, prs = prs, pET = pET, marginalise = marginalise, groups = groups, priorSubset = priorSubset, cl = cl)
     
     posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
@@ -199,6 +202,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
       }                        
     ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
     groups <- cD@groups
+
+    if(!is.null(cl))
+      clusterEvalQ(cl, rm(list = ls()))
     
     pps <- getPosteriors(ps = ps, prs = prs, pET = pET, marginalise = marginalise, groups = groups, priorSubset = priorSubset, cl = cl)
     
@@ -469,7 +475,6 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                                    c(1, 0)[as.numeric(km == c(1,2)[as.numeric(ii == ndenulGroup) + 1]) + 1]))
       } else sampPosteriors <- matrix(1, nrow = length(copies), ncol = length(groups))
 
-
     posteriors <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
     propest <- NULL
     converged <- FALSE
@@ -546,6 +551,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
           break()
       }
 
+    if(!is.null(cl))
+      clusterEvalQ(cl, rm(list = ls()))
+    
     if(verbose) message("done.")
     
     if(!returnAll) return(listPosts[[cc]]) else {

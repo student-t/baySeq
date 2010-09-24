@@ -15,7 +15,7 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6, verbose = TRUE)
         }
     
     priors <- list()
-    libsizes <- cD@libsizes
+    libsizes <- as.double(cD@libsizes)
     y <- cD@data
     groups <- cD@groups
     priors <- lapply(1:length(groups), function(gg) {
@@ -119,7 +119,7 @@ function(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6, verbose = TRUE)
   
   
   priors <- list()
-  libsizes <- cD@libsizes
+  libsizes <- as.double(cD@libsizes)
   y <- cbind(seglens, cD@data)
 
   if(!is.null(cl))
@@ -205,7 +205,7 @@ function (cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TRUE,
           replicates <- repdata$replicates
           cts <- repdata$cts
           len <- repdata$len
-          libsizes <- repdata$libsizes
+          libsizes <- as.double(repdata$libsizes)
 
           if(all(cts == 0))
             return(NA)
@@ -238,7 +238,7 @@ function (cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TRUE,
           replicates <- repdata$replicates
           cts <- repdata$cts
           len <- repdata$len
-          libsizes <- repdata$libsizes
+          libsizes <- as.double(repdata$libsizes)
           
           if(all(cts == 0))
             return(NA)
@@ -300,7 +300,7 @@ function (cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TRUE,
   
   sD <- cD[samplingSubset,]
   
-  libsizes <- sD@libsizes
+  libsizes <- as.double(sD@libsizes)
   groups <- sD@groups
   replicates <- sD@replicates
 

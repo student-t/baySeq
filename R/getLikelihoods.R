@@ -231,42 +231,23 @@ getLikelihoods.NBboot <- function(...)
 `getPosteriors` <-
 function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL, maxit = 100, accuracy = 1e-5, cl = cl)
   {            
-    getPosts <- function(x, prs)
+    getPosts <- function(ps, prs)
       {
-        `logsum` <-
-          function(x)
-            max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
-
-        posts <- x + log(prs)
-        posts <- posts - logsum(posts)
-        posts
-
+        posts <- t(t(ps) + log(prs))
+        maxes <- do.call("pmax", data.frame(posts))
+        posts <- posts - pmax(posts, maxes + log(rowSums(exp(posts - maxes))))
       }
     
     if(is.null(priorSubset))
       priorSubset <- 1:nrow(ps)
-
-    if(!is.null(cl))
-      {
-        clustAssign <- function(object, name)
-          {
-            assign(name, object, envir = .GlobalEnv)
-            NULL
-          }
-        
-        getPostsEnv <- new.env(parent = .GlobalEnv)
-        environment(getPosts) <- getPostsEnv
-        environment(clustAssign) <- getPostsEnv
-      }
 
     prs <- switch(pET,                  
                   iteratively = {
                     oldprs <- prs
                     for(ii in 1:maxit)
                       {
-                        if(!is.null(cl)) {
-                          posteriors <- matrix(parRapply(cl, ps[priorSubset, ,drop = FALSE], getPosts, prs), ncol = ncol(ps), byrow = TRUE)
-                        } else posteriors <- matrix(apply(ps[priorSubset, ,drop = FALSE], 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE)
+                        posteriors <- getPosts(ps, prs)
+
                         prs <- colSums(exp(posteriors)) / nrow(posteriors)
                         if(all(abs(oldprs - prs) < accuracy)) break
                         oldprs <- prs
@@ -279,7 +260,7 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
                     sampleSize <- length(groups[[1]])
                     bicps <- t(-2 * t(ps[priorSubset, , drop = FALSE]) + (1 + (unlist(lapply(lapply(groups, unique), length)))) * log(sampleSize))
                     minbicps <- apply(bicps, 1, which.min)
-                    prs <- sapply(1:length(groups), function(x) sum(minbicps == x))
+                    prs <- sapply(1:length(groups), function(x) sum(minbicps == x, na.rm = TRUE))
                     if(any(prs == 0)) prs[prs == 0] <- 1
                     prs <- prs / sum(prs)
                     prs
@@ -287,7 +268,7 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
                   none = prs
                   )
 
-    posteriors <- matrix(apply(ps, 1, getPosts, prs), ncol = ncol(ps), byrow = TRUE)
+    posteriors <- getPosts(ps, prs)
     
     if(marginalise)
       {
@@ -297,9 +278,9 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
             `logsum` <- function(x)
               max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
             z <- t(t(oldposts[setdiff(priorSubset, x[1]),]) + x[-1])
-            z <- z - apply(z, 1, min)
-            z <- z - log(rowSums(exp(z)))
-            apply(z, 2, logsum) - log(nrow(z))
+            maxes <- do.call("pmax", data.frame(z))
+            z <- z - pmax(z, maxes + log(rowSums(exp(z - maxes))))
+            apply(z, 2, logsum) - log(colSums(!is.na(z)))
           }
         
         if(!is.null(cl)) {
@@ -391,9 +372,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                                               mu = rep(libsizes[selcts] * seglen[selcts], each = nrow(priors)) * priors[,1]
                                               , log = TRUE),
                                       ncol = sum(selcts))
-                               ) + log(copies) +
+                               ) + log(sampcopies) +
                        log(sampDist) - log(1 / length(sampDist)) 
-                       ) - log(sum(copies))
+                       ) - log(sum(sampcopies))
               })
               )
         }

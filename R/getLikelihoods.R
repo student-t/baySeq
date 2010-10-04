@@ -235,7 +235,7 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
       {
         posts <- t(t(ps) + log(prs))
         maxes <- do.call("pmax", data.frame(posts))
-        posts <- posts - pmax(posts, maxes + log(rowSums(exp(posts - maxes))))
+        posts <- posts - pmax(maxes, maxes + log(rowSums(exp(posts - maxes))))
       }
     
     if(is.null(priorSubset))

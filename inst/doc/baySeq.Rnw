@@ -37,14 +37,17 @@ set.seed(102)
 library(baySeq)
 @
 
-Note that because the experiments that \verb'baySeq' is designed to analyse are usually massive, we should use (if possible) parallel processing as implemented by the \verb'snow' package. We therefore need to load the \verb'snow' package (if it exists), define a \textsl{cluster} and load the \verb'baySeq' library onto each member of the cluster. If \verb'snow' is not present, we can proceed anyway with a \verb'NULL' cluster. Results may be slightly different depending on whether or not a cluster is used owing to the non-deterministic elements of the method.
-<<results = hide>>=
-if("snow" %in% installed.packages()[,1])
-  {
-    library(snow)
-    cl <- makeCluster(4, "SOCK")
-  } else cl <- NULL
+Note that because the experiments that \verb'baySeq' is designed to analyse are usually massive, we should use (if possible) parallel processing as implemented by the \verb'snow' package. We therefore need to load the \verb'snow' package (if it exists), define a \textsl{cluster} and load the \verb'baySeq' library onto each member of the cluster. 
+<<results = hide, eval = FALSE>>=
+  library(snow)
+cl <- makeCluster(4, "SOCK")
 @
+
+If \verb'snow' is not present, we can proceed anyway with a \verb'NULL' cluster. Results may be slightly different depending on whether or not a cluster is used owing to the non-deterministic elements of the method.
+<<results = hide>>=
+  cl <- NULL
+@ 
+
 
 Here we have (if the \verb'snow' package is installed) defined a cluster of four processors on sockets; that is to say, on the local machine. If the local machine has multiple processors this may be a valid method of accelerating \verb'baySeq', but if very large data sets are being analysed we may wish to consider some other form of parallelisation (e.g. LAM/MPI) that allows processors on multiple nodes to be used. See the \verb'snow' documentation for details on how to achieve this.
 
@@ -82,7 +85,7 @@ The ultimate aim of the \verb'baySeq' package is to evaluate posterior likelihoo
 We begin by combining the count data, library sizes and user-defined groups into a \verb'countData' object.
 
 <<>>=
-CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
+CD <- new("countData", data = simCount, replicates = replicates, libsizes = as.integer(libsizes), groups = groups)
 @
 
 We can also optionally add annotation details into the \verb'@annotation' slot of the \verb'countData' object.
@@ -219,17 +222,6 @@ Condition D & Samples 3, 4 & Samples 7, 8
 
 <<echo = false, results = hide>>=
 set.seed(101)
-@
-
-We prepare the \verb'baySeq' library and cluster as before.
-
-<<results = hide>>=
-library(baySeq)
-if("snow" %in% installed.packages()[,1])
-  {
-    library(snow)
-    cl <- makeCluster(4, "SOCK")
-  } else cl <- NULL
 @
 
 We load a simulated data set corresponding to the factorial design described. The first hundred cases show differential expression caused by differences between condition A and condition B, while the second hundred cases show differential expression caused by differences between condition C and condition D.

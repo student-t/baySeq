@@ -88,6 +88,23 @@ We begin by combining the count data, library sizes and user-defined groups into
 CD <- new("countData", data = simCount, replicates = replicates, libsizes = as.integer(libsizes), groups = groups)
 @
 
+We can then plot the data in the form of an MA-plot, suitable modified to plot those data where the data are uniformly zero (and hence the log-ratio is infinite) (Figure~\ref{figMA}). Truly differentially expressed data can be identified in the plot by coloring these data red, while non-differentially expressed data are colored black.
+
+<<fig = FALSE, label=plotMA>>=
+plotMA.CD(CD, samplesA = 1:5, samplesB = 6:10, col = c(rep("red", 100), rep("black", 900)))
+@ 
+
+\begin{figure}[!ht]
+\begin{center}
+<<label=figPlotMA, fig=TRUE,echo=FALSE>>=
+<<plotMA>>
+@
+\caption{'MA'-plot for count data. Where the log-ratio would be infinite (because the data in one of the sample groups consists entirely of zeros, we plot instead the log-values of the other group. Truly differentially expressed data are colored red, and non-differentially expressed data black.}
+\label{figMA}
+\end{center}
+\end{figure}
+
+
 We can also optionally add annotation details into the \verb'@annotation' slot of the \verb'countData' object.
 
 <<>>=
@@ -154,7 +171,8 @@ CDPost.NBML <- getLikelihoods.NB(CDP.NBML, pET = 'BIC', cl = cl)
 CDPost.NBML@estProps
 CDPost.NBML@posteriors[1:10,]
 CDPost.NBML@posteriors[101:110,]
-@
+@ 
+
 
 Here the assumption of a Negative Binomial distribution with priors estimated by maximum likelihood gives an estimate of 
 <<echo = FALSE>>=
@@ -175,6 +193,23 @@ We can compare the accuracy of the methods by using the \verb'getTPs' function t
 NBML.TPs <- getTPs(CDPost.NBML, group = 2, TPs = 1:100)
 Poi.TPs <- getTPs(CDPost.Poi, group = 2, TPs = 1:100)
 @ 
+
+We can plot the posterior likelihoods against the log-ratios of the two sets of samples using the \verb'plotPosteriors' function, coloring the truly differentially expressed data red and the non-differentially expressed data black (Figure~\ref{figPPs}).
+<<fig = FALSE, label=plotPosteriors>>=
+plotPosteriors(CDPost.NBML, group = 2, samplesA = 1:5, samplesB = 6:10, col = c(rep("red", 100), rep("black", 900)))
+@ 
+
+\begin{figure}[!ht]
+\begin{center}
+
+<<label=figPlotPosteriors, fig=TRUE,echo=FALSE>>=
+<<plotPosteriors>>
+@ 
+\caption{Posterior likelihoods of differential expression against log-ratio (where this would be non-infinite) or log values (where all data in the other sample group consists of zeros). Truly differentially expressed data are colored red, and non-differentially expressed data black.}
+\label{figPPs}
+\end{center}
+\end{figure}
+
 
 <<echo = FALSE, fig = FALSE, label=FPsPlot>>=
 plot(x = NA, y = NA, xlim = c(0, 100), ylim = c(0, log(1000)), xlab = "Number of counts selected", ylab = "(Log) False Positives")

@@ -358,7 +358,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
             seglen <- rep(seglen, length(cts))
 
           sampcopies <- copies
-          sampcopies[numintSamp[numintSamp[,1] == number]] <- sampcopies[numintSamp[numintSamp[,1] == number]] - 1
+          sampcopies[numintSamp[numintSamp[,1] == number,2]] <- sampcopies[numintSamp[numintSamp[,1] == number,2]] - 1
 
           sum(
               sapply(unique(group), function(gg) {
@@ -373,7 +373,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                                               , log = TRUE),
                                       ncol = sum(selcts))
                                ) + log(sampcopies) +
-                       log(sampDist) - log(1 / length(sampDist)) 
+                       log(sampDist) - log(1 / length(sampDist))
                        ) - log(sum(sampcopies))
               })
               )
@@ -391,7 +391,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         }
       
       sapply(1:length(NBpriors), function(group)
-             PDgivenr.NB(number, cts, seglen, libsizes, NBpriors[[group]], groups[[group]], sampPriors[[group]]))
+             PDgivenr.NB(number, cts, seglen, libsizes, NBpriors[[group]], groups[[group]], sampPriors[[group]])
+             )
     }
     
     if(!is.null(cl))
@@ -454,7 +455,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
 
         sampPosteriors <- (sapply(1:length(groups), function(ii)
                                    c(1, 0)[as.numeric(km == c(1,2)[as.numeric(ii == ndenulGroup) + 1]) + 1]))
-      } else sampPosteriors <- matrix(1, nrow = length(copies), ncol = length(groups))
+      } else {
+        sampPosteriors <- matrix(1, nrow = length(copies), ncol = length(groups))
+      }
 
     posteriors <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
     propest <- NULL

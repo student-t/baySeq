@@ -218,7 +218,7 @@ function (cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TRUE,
           newmus <- repmus
           newdisp <- 0
           for(ii in 1:1000) {
-            disp <- optimise(dispalt, interval = c(0, 1e6), cts = cts, mus = mus, libsizes = libsizes, len = len, tol = 1e-30)$minimum
+            disp <- optimise(dispalt, interval = c(0, 1e2), cts = cts, mus = mus, libsizes = libsizes, len = len, tol = 1e-30)$minimum
             newdisp <- c(newdisp, disp)
             repmus <- sapply(unique(replicates), function(rep) optimise(mualt, interval = c(0, 1000), cts = cts[replicates == rep], dispersion = disp, libsizes = libsizes[replicates == rep], len = len[replicates == rep], tol = 1e-50, maximum = TRUE)$maximum)
 

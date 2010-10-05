@@ -32,7 +32,7 @@ plotPriors(cD, group)
 }
 \author{Thomas J. Hardcastle}
 
-\seealso{\code{\link{getPriors.NB}}, \code{\link{getLikelihoods.NBboot}}}
+\seealso{\code{\link{getPriors.NB}}, \code{\link{getLikelihoods.NB}}}
 
 \examples{
 
@@ -47,4 +47,4 @@ CDP.NB <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = NULL)
 plotPriors(CDP.NB, group = 1)
 }
 
-\keyword{manip}
+\keyword{hplot}

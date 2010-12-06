@@ -1,3 +1,59 @@
+setGeneric("rbind", function(..., deparse.level=1) standardGeneric("rbind"), signature = "...")
+
+setMethod("rbind", "countData", function(x, ..., deparse.level = 1) {
+  print(nargs())
+  if(nargs() < 4) rbind2(x, ...) else rbind2(x, Recall(...))
+})
+          
+
+setMethod("rbind2", "countData", function(x, y) {
+  if(ncol(x) != ncol(y)) stop("Column numbers are not identical across the objects")
+
+  data <- rbind(x@data, y@data)
+  if(!all(x@libsizes == y@libsizes)) warning("'@libsizes' are not identical across objects")
+  if(!all(x@replicates == y@replicates)) warning("'@replicates' are not identical across objects")
+
+  xann <- x@annotation
+  yann <- y@annotation
+
+  incols <- intersect(colnames(xann), colnames(yann))
+
+  zann <- rbind(subset(xann, select = incols), subset(yann, select = incols))
+
+  unxann <- setdiff(colnames(xann), incols)
+  if(length(unxann) > 0)
+    zann <- cbind(zann, rbind(subset(xann, select = unxann), matrix(NA, ncol = length(unxann), nrow = nrow(yann), dimnames = list(NULL, unxann))))
+  
+  unyann <- setdiff(colnames(yann), incols)
+  if(length(unyann) > 0)
+    zann <- cbind(zann, rbind(matrix(NA, ncol = length(unyann), nrow = nrow(xann), dimnames = list(NULL, unyann)), subset(yann, select = unyann)))                
+
+  if(nrow(x@posteriors) > 0 & nrow(y@posteriors) > 0)
+    {
+      if(length(x@groups) == length(y@groups)) {
+        if(all(sapply(1:length(x@groups), function(ii) x@groups[[ii]] == y@groups[[ii]]))) {
+          posteriors <- rbind(x@posteriors, y@posteriors)
+        } else warning("'@groups' slots are not identical; posterior likelihoods will be discarded.")
+      } else warning("'@groups' slots are not identical; posterior likelihoods will be discarded.")
+    }
+      
+
+
+
+  z <- new(class(x), data = data, annotation = zann, posteriors = posteriors, libsizes = x@libsizes, replicates = x@replicates)
+  
+  if("groups" %in% slotNames(y) & "groups" %in% slotNames(x)) {
+    z@groups <- c(x@groups, y@groups)
+    if(length(z@groups) > 0)
+      z@groups <- z@groups[!duplicated(groups)]
+  }
+  if("groups" %in% slotNames(x)) z@groups <- x@groups
+      
+  z
+})
+  
+
+
 setMethod("initialize", "countData", function(.Object, ..., seglens) {
   .Object <- callNextMethod(.Object, ...)
   if(length(.Object@libsizes) != ncol(.Object@data))
@@ -49,7 +105,7 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
               x[j]
               rep(1:length(unique(x[j])), sapply(unique(x[j]), function(z) sum(x[j] == z)))[unlist(sapply(unique(x[j]), function(z) which(x[j] == z)))]
             })
-            x@groups <- newgroups[!duplicated(newgroups)]
+            x@groups <- newgroups[!duplicated(newgroups) | duplicated(x@groups)]
           }
             
         if(length(x@posteriors) > 0)

@@ -8,8 +8,7 @@ getTPs <- function(cD, group, decreasing = TRUE, TPs)
       stop("variable 'cD' must be of or descend from class 'countData'")
     if(nrow(cD@posteriors) == 0)
       stop("The '@posteriors' slot of cD is empty!")
-    countTPs <- function(selnum, ordering, TPs)
-      sum(ordering[1:selnum] %in% TPs)
+    
     if(is.null(group))
       {
         if(length(cD@nullPosts) == 0)
@@ -20,7 +19,7 @@ getTPs <- function(cD, group, decreasing = TRUE, TPs)
         posteriors <- cD@posteriors[,group]
         pord <- order(posteriors, -apply(cbind(cD@posteriors[,-group, drop = FALSE], cD@nullPosts), 1, logsum), decreasing = decreasing)
       }
-    sapply(1:length(posteriors), countTPs, pord, TPs)
+    cumsum(pord[1:length(posteriors)] %in% TPs)
   }
 
 

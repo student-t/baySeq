@@ -11,7 +11,7 @@ all observed counts are zero), we plot instead the log-values of the
 other group.
 }
 \usage{
-plotMA.CD(cD, samplesA, samplesB, ...)
+plotMA.CD(cD, samplesA, samplesB, normaliseData = TRUE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -25,7 +25,9 @@ plotMA.CD(cD, samplesA, samplesB, ...)
   \item{samplesB}{
     A numerical vector giving the columns of data in the
     \code{'countData'} object that forms sample set B.
-}
+  }
+  \item{normaliseData}{Should the data be normalised by library size
+    before computing log-ratios? Defaults to TRUE.}
   \item{\dots}{
     Any other parameters to be passed to the \code{\link{plot}} function.
   }

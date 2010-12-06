@@ -13,12 +13,13 @@
   of describing the 'count' data.
 }
 \usage{
-getPriors.Dirichlet(cD, samplesize = 10^5, perSE = 1e-1, maxit = 10^6,
+getPriors.Dirichlet(cD, samplesize = 1e5, perSE = 1e-1, maxit = 1e6,
 verbose = TRUE)
-getPriors.Pois(cD, samplesize = 10^5, perSE = 1e-1, takemean = TRUE,
-maxit = 10^5, verbose = TRUE, cl)
-getPriors.NB(cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TRUE, estimation
-= "QL", verbose = TRUE, cl, ...)
+getPriors.Pois(cD, samplesize = 1e5, perSE = 1e-1, takemean = TRUE,
+maxit = 1e5, weights = NULL, verbose = TRUE, cl)
+getPriors.NB(cD, samplesize = 1e5, samplingSubset = NULL,
+equalDispersions = TRUE, estimation = "QL", verbose = TRUE, zeroML =
+FALSE, cl, ...) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -35,6 +36,9 @@ getPriors.NB(cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TR
     estimated priors to define a gamma distribution. If FALSE, we use
     all estimated priors to define an empirical distribtion on the
     parameters of the gamma distribution.}
+  \item{weights}{If not NULL, specifies a weighting on the random
+    sampling of rows of the \code{'cD'} object used to estimate
+    parameters of the underlying distribution.}
   \item{equalDispersions}{Should we assume equal dispersions of data
     across all groups in the \code{'cD'} object? Defaults to TRUE; see Details.}
   \item{estimation}{Defaults to "QL", indicating quasi-likelihood
@@ -42,6 +46,9 @@ getPriors.NB(cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TR
     a maximum-likelihood method, and "edgeR", the moderated dispersion
     estimates produced by the 'edgeR' package. See Details.}
   \item{verbose}{Should status messages be displayed? Defaults to TRUE.}
+  \item{zeroML}{Should parameters from zero data (rows that within a
+    group are all zeros) be estimated using maximum likelihood
+    methods (which will result in zeros in the parameters? See Details.}
   \item{cl}{A SNOW cluster object.}
   \item{...}{Additional parameters to be passed to the
     \code{\link[edgeR:edgeR-package]{estimateTagwiseDisp}} function if
@@ -71,8 +78,17 @@ getPriors.NB(cD, samplesize = 10^5, samplingSubset = NULL, equalDispersions = TR
   (\code{'equalDispersions = FALSE'}). Unless there is a strong reason
   for believing that the data are differently dispersed between groups,
   \code{'equalDispersions = TRUE'} is recommended. If \code{'estimation
-  = "edgeR"'} then this parameter is ignored and dispersion is assumed
+    = "edgeR"'} then this parameter is ignored and dispersion is assumed
   identical for all group structures.
+  
+  If all counts in a given row for a given group are zero, then maximum
+  and quasi-likelihood estimation methods will result in a zero
+  parameter for the mean. In analyses where segment length is a factor, this  makes
+  it hard to differentiate between (for example) a region which contains
+  no reads but is only ten bases long and one which likewise contains no
+  reads but is ten megabases long. If \code{'zeroML'} is \code{FALSE},
+  therefore, the dispersion is set to 1 and the mean estimated as the
+  value that leaves the likelihood of zero data at fifty percent.
   
   A 'cluster' object is recommended in order to estimate the priors for
   the negative binomial distribution. Passing NULL to this variable will

@@ -26,7 +26,7 @@ getLikelihoods.Pois(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
 priorSubset = NULL, distpriors = FALSE, verbose = TRUE, cl)
 getLikelihoods.NB(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
 priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE,
-returnAll = FALSE, verbose = TRUE, cl)
+returnAll = FALSE, returnPD = FALSE, verbose = TRUE, cl)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -56,10 +56,14 @@ returnAll = FALSE, verbose = TRUE, cl)
     bootstraps drops below this value.}
   \item{nullData}{If TRUE, looks for segments or counts with no true
     expression. See Details.}
-  \item{returnAll}{If TRUE, and bootStraps > 1 instead of returning a
+  \item{returnAll}{If TRUE, and bootStraps > 1, then instead of returning a
     single countData object, the function returns a list of countData
     objects; one for each bootstrap. Largely used for debugging
     purposes.}
+  \item{returnPD}{If TRUE, then the function returns the (log)
+    likelihoods of the data given the models, rather than the posterior
+    (log) likelihoods of the models given the data. Not recommended for
+    general use.}
   \item{verbose}{Should status messages be displayed? Defaults to TRUE.}
   \item{cl}{A SNOW cluster object.}
   \item{...}{Any additional information to be passed by the

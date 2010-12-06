@@ -24,7 +24,7 @@ topCounts(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
   A dataframe of the top counts associated with some model (group),
   described by annotation drawn from the '@annotation' slot of the
   'cD' object and the raw data from the '@data' slot, together with the
-  posterior log-likelihoods.
+  posterior likelihoods and false discovery rates.
 
   If group = NULL, then the function looks at the posterior likelihoods
   that the data have no true differential expression (if calculated).
@@ -45,7 +45,7 @@ CD <- new("countData", data = simCount, replicates = replicates, libsizes = libs
 CDP.Poi <- getPriors.Pois(CD, samplesize = 20, cl = NULL)
 CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), pET = "BIC", cl = NULL)
 
-# Report the top ten rows of data that have highest (log) likelihood of belonging to
+# Report the top ten rows of data that have highest likelihood of belonging to
 # group 2 of the data (i.e., differentially expressed)
 
 topCounts(CDPost.Poi, group = 2, number = 10)

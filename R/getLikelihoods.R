@@ -246,7 +246,7 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
                     oldprs <- prs
                     for(ii in 1:maxit)
                       {
-                        posteriors <- getPosts(ps, prs)
+                        posteriors <- getPosts(ps[priorSubset,], prs)
 
                         prs <- colSums(exp(posteriors)) / nrow(posteriors)
                         if(all(abs(oldprs - prs) < accuracy)) break
@@ -304,8 +304,79 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
   }
 
 `getLikelihoods.NB` <-
-function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE, returnAll = FALSE, verbose = TRUE, cl)
+function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE, returnAll = FALSE, returnPD = FALSE, verbose = TRUE, cl)
   {
+    constructWeights <- function(withinCluster = FALSE)
+      {
+        priorWeights <- lapply(1:length(NBpriors), function(ii) lapply(1:length(NBpriors[[ii]]), function(jj)
+                                                                       sapply(1:nrow(NBpriors[[ii]][[jj]]), function(z) sum(numintSamp[[ii]][[jj]][numintSamp[[ii]][[jj]][,2] == z,3]))))
+        if(withinCluster) {
+          assign("priorWeights", priorWeights, envir = .GlobalEnv)
+          return(invisible(NULL))
+        } else return(priorWeights)
+      }
+    
+    NBbootStrap <- function(us, libsizes, groups, lensameFlag) {
+      `logsum` <-
+        function(x)
+          max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
+      
+      PDgivenr.NB <- function (number, cts, seglen, libsizes, priors, group, wts, sampInfo)
+        {
+          if(length(seglen) == 1 & length(cts) > 1)
+            seglen <- rep(seglen, length(cts))
+          
+          sum(
+              sapply(unique(group), function(gg) {
+                selcts <- group == gg
+                prior <- priors[[gg]]
+                weightings <- wts[[gg]]
+                wsInfo <- which(sampInfo[[gg]][,1] == number)
+                weightings[sampInfo[[gg]][wsInfo,2]] <- weightings[sampInfo[[gg]][wsInfo,2]] - sampInfo[[gg]][wsInfo,3]
+                
+                logsum(
+                       rowSums(
+                               matrix(
+                                      dnbinom(rep(cts[selcts], each = nrow(prior)),
+                                              size = 1 / prior[,2],
+                                              mu = rep(libsizes[selcts] * seglen[selcts], each = nrow(prior)) * prior[,1]
+                                              , log = TRUE),
+                                      ncol = sum(selcts))
+                               ) + log(weightings)
+                       ) - log(sum(weightings))
+              })
+              )
+        }
+      
+      number <- us[1]
+      us <- us[-1]
+      if(lensameFlag)
+        {
+          cts <- us[-1]
+          seglen <- us[1]
+        } else {
+          cts <- us[-(1:(length(us) / 2))]
+          seglen <- us[1:(length(us) / 2)]
+        }
+      
+      sapply(1:length(NBpriors), function(gg)
+             PDgivenr.NB(number = number, cts = cts, seglen = seglen, libsizes = libsizes, priors = NBpriors[[gg]], group = groups[[gg]], wts = priorWeights[[gg]], sampInfo = numintSamp[[gg]]))
+    }
+
+    if(!is.null(cl))
+      {
+        clustAssign <- function(object, name)
+          {
+            assign(name, object, envir = .GlobalEnv)
+            NULL
+          }
+        
+        getLikelihoodsEnv <- new.env(parent = .GlobalEnv)
+        environment(clustAssign) <- getLikelihoodsEnv
+        environment(NBbootStrap) <- getLikelihoodsEnv
+      }
+
+    
     listPosts <- list()
     
     if(!inherits(cD, what = "countData"))
@@ -331,132 +402,61 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
       stop("'subset' must be integer, numeric, or NULL")
     
     if(is.null(subset)) subset <- 1:nrow(cD@data)
+
+    if(is.null(priorSubset)) priorSubset <- subset
     
-    if(!is.null(priorSubset))
-      {
-        priorSub <- rep(FALSE, nrow(cD@data))
-        priorSub[priorSubset] <- TRUE
-        priorSubset <- priorSub[subset]
-      }
-    
-    numintSamp <- cD@priors$sampled
-    copies <- cD@priors$copies
-    groups <- cD@groups
+#    if(!is.null(priorSubset))
+#      {
+#        priorSub <- rep(FALSE, nrow(cD@data))
+#        priorSub[priorSubset] <- TRUE
+#        priorSubset <- priorSub[subset]
+#      }
 
-    priorReps <- numintSamp[!duplicated(numintSamp[,2]),1]
-
-    NBpriors <- cD@priors$priors
-
-    NBbootStrap <- function(us, libsizes, groups, lensameFlag) {
-      `logsum` <-
-        function(x)
-          max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
-      
-      PDgivenr.NB <- function (number, cts, seglen, libsizes, prior, group, sampDist)
-        {
-          if(length(seglen) == 1 & length(cts) > 1)
-            seglen <- rep(seglen, length(cts))
-
-          sampcopies <- copies
-          sampcopies[numintSamp[numintSamp[,1] == number,2]] <- sampcopies[numintSamp[numintSamp[,1] == number,2]] - 1
-
-          sum(
-              sapply(unique(group), function(gg) {
-                selcts <- group == gg
-                priors <- prior[[gg]]
-                logsum(
-                       rowSums(
-                               matrix(
-                                      dnbinom(rep(cts[selcts], each = nrow(priors)),
-                                              size = 1 / priors[,2],
-                                              mu = rep(libsizes[selcts] * seglen[selcts], each = nrow(priors)) * priors[,1]
-                                              , log = TRUE),
-                                      ncol = sum(selcts))
-                               ) + log(sampcopies) +
-                       log(sampDist) - log(1 / length(sampDist))
-                       ) - log(sum(sampcopies))
-              })
-              )
-        }
-      
-      number <- us[1]
-      us <- us[-1]
-      if(lensameFlag)
-        {
-          cts <- us[-1]
-          seglen <- us[1]
-        } else {
-          cts <- us[-(1:(length(us) / 2))]
-          seglen <- us[1:(length(us) / 2)]
-        }
-      
-      sapply(1:length(NBpriors), function(group)
-             PDgivenr.NB(number, cts, seglen, libsizes, NBpriors[[group]], groups[[group]], sampPriors[[group]])
-             )
-    }
-    
-    if(!is.null(cl))
-      {
-        clustAssign <- function(object, name)
-          {
-            assign(name, object, envir = .GlobalEnv)
-            NULL
-          }
-        
-        getLikelihoodsEnv <- new.env(parent = .GlobalEnv)
-        environment(clustAssign) <- getLikelihoodsEnv
-        environment(NBbootStrap) <- getLikelihoodsEnv
-      }
-    
     if(is.null(conv)) conv <- 0
-    posteriors <- matrix(1 / length(cD@groups), ncol = length(cD@groups), nrow = nrow(cD@data))
-    propest <- NULL
-
     if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
+    if(ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE    
     
-    if(ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE
+    groups <- cD@groups
+    NBpriors <- cD@priors$priors
+    numintSamp <- cD@priors$sampled
+
+    if(is.matrix(numintSamp))
+      numintSamp <- lapply(NBpriors, function(x) lapply(x, function(z) numintSamp))
+    if(is.null(numintSamp))
+      numintsamp <- lapply(NBpriors, function(x) lapply(x, function(z) cbind(sampled = rep(-1, nrow(z)), representative = 1:nrow(z))))
+
+    weights <- cD@priors$weights
+    if(is.null(weights))
+      weights <- lapply(numintSamp, function(x) lapply(x, function(z) weights = rep(1, nrow(z))))
+    if(is.numeric(weights))
+      weights <- lapply(numintSamp, function(x) lapply(x, function(z) weights = weights))
+
+    numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]], weights = weights[[ii]][[jj]])))
+    priorWeights <- constructWeights()
     
     if(nullData)
       {
-        ndelocGroup <- which(unlist(lapply(groups, function(x) all(x == x[1]))))
+        ndelocGroup <- which(unlist(lapply(cD@groups, function(x) all(x == x[1])))) 
         if(length(ndelocGroup) == 0)
           stop("If 'nullData = TRUE' then there must exist some vector in groups whose members are all identical")
+        
+        NZLs <- NZLpriors <- NULL
+        
+        ndePriors <- log(NBpriors[[ndelocGroup]][[1]][,1])
+        weights <- priorWeights[[ndelocGroup]][[1]]
+        sep <- bimodalSep(ndePriors[ndePriors > -Inf], weights[ndePriors > -Inf], bQ = c(0, 1))
+        
         groups <- c(groups, list(rep(1, ncol(cD@data))))
         ndenulGroup <- length(groups)
         prs <- c(prs, 1 - sum(prs))
 
         NBpriors[[ndenulGroup]] <- NBpriors[[ndelocGroup]]
-        
-        NZLs <- apply(cD@data[priorReps,, drop = FALSE] != 0, 1, any)
-        NZLpriors <- log(cD@priors$priors[[ndelocGroup]][[1]][NZLs,1])
-        
-        dsortp <- sort(NZLpriors, decreasing = TRUE)
-        dcummeans <- cumsum(dsortp) / 1:length(dsortp)
-        dcumsquare <- cumsum(dsortp ^ 2) / (1:length(dsortp) - 1)
-        dcumvar <- dcumsquare - (dcummeans^2) * 1:length(dsortp) / (1:length(dsortp) - 1)
-        dcumse <- sqrt(dcumvar / 1:length(dsortp))
-
-        isortp <- sort(NZLpriors, decreasing = FALSE)
-        icummeans <- cumsum(isortp) / 1:length(isortp)
-        icumsquare <- cumsum(isortp ^ 2) / (1:length(isortp) - 1)
-        icumvar <- icumsquare - (icummeans^2) * 1:length(isortp) / (1:length(isortp) - 1)
-        icumse <- sqrt(icumvar / 1:length(isortp))
-
-        meanvars <- (c(rev(dcumvar)[-1], NA) + icumvar) / 2
-        
-        varrise <- which(meanvars[-1] > meanvars[-length(meanvars)])
-        sep <- min(varrise[varrise > length(NZLpriors) / 100])
-        
-        kstar <- c(mean(isortp[1:sep]), mean(isortp[(sep + 1):length(isortp)]))
-        
-        kmNZ <- kmeans(NZLpriors, centers = matrix(kstar, ncol = 1))
-        km <- rep(1, length(priorReps))
-        km[NZLs] <- kmNZ$cluster
-
-        sampPosteriors <- (sapply(1:length(groups), function(ii)
-                                   c(1, 0)[as.numeric(km == c(1,2)[as.numeric(ii == ndenulGroup) + 1]) + 1]))
-      } else {
-        sampPosteriors <- matrix(1, nrow = length(copies), ncol = length(groups))
+        priorWeights[[ndenulGroup]] <- priorWeights[[ndelocGroup]]
+        priorWeights[[ndenulGroup]][[1]] <- priorWeights[[ndenulGroup]][[1]] * as.numeric(ndePriors <= sep)
+        priorWeights[[ndelocGroup]][[1]] <- priorWeights[[ndelocGroup]][[1]] * as.numeric(ndePriors > sep)
+        numintSamp[[ndenulGroup]] <- numintSamp[[ndelocGroup]]
+        numintSamp[[ndelocGroup]][[1]][numintSamp[[ndelocGroup]][[1]][,2] %in% which(ndePriors <= sep),3] <- 0
+        numintSamp[[ndenulGroup]][[1]][numintSamp[[ndenulGroup]][[1]][,2] %in% which(ndePriors > sep),3] <- 0
       }
 
     posteriors <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
@@ -464,48 +464,55 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     converged <- FALSE
 
     if(!is.null(cl))
-      {
-        clusterCall(cl, clustAssign, NBpriors, "NBpriors")
-        clusterCall(cl, clustAssign, numintSamp, "numintSamp")
-        clusterCall(cl, clustAssign, priorReps, "priorReps")
-        clusterCall(cl, clustAssign, copies, "copies")
-      }
+      clusterCall(cl, clustAssign, NBpriors, "NBpriors")
 
     if(verbose) message("Finding posterior likelihoods...", appendLF = FALSE)
+
+    priorReps <- unique(unlist(sapply(numintSamp, function(x) as.integer(unique(sapply(x, function(z) z[,1]))))))
+    priorReps <- priorReps[priorReps > 0 & !is.na(priorReps)]
+    
+    if(!all(priorReps %in% 1:nrow(cD@data)) & bootStraps > 1)
+      {
+        warning("Since the sampled values in the '@priors' slot are not available, bootstrapping is not possible.")
+        bootStraps <- 1
+      }
+
+    postRows <- unique(c(priorReps, priorSubset, subset))
     
     for(cc in 1:bootStraps)
       {
-        sampPriors <-
-          lapply(1:length(groups), function(ii)
-                 sampPosteriors[,ii] / sum(sampPosteriors[,ii]))
-                 
-
         if (is.null(cl)) {
-          ps <- apply(cbind(1:nrow(cD@data), seglens, cD@data)[union(priorReps, subset),,drop = FALSE],
+          if(cc > 1)
+            {
+              numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]][,1:2], weights = exp(posteriors[numintSamp[[ii]][[jj]][,1],ii]))))
+              priorWeights <- constructWeights()
+            }
+          ps <- apply(cbind(1:nrow(cD@data), seglens, cD@data)[postRows,,drop = FALSE],
                       1, NBbootStrap, libsizes = cD@libsizes, groups = groups, lensameFlag = lensameFlag)
         } else {
-          clusterCall(cl, clustAssign, sampPriors, "sampPriors")
-          ps <- parRapply(cl, cbind(1:nrow(cD@data), seglens, cD@data)[union(priorReps, subset),, drop = FALSE],
+          environment(constructWeights) <- getLikelihoodsEnv
+          clusterCall(cl, clustAssign, numintSamp, "numintSamp")
+          clusterCall(cl, clustAssign, priorWeights, "priorWeights")
+          clusterCall(cl, constructWeights, TRUE)
+          ps <- parRapply(cl, cbind(1:nrow(cD@data), seglens, cD@data)[postRows,, drop = FALSE],
                           NBbootStrap, libsizes = cD@libsizes, groups = groups, lensameFlag = lensameFlag)
         }
         
         ps <- matrix(ps, ncol = length(groups), byrow = TRUE)
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
-        rps[union(priorReps, subset),] <- ps
+        rps[postRows,] <- ps
 
         if(pET != "none")
           {
-            restprs <- getPosteriors(rps[subset,, drop = FALSE], prs, pET = pET, marginalise = FALSE, groups = groups, priorSubset = priorSubset, cl = cl)$priors
+            restprs <- getPosteriors(rps[priorSubset,, drop = FALSE], prs, pET = pET, marginalise = FALSE, groups = groups, priorSubset = NULL, cl = cl)$priors
           } else restprs <- prs
         
-        pps <- getPosteriors(rps[union(priorReps,subset),], prs = restprs, pET = "none", marginalise = marginalise, groups = groups, priorSubset = priorSubset, cl = cl)
+        pps <- getPosteriors(rps[union(priorReps,subset),], prs = restprs, pET = "none", marginalise = marginalise, groups = groups, priorSubset = NULL, cl = cl)
         
         if(any(!is.na(posteriors)))
           if(all(abs(exp(posteriors[union(priorReps,subset),]) - exp(pps$posteriors)) < conv)) converged <- TRUE
         
         posteriors[union(priorReps, subset),] <- pps$posteriors
-
-        sampPosteriors <- exp(posteriors[priorReps,])
         
         prs <- pps$priors
         propest <- rbind(propest, prs)
@@ -539,6 +546,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
       clusterEvalQ(cl, rm(list = ls()))
     
     if(verbose) message("done.")
+
+    if(returnPD) return(rps)
     
     if(!returnAll) return(listPosts[[cc]]) else {
       if(length(listPosts) == 1) return(listPosts[[1]]) else return(listPosts)

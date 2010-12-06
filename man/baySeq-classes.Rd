@@ -7,6 +7,8 @@
 \alias{dim,countData-method}
 \alias{[,countData-method}
 \alias{show,countData-method}
+\alias{rbind,countData-method}
+\alias{rbind}
 
 \title{baySeq - classes}
 
@@ -54,7 +56,7 @@ all segments have the same length.
 }
 
 \section{Methods}{
-  Methods 'new', 'dim', '[' and 'show' have been defined for this class.
+  Methods 'new', 'dim', '[', 'show' and 'rbind' have been defined for this class.
 }
 
 \author{Thomas J. Hardcastle}

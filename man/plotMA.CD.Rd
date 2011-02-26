@@ -11,7 +11,7 @@ all observed counts are zero), we plot instead the log-values of the
 other group.
 }
 \usage{
-plotMA.CD(cD, samplesA, samplesB, normaliseData = TRUE, ...)
+plotMA.CD(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -28,6 +28,9 @@ plotMA.CD(cD, samplesA, samplesB, normaliseData = TRUE, ...)
   }
   \item{normaliseData}{Should the data be normalised by library size
     before computing log-ratios? Defaults to TRUE.}
+  \item{scale}{If given, defines the scale on which the log-ratios will
+    be plotted. Defaults to NULL, implying that the scale will be
+    calculated by the function.}
   \item{\dots}{
     Any other parameters to be passed to the \code{\link{plot}} function.
   }

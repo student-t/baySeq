@@ -331,19 +331,20 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                 selcts <- group == gg
                 prior <- priors[[gg]]
                 weightings <- wts[[gg]]
+                nzWts <- weightings != 0
                 wsInfo <- which(sampInfo[[gg]][,1] == number)
                 weightings[sampInfo[[gg]][wsInfo,2]] <- weightings[sampInfo[[gg]][wsInfo,2]] - sampInfo[[gg]][wsInfo,3]
                 
                 logsum(
                        rowSums(
                                matrix(
-                                      dnbinom(rep(cts[selcts], each = nrow(prior)),
-                                              size = 1 / prior[,2],
-                                              mu = rep(libsizes[selcts] * seglen[selcts], each = nrow(prior)) * prior[,1]
+                                      dnbinom(rep(cts[selcts], each = sum(nzWts)),
+                                              size = 1 / prior[nzWts,2],
+                                              mu = rep(libsizes[selcts] * seglen[selcts], each = sum(nzWts)) * prior[nzWts,1]
                                               , log = TRUE),
                                       ncol = sum(selcts))
-                               ) + log(weightings)
-                       ) - log(sum(weightings))
+                               ) + log(weightings[nzWts])
+                       ) - log(sum(weightings[nzWts]))
               })
               )
         }
@@ -423,7 +424,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     if(is.matrix(numintSamp))
       numintSamp <- lapply(NBpriors, function(x) lapply(x, function(z) numintSamp))
     if(is.null(numintSamp))
-      numintsamp <- lapply(NBpriors, function(x) lapply(x, function(z) cbind(sampled = rep(-1, nrow(z)), representative = 1:nrow(z))))
+      numintSamp <- lapply(NBpriors, function(x) lapply(x, function(z) cbind(sampled = rep(-1, nrow(z)), representative = 1:nrow(z))))
 
     weights <- cD@priors$weights
     if(is.null(weights))

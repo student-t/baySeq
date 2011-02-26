@@ -191,18 +191,18 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
           if(any(alphas[-1] < 0) | alphas[1] <= 0) return(NA)
           
           dispersion <- alphas[1]
+          
           mus <- alphas[-1]
           
           sum(sapply(unique(replicates), function(unqrep) sum(dnbinom(y[replicates == unqrep], size = 1 / dispersion,
                                                                       mu = mus[unique(replicates) == unqrep] * libsizes[unique(replicates) == unqrep] * seglen[unique(replicates) == unqrep], log = TRUE))))
         }
 
-
       findDisp.QL <- function(repdata)
         {
           replicates <- repdata$replicates
           cts <- repdata$cts
-          len <- repdata$len
+          len <- as.double(repdata$len)
           libsizes <- as.double(repdata$libsizes)
 
           if(all(cts == 0))
@@ -216,7 +216,8 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
           newmus <- repmus
           newdisp <- 0
           for(ii in 1:1000) {
-            disp <- optimise(dispalt, interval = c(0, 1e2), cts = cts, mus = mus, libsizes = libsizes, len = len, tol = 1e-30)$minimum
+            lowInt <- 0
+            disp <- optimise(dispalt, interval = c(lowInt, 1e2), cts = cts, mus = mus, libsizes = libsizes, len = len, tol = 1e-30)$minimum
             newdisp <- c(newdisp, disp)
             repmus <- rep(0, length(unique(replicates)))
             nz <- sapply(unique(replicates), function(rep) any(cts[replicates == rep] != 0))
@@ -233,6 +234,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
                 break
               }
           }
+          
           disp
         }
 
@@ -249,9 +251,11 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
 
           repmus <- sapply(unique(replicates), function(rep) mean(cts[replicates == rep] / (libsizes * len)[replicates == rep]))
           
-          optim(par = c(0.01, repmus),
+          disp <- optim(par = c(1, repmus),
                 fn = dispML, control = list(fnscale = -1), 
                 y = cts, replicates = replicates, libsizes = libsizes, seglen = len)$par[1]
+
+          disp
         }
   
       if(lensameFlag)
@@ -270,7 +274,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
                          QL = findDisp.QL(list(replicates = replicates, cts = cts, len = len, libsizes = libsizes)),
                          ML = findDisp.ML(list(replicates = replicates, cts = cts, len = len, libsizes = libsizes))
                          )
-          
           groupness <- lapply(groups, function(group) {
             dispersion <- rep(disp, length(unique(group)))
             mus <- sapply(unique(group), function(unqgrp)
@@ -284,8 +287,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
               } else return(optimise(mualt, interval = c(0, 1), cts = cts[group == unqgrp], dispersion = disp, libsizes = libsizes[group == unqgrp], len = len[group == unqgrp], tol = 1e-50, maximum = TRUE)$maximum))
             list(dispersion = dispersion, mus = mus)
           })
-                        
-          
         } else {
           repgroups <- lapply(groups, function(group) list(group = group, repData = lapply(unique(group), function(unqgrp) list(replicates = replicates[group == unqgrp], cts = cts[group == unqgrp], len = len[group == unqgrp], libsizes = libsizes[group == unqgrp]))))
           
@@ -293,7 +294,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
                                QL = lapply(repgroups, function(repgroup) list(group = repgroup$group, dispersion = sapply(repgroup$repData, findDisp.QL))),
                                ML = lapply(repgroups, function(repgroup) list(group = repgroup$group, dispersion = sapply(repgroup$repData, findDisp.ML)))
                                )
-          
           groupness <- lapply(dispgroups, function(dispgroup)
                               list(dispersion = dispgroup$dispersion,
                                    mus = sapply(unique(dispgroup$group),
@@ -361,13 +361,14 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
     z <- cbind(as.numeric(squant[sqdup]), c(as.numeric(squant[sqdup[-1]]), max(nzSD)))
     if(zeroML) z[1,1] <- 0 else z[1,1] <- -Inf
 
-    sy <- apply(z, 1, function(w) {
-      inbetweener <- which(sampData > w[1] & sampData <= w[2])
-      samplenum <- min(length(inbetweener), ceiling(samplesize / nrow(z)))
-      rbind(sample(inbetweener, size = samplenum, replace = FALSE), length(inbetweener) / samplenum)
-    })
+    sy <- do.call("rbind",
+                  lapply(1:nrow(z), function(ii) {
+                    w <- z[ii,]
+                    inbetweener <- which(sampData > w[1] & sampData <= w[2])
+                    samplenum <- min(length(inbetweener), ceiling(samplesize / nrow(z)))
+                    cbind(sample(inbetweener, size = samplenum, replace = FALSE), length(inbetweener) / samplenum)})
+                )
 
-    sy <- matrix(as.vector(sy), ncol = 2, byrow = TRUE)
     weights <- sy[,2]
     sy <- sy[,1]
 

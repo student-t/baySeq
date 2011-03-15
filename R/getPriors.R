@@ -205,9 +205,9 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
           len <- as.double(repdata$len)
           libsizes <- as.double(repdata$libsizes)
 
-          if(all(cts == 0))
-            return(1)
-          
+          if(all(cts == 0) | (sum(cts > 0) == 1 & sum(replicates %in% replicates[cts > 0]) == 1))
+            return(1e-100)
+
           repmus <- sapply(unique(replicates), function(rep) mean(cts[replicates == rep] / (libsizes * len)[replicates == rep]))
           mus <- c()
           musmat <- matrix(unlist(lapply(unique(replicates), function(rep) rbind(which(replicates == rep), repmus[unique(replicates) == rep]))), ncol = 2, byrow = TRUE)
@@ -245,8 +245,8 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
           len <- repdata$len
           libsizes <- as.double(repdata$libsizes)
           
-          if(all(cts == 0))
-            return(1)
+          if(all(cts == 0) | (sum(cts > 0) == 1 & sum(replicates == replicates[cts == 1]) == 1))
+            return(1e-100)
 
 
           repmus <- sapply(unique(replicates), function(rep) mean(cts[replicates == rep] / (libsizes * len)[replicates == rep]))
@@ -276,19 +276,19 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
                          )
           groupness <- lapply(groups, function(group) {
             dispersion <- rep(disp, length(unique(group)))
-            mus <- sapply(unique(group), function(unqgrp)
-              if(all(cts[group == unqgrp] == 0) & zeroML) {
+            mus <- sapply(unique(group[!is.na(group)]), function(unqgrp)
+              if(all(cts[group == unqgrp] == 0, na.rm = TRUE) & zeroML) {
                 return(0)
-              } else if(all(cts[group == unqgrp] == 0)) {
+              } else if(all(cts[group == unqgrp] == 0, na.rm = TRUE)) {
                 return(
-                       optimize(muZeros, interval = c(0, max(1 / libsizes[group == unqgrp] * len[group == unqgrp])),
-                                cts = cts[group == unqgrp], dispersion = 1, libsizes = libsizes[group == unqgrp], len = len[group == unqgrp], tol = 1e-50, maximum = FALSE)$minimum
+                       optimize(muZeros, interval = c(0, max(1 / libsizes[group == unqgrp] * len[group == unqgrp], na.rm = TRUE)),
+                                cts = cts[which(group == unqgrp)], dispersion = 1, libsizes = libsizes[which(group == unqgrp)], len = len[which(group == unqgrp)], tol = 1e-50, maximum = FALSE)$minimum
                        )
-              } else return(optimise(mualt, interval = c(0, 1), cts = cts[group == unqgrp], dispersion = disp, libsizes = libsizes[group == unqgrp], len = len[group == unqgrp], tol = 1e-50, maximum = TRUE)$maximum))
+              } else return(optimise(mualt, interval = c(0, 1), cts = cts[which(group == unqgrp)], dispersion = disp, libsizes = libsizes[which(group == unqgrp)], len = len[which(group == unqgrp)], tol = 1e-50, maximum = TRUE)$maximum))
             list(dispersion = dispersion, mus = mus)
           })
         } else {
-          repgroups <- lapply(groups, function(group) list(group = group, repData = lapply(unique(group), function(unqgrp) list(replicates = replicates[group == unqgrp], cts = cts[group == unqgrp], len = len[group == unqgrp], libsizes = libsizes[group == unqgrp]))))
+          repgroups <- lapply(groups, function(group) list(group = group, repData = lapply(unique(group[!is.na(group)]), function(unqgrp) list(replicates = replicates[which(group == unqgrp)], cts = cts[which(group == unqgrp)], len = len[which(group == unqgrp)], libsizes = libsizes[which(group == unqgrp)]))))
           
           dispgroups <- switch(estimation,
                                QL = lapply(repgroups, function(repgroup) list(group = repgroup$group, dispersion = sapply(repgroup$repData, findDisp.QL))),
@@ -296,13 +296,13 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
                                )
           groupness <- lapply(dispgroups, function(dispgroup)
                               list(dispersion = dispgroup$dispersion,
-                                   mus = sapply(unique(dispgroup$group),
+                                   mus = sapply(unique(dispgroup$group[!is.na(dispgroup$group)]),
                                      function(unqgrp)
-                                     if(all(cts[dispgroup$group == unqgrp] == 0) & zeroML) {
+                                     if(all(cts[dispgroup$group == unqgrp] == 0, na.rm = TRUE) & zeroML) {
                                        return(0)
-                                     } else if(all(cts[dispgroup$group == unqgrp] == 0)) {
+                                     } else if(all(cts[dispgroup$group == unqgrp] == 0, na.rm = TRUE)) {
                                        return(
-                                              optimize(muZeros, interval = c(0, max(1 / libsizes[dispgroup$group == unqgrp] * len[dispgroup$group == unqgrp])),
+                                              optimize(muZeros, interval = c(0, max(1 / libsizes[dispgroup$group == unqgrp] * len[dispgroup$group == unqgrp], na.rm = TRUE)),
                                                        cts = cts[dispgroup$group == unqgrp], dispersion = 1, libsizes = libsizes[dispgroup$group == unqgrp], len = len[dispgroup$group == unqgrp], tol = 1e-50, maximum = FALSE)$minimum)
                                      } else return(optimise(mualt, interval = c(0, 1000), cts = cts[dispgroup$group == unqgrp], dispersion = dispgroup$dispersion[unique(dispgroup$group) == unqgrp], libsizes = libsizes[dispgroup$group == unqgrp], len = len[dispgroup$group == unqgrp], tol = 1e-50, maximum = TRUE)$maximum))))
         }
@@ -428,7 +428,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
               mualt <- function(mu, cts, dispersion, libsizes, len)
                 sum(dnbinom(cts, size = 1/ dispersion, mu = mu * libsizes * len, log = TRUE))
               
-              groupness <- lapply(groups, function(group) list(dispersion = rep(disp, length(unique(group))), mus = sapply(unique(group), function(unqgrp) optimise(mualt, interval = c(0, 1000), cts = cts[group == unqgrp], dispersion = disp, libsizes = libsizes[group == unqgrp], len = len[group == unqgrp], tol = 1e-50, maximum = TRUE)$maximum)))
+              groupness <- lapply(groups, function(group) list(dispersion = rep(disp, length(unique(group))), mus = sapply(unique(group), function(unqgrp) optimise(mualt, interval = c(0, 1000), cts = cts[which(group == unqgrp)], dispersion = disp, libsizes = libsizes[which(group == unqgrp)], len = len[which(group == unqgrp)], tol = 1e-50, maximum = TRUE)$maximum)))
             })
       
     } else {
@@ -442,7 +442,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
 
   
   NBpar <- lapply(1:length(groups), function(gg)
-                  lapply(unique(groups[[gg]]), function(ii) t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], 1)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))))
+                  lapply(unique(groups[[gg]][!is.na(groups[[gg]])]), function(ii) t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], 1)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))))
   
   if(verbose) message("done.")
 

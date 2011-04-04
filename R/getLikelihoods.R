@@ -406,13 +406,6 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
 
     if(is.null(priorSubset)) priorSubset <- subset
     
-#    if(!is.null(priorSubset))
-#      {
-#        priorSub <- rep(FALSE, nrow(cD@data))
-#        priorSub[priorSubset] <- TRUE
-#        priorSubset <- priorSub[subset]
-#      }
-
     if(is.null(conv)) conv <- 0
     if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
     if(ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE    
@@ -493,7 +486,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         } else {
           environment(constructWeights) <- getLikelihoodsEnv
           clusterCall(cl, clustAssign, numintSamp, "numintSamp")
-          clusterCall(cl, clustAssign, priorWeights, "priorWeights")
+          #clusterCall(cl, clustAssign, priorWeights, "priorWeights")
           clusterCall(cl, constructWeights, TRUE)
           ps <- parRapply(cl, cbind(1:nrow(cD@data), seglens, cD@data)[postRows,, drop = FALSE],
                           NBbootStrap, libsizes = cD@libsizes, groups = groups, lensameFlag = lensameFlag)
@@ -503,6 +496,11 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
         rps[postRows,] <- ps
 
+        if(returnPD) {
+              if(verbose) message("done.")
+              return(rps)
+            }
+        
         if(pET != "none")
           {
             restprs <- getPosteriors(rps[priorSubset,, drop = FALSE], prs, pET = pET, marginalise = FALSE, groups = groups, priorSubset = NULL, cl = cl)$priors
@@ -548,8 +546,6 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     
     if(verbose) message("done.")
 
-    if(returnPD) return(rps)
-    
     if(!returnAll) return(listPosts[[cc]]) else {
       if(length(listPosts) == 1) return(listPosts[[1]]) else return(listPosts)
     }

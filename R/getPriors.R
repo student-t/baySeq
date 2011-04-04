@@ -386,7 +386,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
     sy <- cbind(sampled = sy[ordData], representative = rep(1:length(copies), copies))
 
     y <- y[dups,, drop = FALSE]
-    if(lensameFlag) seglensy <- seglens[dups] else seglensy <- seglens[dups,, drop = FALSE]
+    if(lensameFlag) seglensy <- seglensy[dups] else seglensy <- seglensy[dups,, drop = FALSE]
     
     if(any(sampData == 0) & zeroML)
       {

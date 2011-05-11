@@ -327,8 +327,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
             seglen <- rep(seglen, length(cts))
           
           sum(
-              sapply(unique(group), function(gg) {
-                selcts <- group == gg
+              sapply(unique(group[!is.na(group)]), function(gg) {
+                selcts <- group == gg & !is.na(group)
                 prior <- priors[[gg]]
                 weightings <- wts[[gg]]
                 nzWts <- weightings != 0
@@ -361,7 +361,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         }
       
       sapply(1:length(NBpriors), function(gg)
-             PDgivenr.NB(number = number, cts = cts, seglen = seglen, libsizes = libsizes, priors = NBpriors[[gg]], group = groups[[gg]], wts = priorWeights[[gg]], sampInfo = numintSamp[[gg]]))
+             PDgivenr.NB(number = number, cts = cts, seglen = seglen, libsizes = libsizes, priors = NBpriors[[gg]], group = groups[[gg]], wts = priorWeights[[gg]], sampInfo = numintSamp[[gg]])
+             )
     }
 
     if(!is.null(cl))
@@ -430,7 +431,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     
     if(nullData)
       {
-        ndelocGroup <- which(unlist(lapply(cD@groups, function(x) all(x == x[1])))) 
+        ndelocGroup <- which(unlist(lapply(cD@groups, function(x) all(x[!is.na(x)] == x[!is.na(x)][1])))) 
         if(length(ndelocGroup) == 0)
           stop("If 'nullData = TRUE' then there must exist some vector in groups whose members are all identical")
         
@@ -440,7 +441,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         weights <- priorWeights[[ndelocGroup]][[1]]
         sep <- bimodalSep(ndePriors[ndePriors > -Inf], weights[ndePriors > -Inf], bQ = c(0, 1))
         
-        groups <- c(groups, list(rep(1, ncol(cD@data))))
+        groups <- c(groups, groups[ndelocGroup])
         ndenulGroup <- length(groups)
         prs <- c(prs, 1 - sum(prs))
 

@@ -4,6 +4,9 @@ getTPs <- function(cD, group, decreasing = TRUE, TPs)
       function(x)
         max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
 
+    if(is.character(group))
+      group <- pmatch(group, names(cD@groups))
+    
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
     if(nrow(cD@posteriors) == 0)

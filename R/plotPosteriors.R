@@ -1,7 +1,19 @@
-plotPosteriors <- function(cD, group = 1, samplesA, samplesB, ...)
+plotPosteriors <- function(cD, group, samplesA, samplesB, ...)
 {
   if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
+
+  if(is.character(group))
+    group <- pmatch(group, names(cD@groups))
+  
+  if(missing(samplesA))
+    samplesA <- which(cD@groups[[group]] == 1)
+  
+  if(missing(samplesB))
+    samplesB <- which(cD@groups[[group]] == 2)
+
+  if(length(samplesA) == 0 | length(samplesB) == 0)
+    stop("Sample information is missing, and cannot be inferred.")
   
   if(nrow(cD@posteriors) > 0)
     {

@@ -139,44 +139,40 @@ returnAll = FALSE, returnPD = FALSE, verbose = TRUE, cl)
   \code{\link{topCounts}}, \code{\link{getTPs}}}
 \examples{
 
-library(baySeq)
-
 # See vignette for more examples.
 
-# Create a {countData} object and estimate priors for the
-# Poisson methods.
-data(simCount)
-data(libsizes)
-replicates <- c(1,1,1,1,1,2,2,2,2,2)
-groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20,
-takemean = TRUE, cl = NULL)
+# If we do not wish to parallelise the functions we set the cluster
+# object to NULL.
 
-# Get likelihoods for data with Poisson method
-CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5),
-pET = "BIC", marginalise = FALSE, cl = NULL)
-
-
-# Alternatively, get priors for negative binomial method
-CDP.NB <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = NULL)
-
-# Get likelihoods for data with negative binomial method with bootstrapping
-
-CDPost.NB <- getLikelihoods.NBboot(CDP.NB, prs = c(0.5, 0.5),
-pET = "BIC", marginalise = FALSE, bootStraps = 1, cl = NULL)
+cl <- NULL
 
 # Alternatively, if we have the 'snow' package installed we
 # can parallelise the functions. This will usually (not always) offer
 # significant performance gain.
 
-cl <- NULL
 try(library(snow))
 try(cl <- makeCluster(4, "SOCK"))
 
-CDP.NB <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
-CDPost.NB <- getLikelihoods.NB(CDP.NB, prs = c(0.5, 0.5), 
-pET = "BIC", marginalise = FALSE, cl = cl)
+# load test data
+data(simData)
+
+
+# Create a {countData} object from test data.
+
+replicates <- c("simA", "simA", "simA", "simA", "simA", "simB", "simB", "simB", "simB", "simB")
+groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
+CD <- new("countData", data = simData, replicates = replicates, groups = groups)
+
+#estimate library sizes for countData object
+CD@libsizes <- getLibsizes(CD)
+
+# Get priors for negative binomial method
+CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
+
+# Get likelihoods for data with negative binomial method.
+
+CDPost <- getLikelihoods.NBboot(CDPriors, prs = c(0.5, 0.5),
+pET = "BIC", marginalise = FALSE, bootStraps = 1, cl = cl)
 
 }
 

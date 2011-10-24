@@ -66,6 +66,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
 
     if(!is.null(cl))
       {
+
         getLikelihoodsEnv <- new.env(parent = .GlobalEnv)
         environment(PrgivenD.Dirichlet) <- getLikelihoodsEnv
       }
@@ -403,14 +404,17 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
       stop("'subset' must be integer, numeric, or NULL")
     
-    if(is.null(subset)) subset <- 1:nrow(cD@data)
+    if(is.null(subset)) subset <- 1:nrow(cD)
 
+    subset <- subset[rowSums(is.na(cD@data[subset,,drop = FALSE])) == 0]
+    
     if(is.null(priorSubset)) priorSubset <- subset
     
     if(is.null(conv)) conv <- 0
     if(nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))
     if(ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE    
-    
+
+    libsizes <- as.double(cD@libsizes)
     groups <- cD@groups
     NBpriors <- cD@priors$priors
     numintSamp <- cD@priors$sampled
@@ -483,14 +487,14 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
               priorWeights <- constructWeights()
             }
           ps <- apply(cbind(1:nrow(cD@data), seglens, cD@data)[postRows,,drop = FALSE],
-                      1, NBbootStrap, libsizes = cD@libsizes, groups = groups, lensameFlag = lensameFlag)
+                      1, NBbootStrap, libsizes = libsizes, groups = groups, lensameFlag = lensameFlag)
         } else {
           environment(constructWeights) <- getLikelihoodsEnv
           clusterCall(cl, clustAssign, numintSamp, "numintSamp")
           #clusterCall(cl, clustAssign, priorWeights, "priorWeights")
           clusterCall(cl, constructWeights, TRUE)
           ps <- parRapply(cl, cbind(1:nrow(cD@data), seglens, cD@data)[postRows,, drop = FALSE],
-                          NBbootStrap, libsizes = cD@libsizes, groups = groups, lensameFlag = lensameFlag)
+                          NBbootStrap, libsizes = libsizes, groups = groups, lensameFlag = lensameFlag)
         }
         
         ps <- matrix(ps, ncol = length(groups), byrow = TRUE)

@@ -8,6 +8,12 @@ function(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
 
     if(normaliseData)
       data <- round(t(t(cD@data) / cD@libsizes) * (prod(cD@libsizes))^(1/length(cD@libsizes))) else data <- cD@data
+
+    if(is.character(group))
+      group <- pmatch(group, names(cD@groups))
+
+    if(class(cD) == "lociData") annotation <- cbind(data.frame(chr = seqnames(cD@coordinates), start = as.numeric(start(cD@coordinates)), end = as.numeric(end(cD@coordinates))), cD@annotation) else annotation <- cD@annotation
+      
     
     if(is.null(group))
       {
@@ -18,7 +24,7 @@ function(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
       } else
     {
       selTags <- order(cD@posteriors[,group], decreasing = decreasing)[1:number]
-      topTags <- data.frame(cD@annotation[selTags,, drop = FALSE], data[selTags,,drop = FALSE], Likelihood = exp(cD@posteriors[selTags, group]), FDR = cumsum(1 - exp(cD@posteriors[selTags, group])) / 1:number)
+      topTags <- data.frame(annotation[selTags,, drop = FALSE], data[selTags,,drop = FALSE], Likelihood = exp(cD@posteriors[selTags, group]), FDR = cumsum(1 - exp(cD@posteriors[selTags, group])) / 1:number)
     }
     rownames(topTags) <- rownames(cD@data)[selTags]
     topTags

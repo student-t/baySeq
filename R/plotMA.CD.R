@@ -1,5 +1,26 @@
 plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL, ...)
 {
+  if(is.character(samplesA)) {
+    Asamps <-  which(as.character(cD@replicates) %in% samplesA)
+    if(!all(samplesA %in% cD@replicates))
+      Asamps <- c(Asamps, which(colnames(cD@data) %in% samplesA[!(samplesA %in% as.character(cD@replicates))]))
+    if(!all(samplesA %in% c(colnames(cD@data), as.character(cD@replicates)))) warning("Some members of 'samplesA' were not found!")
+    samplesA <- Asamps
+  }
+  if(length(samplesA) == 0)
+    stop("Can't find any data for sample set A!")
+  
+  if(is.character(samplesB)) {
+    Bsamps <-  which(as.character(cD@replicates) %in% samplesB)
+    if(!all(samplesB %in% cD@replicates))
+      Bsamps <- c(Bsamps, which(colnames(cD@data) %in% samplesB[!(samplesB %in% as.character(cD@replicates))]))
+    if(!all(samplesB %in% c(colnames(cD@data), as.character(cD@replicates)))) warning("Some members of 'samplesB' were not found!")
+    samplesB <- Bsamps
+  }
+
+  if(length(samplesB) == 0)
+    stop("Can't find any data for sample set B!")  
+  
   if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
@@ -25,7 +46,8 @@ plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL
 
   Azeros <- which(Adata == 0)
   Bzeros <- which(Bdata == 0)
-  infRatio <- ceiling(max(abs((log2(Adata) - log2(Bdata))[-union(Azeros, Bzeros)])))
+  nonzeros <- which(Adata != 0 & Bdata != 0)
+  infRatio <- ceiling(max(abs((log2(Adata) - log2(Bdata))[nonzeros]), na.rm = TRUE))
   if(!is.null(scale) && scale > infRatio)
     infRatio <- scale
 

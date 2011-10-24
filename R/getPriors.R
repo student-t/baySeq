@@ -4,6 +4,12 @@ function(cD, samplesize = 1e5, perSE = 1e-1, maxit = 1e6, verbose = TRUE)
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
+    if(length(cD@libsizes) == 0)
+      {
+        warning("'@libsizes' slot empty; inferring libsizes using default settings")
+        cD <- getLibsizes(cD)
+      }
+    
     if(verbose) message("Finding priors...", appendLF = FALSE)
     
     `PgivenDir` <-
@@ -55,6 +61,13 @@ function(cD, samplesize = 1e5, perSE = 1e-1, maxit = 1e6, verbose = TRUE)
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
 
+    if(length(cD@libsizes) == 0)
+      {
+        warning("'@libsizes' slot empty; inferring libsizes using default settings")
+        cD <- getLibsizes(cD)
+      }
+
+  
   if(verbose) message("Finding priors...", appendLF = FALSE)
   
   priorPars <- function(seluu, initial, lensameFlag)
@@ -171,6 +184,13 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
 
+  if(length(cD@libsizes) == 0)
+    {
+      warning("'@libsizes' slot empty; inferring libsizes using default settings")
+      cD <- getLibsizes(cD)
+    }
+  
+  
   if(verbose) message("Finding priors...", appendLF = FALSE)
   
   optimoverPriors <- function(x, estimation, replicates, groups, libsizes, equalDispersions, lensameFlag, zeroML)
@@ -320,6 +340,8 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
   
   if(is.null(samplingSubset))
     samplingSubset <- 1:nrow(cD)
+
+  samplingSubset <- samplingSubset[rowSums(is.na(cD@data[samplingSubset,,drop = FALSE])) == 0]
   
   sD <- cD[samplingSubset,]
   
@@ -333,7 +355,8 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
   tupData <- cbind(sD@data, seglens)
   
   ordData <- do.call(order, as.data.frame(tupData))
-  dups <- c(1, which(rowSums(tupData[ordData[-1],, drop = FALSE] == (tupData)[ordData[-length(ordData)],, drop = FALSE]) != ncol(tupData)) + 1)
+  if(length(ordData) > 1)
+    dups <- c(1, which(rowSums(tupData[ordData[-1],, drop = FALSE] == (tupData)[ordData[-length(ordData)],, drop = FALSE]) != ncol(tupData)) + 1) else dups <- 1
 
   if(zeroML)
     {
@@ -401,9 +424,10 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
 
   NBpar <- list()
 
-
   if(estimation == "edgeR")
     {
+      if(!("edgeR" %in% loadedNamespaces()))
+        library(edgeR)
       dge <- new("DGEList")
       dge$counts = y
       dge$samples = data.frame(group = replicates, lib.size = libsizes)

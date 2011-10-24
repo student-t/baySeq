@@ -22,6 +22,8 @@
   Objects of the \code{'countData'} class should contain the following components:  
   \tabular{ll}{
     \code{data}:\tab Count data (matrix).\cr
+    \code{replicates}:\tab The replicate structure of the data. Stored
+  as a factor, but can be given in any form.\cr
     \code{libsizes}:\tab Vector of library size for each sample.\cr
     \code{groups}:\tab Group (model) structure to test on the data
     (list). \cr
@@ -63,16 +65,16 @@ all segments have the same length.
 
 \examples{
 
-library(baySeq)
+#load test data
+data(simData)
 
-data(simCount)
-data(libsizes)
+# Create a 'countData' object from test data.
+replicates <- c("simA", "simA", "simA", "simA", "simA", "simB", "simB", "simB", "simB", "simB")
+groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
+CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 
-replicates <- c(1,1,1,1,1,2,2,2,2,2)
-groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-
-#create new 'countData' object
-CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
+#estimate library sizes for countData object
+CD@libsizes <- getLibsizes(CD)
 
 CD[1:10,]
 dim(CD)

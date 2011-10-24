@@ -109,28 +109,39 @@ FALSE, cl, ...)
 \examples{
 # See vignette for more examples.
 
-# Create a {countData} object.
-data(simCount)
-data(libsizes)
-replicates <- c(1,1,1,1,1,2,2,2,2,2)
-groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups =
-groups)
 
-# If we have the 'snow' package installed we can parallelise the prior
-# estimation. This will usually (depending on your parallelisation
-# set-up) offer significant performance gains. 
+# If we do not wish to parallelise the functions we set the cluster
+# object to NULL.
 
 cl <- NULL
+
+# Alternatively, if we have the 'snow' package installed we
+# can parallelise the functions. This will usually (not always) offer
+# significant performance gain.
+
 try(library(snow))
 try(cl <- makeCluster(4, "SOCK"))
 
-# Estimate priors using Poisson method.
-DP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = cl)
+# load test data
+data(simData)
 
-# Alternatively, get priors for negative binomial method.
+# Create a {countData} object from test data.
 
-CDP.NBML <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
+replicates <- c("simA", "simA", "simA", "simA", "simA", "simB", "simB", "simB", "simB", "simB")
+groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
+CD <- new("countData", data = simData, replicates = replicates, groups = groups)
+
+#estimate library sizes for countData object
+CD@libsizes <- getLibsizes(CD)
+
+# Get priors for negative binomial method
+CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
+
+# Get likelihoods for data with negative binomial method.
+
+CDPost <- getLikelihoods.NBboot(CDPriors, prs = c(0.5, 0.5),
+pET = "BIC", marginalise = FALSE, bootStraps = 1, cl = cl)
+
 }
 
 

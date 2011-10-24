@@ -54,15 +54,12 @@ setMethod("rbind2", "countData", function(x, y) {
   
 
 
-setMethod("initialize", "countData", function(.Object, ..., seglens) {
+setMethod("initialize", "countData", function(.Object, ..., replicates, seglens) {
   .Object <- callNextMethod(.Object, ...)
-  if(length(.Object@libsizes) != ncol(.Object@data))
-    stop("Length of '@libsizes' slot must equal number of columns of '@data' slot.")
+  if(length(.Object@libsizes) != ncol(.Object@data) & length(.Object@libsizes) != 0)
+    stop("Length of '@libsizes' slot, if provided, must equal number of columns of '@data' slot.")
   if(nrow(.Object@annotation) > 0 & nrow(.Object@annotation) != nrow(.Object@data))
     warning("Number of rows of '@annotation' slot not same as '@data' slot.")
-
-  if(length(.Object@replicates) != ncol(.Object@data) & length(.Object@replicates) != 0)
-    stop("The length of the '@replicates' slot, if provided, must equal number of columns of '@data' slot.")
   
   if(any(lapply(.Object@groups, length) != ncol(.Object@data)))
     stop("All vectors in '@groups' slot must equal number of columns of '@data' slot.")
@@ -87,6 +84,15 @@ setMethod("initialize", "countData", function(.Object, ..., seglens) {
   if(ncol(.Object@seglens) != 1 & ncol(.Object@seglens) != ncol(.Object@data))
     stop("If 'seglens' specified, it must either be a vector, a matrix with one column, or a matrix with the same number of columns as 'data'.")
     }
+  if(!missing(replicates)) {
+    if(length(replicates) != ncol(.Object@data))
+      stop("The length of the '@replicates' slot must equal number of columns of '@data' slot.")
+    .Object@replicates <- as.factor(replicates)
+  } #else if(length(.Object@replicates) == 0) stop("Replicate data must be provided")
+
+  if(length(colnames(.Object@data)) == 0) colnames(.Object@data) <- make.unique(c(as.character(unique(.Object@replicates)), as.character(.Object@replicates)))[-(1:(length(unique(.Object@replicates))))]
+  if(length(.Object@libsizes) != 0)
+    names(.Object@libsizes) <- colnames(.Object@data)
   .Object
 })
 
@@ -123,6 +129,9 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   if(nrow(x@posteriors) > 0)
     x@posteriors <- x@posteriors[i,, drop = FALSE]
 
+  if(length(x@nullPosts) > 0)
+    x@nullPosts <- x@nullPosts[i]
+
   if(nrow(x@seglens) > 0)
     {
       if(ncol(x@seglens) == 1) {
@@ -138,33 +147,40 @@ setMethod("dim", "countData", function(x) {
 })
 
 setMethod("show", "countData", function(object) {
+
   cat(paste('An object of class "', class(object), '"\n', sep = ""))
   cat(paste(nrow(object), 'rows and', ncol(object), 'columns\n'))
-  cat('\nSlot "data":\n')
-  if(nrow(object) > 10)
-    {
-      print(object@data[1:10,])
-      cat(paste(nrow(object) - 10), "more rows...\n")
-    } else print(object@data)
-  cat('\nSlot "libsizes":\n')
+  
+  cat('\nSlot "replicates"\n')
+  print(object@replicates)
+  
+  cat('\nSlot "libsizes"\n')
   print(object@libsizes)
+
   cat('\nSlot "groups":\n')
   print(object@groups)
-  cat('\nSlot "annotation":\n')
-  if(nrow(object@annotation) > 10 & ncol(object@annotation) > 0)
+
+  cat('\nSlot "data":\n')
+  if(nrow(object) > 5)
     {
-      print(object@annotation[1:10,])
-      cat(paste(nrow(object) - 10), "more rows...\n")
+      print(object@data[1:5,])
+      cat(paste(nrow(object) - 5), "more rows...\n")
+    } else print(object@data)
+  cat('\nSlot "annotation":\n')
+  if(nrow(object@annotation) > 5 & ncol(object@annotation) > 0)
+    {
+      print(object@annotation[1:5,])
+      cat(paste(nrow(object) - 5), "more rows...\n")
     } else print(object@annotation)
 
   if(nrow(object@posteriors) > 0)
     {
       cat('Slot "posteriors":\n')
-      if(nrow(object@posteriors) > 10)
+      if(nrow(object@posteriors) > 5)
         {
-          print(object@posteriors[1:10,])
-          cat(paste(nrow(object) - 10), "more rows...\n")
-        } else print(object@posteriors)
+          print(exp(object@posteriors[1:5,]))
+          cat(paste(nrow(object) - 5), "more rows...\n")
+        } else print(exp(object@posteriors))
     }
   if(length(object@estProps) > 0)
     {

@@ -20,7 +20,10 @@ plotPriors(cD, group)
     estimated using the assumption of a Negative Binomial distribution
     (see \code{\link{getPriors.NB}}).}
   \item{group}{Which group should we plot the priors for? In general,
-    should be the group that defines non-differentially expressed data.}
+    should be the group that defines non-differentially expressed
+    data. Can be defined either as the number of the element in
+    \code{'cD@groups'} or as a string which will be partially matched to
+    the names of the \code{'cD@groups'} elements.} 
 }
 \details{
   If the plot of the data appears bimodal, then it may be sensible to
@@ -36,15 +39,31 @@ plotPriors(cD, group)
 
 \examples{
 
-# Create a {countData} object and estimate priors for the Poisson methods.
-data(simSeg)
-data(libsizes)
-replicates <- c(1,1,1,1,1,2,2,2,2,2)
-groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simSeg[,-1], replicates = replicates, seglens = simSeg[,1], libsizes = libsizes, groups = groups)
-CDP.NB <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = NULL)
+# Create a {countData} object.
+data(simData)
 
-plotPriors(CDP.NB, group = 1)
+replicates <- c("simA", "simA", "simA", "simA", "simA", "simB", "simB", "simB", "simB", "simB")
+groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
+CD <- new("countData", data = simData, replicates = replicates, groups = groups)
+
+#estimate library sizes for countData object
+CD@libsizes <- getLibsizes(CD)
+
+# If we do not wish to parallelise the functions we set the cluster
+# object to NULL.
+
+cl <- NULL
+
+# Alternatively, if we have the 'snow' package installed we
+# can parallelise the functions. This will usually (not always) offer
+# significant performance gain.
+
+try(library(snow))
+try(cl <- makeCluster(4, "SOCK"))
+
+CDPriors <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
+
+plotPriors(CDPriors, group = "NDE")
 }
 
 \keyword{hplot}

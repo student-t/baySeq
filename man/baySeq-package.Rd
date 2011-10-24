@@ -47,31 +47,34 @@ Maintainer: Thomas J. Hardcastle <tjh48@cam.ac.uk>
 # See vignette for more examples.
 
 # load test data
-data(simCount)
-data(libsizes)
+data(simData)
+
 
 # replicate structure of data
-replicates <- c(1,1,1,1,1,2,2,2,2,2)
+replicates <- c("simA", "simA", "simA", "simA", "simA", "simB", "simB", "simB", "simB", "simB")
 
 # define hypotheses on data
-groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
+groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
 
 # construct 'countData' object
-CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
-CD[1:10,]
+CD <- new("countData", data = simData, replicates = replicates, groups =
+groups)
 
-# estimate prior distributions on 'countData' object using Poisson
+#estimate library sizes for countData object
+CD@libsizes <- getLibsizes(CD)
+
+# estimate prior distributions on 'countData' object using negative binomial
 # method. Other methods are available - see getPriors
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20, takemean = TRUE, cl = NULL)
+CDPriors <- getPriors.NB(CD, cl = NULL)
 
 # estimate posterior likelihoods for each row of data belonging to each hypothesis
-CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), pET = "BIC", cl = NULL)
+CDPost <- getLikelihoods(CDPriors, cl = NULL)
 
 # display the rows of data showing greatest association with the second
 # hypothesis (differential expression)
-topCounts(CDPost.Poi, group = 2, number = 10)
+topCounts(CDPost, group = "DE", number = 10)
 
 # find true positive selection rate
-getTPs(CDPost.Poi, group = 2, TPs = 1:100)[1:100]
+getTPs(CDPost, group = "DE", TPs = 1:100)[1:100]
 
 }

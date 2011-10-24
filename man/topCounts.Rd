@@ -26,29 +26,49 @@ topCounts(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
   'cD' object and the raw data from the '@data' slot, together with the
   posterior likelihoods and false discovery rates.
 
-  If group = NULL, then the function looks at the posterior likelihoods
-  that the data have no true differential expression (if calculated).
+  The argument 'group' can be specified either as a number, giving the
+  index of an element in the \code{cD@groups} list, or as a character
+  string identifying an element by name. Partial matching is allowed. If
+  group = NULL, then the function looks at the posterior likelihoods
+  that the data have no true differential expression (if calculated). 
 }
 \author{Thomas J. Hardcastle}
 \seealso{\code{\link{countData}}}
 
 \examples{
 
-data(simCount)
-data(libsizes)
+# Create a {countData} object.
+data(simData)
 
-# Make 'countData' object and calculate posterior likelihoods for each
-# item belonging to each hypothesis.
-replicates <- c(1,1,1,1,1,2,2,2,2,2)
-groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simCount, replicates = replicates, libsizes = libsizes, groups = groups)
-CDP.Poi <- getPriors.Pois(CD, samplesize = 20, cl = NULL)
-CDPost.Poi <- getLikelihoods.Pois(CDP.Poi, prs = c(0.5, 0.5), pET = "BIC", cl = NULL)
+replicates <- c("simA", "simA", "simA", "simA", "simA", "simB", "simB", "simB", "simB", "simB")
+groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
+CD <- new("countData", data = simData, replicates = replicates, groups = groups)
+
+#estimate library sizes for countData object
+CD@libsizes <- getLibsizes(CD)
+
+# If we do not wish to parallelise the functions we set the cluster
+# object to NULL.
+
+cl <- NULL
+
+# Alternatively, if we have the 'snow' package installed we
+# can parallelise the functions. This will usually (not always) offer
+# significant performance gain.
+
+try(library(snow))
+try(cl <- makeCluster(4, "SOCK"))
+
+CDPriors <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
+CDPost <- getLikelihoods(CDPriors, cl = cl)
 
 # Report the top ten rows of data that have highest likelihood of belonging to
 # group 2 of the data (i.e., differentially expressed)
 
-topCounts(CDPost.Poi, group = 2, number = 10)
+topCounts(CDPost, group = "DE", number = 10)
+
+# equivalently...
+topCounts(CDPost, group = 2, number = 10)
 
 }
 

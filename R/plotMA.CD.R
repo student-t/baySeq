@@ -41,8 +41,8 @@ plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL
       Bdata <- Bdata / cD@seglens[,samplesB]
     }
   
-  Adata <- colSums(t(cD@data[,samplesA])) / length(samplesA)
-  Bdata <- colSums(t(cD@data[,samplesB])) / length(samplesB)
+  Adata <- colSums(t(Adata)) / length(samplesA)
+  Bdata <- colSums(t(Bdata)) / length(samplesB)
 
   Azeros <- which(Adata == 0)
   Bzeros <- which(Bdata == 0)

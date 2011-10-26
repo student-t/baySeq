@@ -63,6 +63,8 @@ try(cl <- makeCluster(4, "SOCK"))
 
 CDPriors <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
 
+try(stopCluster(cl))
+
 plotPriors(CDPriors, group = "NDE")
 }
 

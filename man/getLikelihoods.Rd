@@ -174,6 +174,8 @@ CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
 CDPost <- getLikelihoods.NBboot(CDPriors, prs = c(0.5, 0.5),
 pET = "BIC", marginalise = FALSE, bootStraps = 1, cl = cl)
 
+try(stopCluster(cl))
+
 }
 
 \keyword{distribution}

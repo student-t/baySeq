@@ -75,6 +75,8 @@ CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
 CDPost <- getLikelihoods.NBboot(CDPriors, prs = c(0.5, 0.5),
 pET = "BIC", marginalise = FALSE, bootStraps = 1, cl = cl)
 
+try(stopCluster(cl))
+
 # If the first hundred rows in the 'simData' matrix are known to be
 # truly differentially expressed (the second hypothesis defined in the
 # 'groups' list) then we find the number of true positives for the top n

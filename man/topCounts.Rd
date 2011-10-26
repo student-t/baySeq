@@ -62,6 +62,8 @@ try(cl <- makeCluster(4, "SOCK"))
 CDPriors <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
 CDPost <- getLikelihoods(CDPriors, cl = cl)
 
+try(stopCluster(cl))
+
 # Report the top ten rows of data that have highest likelihood of belonging to
 # group 2 of the data (i.e., differentially expressed)
 

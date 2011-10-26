@@ -68,15 +68,17 @@ try(library(snow))
 try(cl <- makeCluster(4, "SOCK"))
 
 # Get priors for negative binomial method
-CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = NULL)
+CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
 
 # Get likelihoods for data with negative binomial method
 
-CDPost <- getLikelihoods.NB(CDPriors, prs = c(0.5, 0.5), pET = "BIC", cl = NULL)
+CDPost <- getLikelihoods.NB(CDPriors, prs = c(0.5, 0.5), pET = "BIC", cl = cl)
 
 plotPosteriors(CDPost, group = "DE", samplesA = 1:5, samplesB = 6:10)
 
 # equivalent to plotPosteriors(CDPost, group = 2, samplesA = 1:5, samplesB = 6:10)
+
+try(stopCluster(cl))
 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

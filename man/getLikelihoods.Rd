@@ -150,12 +150,11 @@ cl <- NULL
 # can parallelise the functions. This will usually (not always) offer
 # significant performance gain.
 
-try(library(snow))
-try(cl <- makeCluster(4, "SOCK"))
+\dontrun{try(library(snow))}
+\dontrun{try(cl <- makeCluster(4, "SOCK"))}
 
 # load test data
 data(simData)
-
 
 # Create a {countData} object from test data.
 
@@ -167,11 +166,16 @@ CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 CD@libsizes <- getLibsizes(CD)
 
 # Get priors for negative binomial method
-CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
+\dontrun{CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation =
+"QL", cl = cl)}
+
+# To speed up the processing of this example, we have already created
+# the `CDPriors' object.
+data(CDPriors)
 
 # Get likelihoods for data with negative binomial method.
 
-CDPost <- getLikelihoods.NBboot(CDPriors, prs = c(0.5, 0.5),
+CDPost <- getLikelihoods.NB(CDPriors, prs = c(0.5, 0.5),
 pET = "BIC", marginalise = FALSE, bootStraps = 1, cl = cl)
 
 try(stopCluster(cl))

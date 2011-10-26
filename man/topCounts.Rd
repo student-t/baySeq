@@ -37,30 +37,10 @@ topCounts(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
 
 \examples{
 
-# Create a {countData} object.
-data(simData)
+# We load in a `countData' object containing the estimated posterior
+# likelihoods of expression (see `getLikelihoods').
 
-replicates <- c("simA", "simA", "simA", "simA", "simA", "simB", "simB", "simB", "simB", "simB")
-groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simData, replicates = replicates, groups = groups)
-
-#estimate library sizes for countData object
-CD@libsizes <- getLibsizes(CD)
-
-# If we do not wish to parallelise the functions we set the cluster
-# object to NULL.
-
-cl <- NULL
-
-# Alternatively, if we have the 'snow' package installed we
-# can parallelise the functions. This will usually (not always) offer
-# significant performance gain.
-
-try(library(snow))
-try(cl <- makeCluster(4, "SOCK"))
-
-CDPriors <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
-CDPost <- getLikelihoods(CDPriors, cl = cl)
+data(CDPost)
 
 try(stopCluster(cl))
 

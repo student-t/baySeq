@@ -46,39 +46,15 @@ plotPosteriors(cD, group, samplesA, samplesB, ...)
 \seealso{\code{\link{getPosteriors}}}
 
 \examples{
-data(simData)
 
-replicates <- c("simA", "simA", "simA", "simA", "simA", "simB", "simB", "simB", "simB", "simB")
-groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simData, replicates = replicates, groups = groups)
+# We load in a `countData' object containing the estimated posterior
+# likelihoods of expression (see `getLikelihoods').
 
-#estimate library sizes for countData object
-CD@libsizes <- getLibsizes(CD)
-
-# If we do not wish to parallelise the functions we set the cluster
-# object to NULL.
-
-cl <- NULL
-
-# Alternatively, if we have the 'snow' package installed we
-# can parallelise the functions. This will usually (not always) offer
-# significant performance gain.
-
-try(library(snow))
-try(cl <- makeCluster(4, "SOCK"))
-
-# Get priors for negative binomial method
-CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
-
-# Get likelihoods for data with negative binomial method
-
-CDPost <- getLikelihoods.NB(CDPriors, prs = c(0.5, 0.5), pET = "BIC", cl = cl)
+data(CDPost)
 
 plotPosteriors(CDPost, group = "DE", samplesA = 1:5, samplesB = 6:10)
 
 # equivalent to plotPosteriors(CDPost, group = 2, samplesA = 1:5, samplesB = 6:10)
-
-try(stopCluster(cl))
 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

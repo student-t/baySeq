@@ -41,39 +41,10 @@ getTPs(cD, group, decreasing = TRUE, TPs)
 
 # See vignette for more examples.
 
-# If we do not wish to parallelise the functions we set the cluster
-# object to NULL.
+# We load in a `countData' object containing the estimated posterior
+# likelihoods of expression (see `getLikelihoods').
 
-cl <- NULL
-
-# Alternatively, if we have the 'snow' package installed we
-# can parallelise the functions. This will usually (not always) offer
-# significant performance gain.
-
-try(library(snow))
-try(cl <- makeCluster(4, "SOCK"))
-
-# load test data
-data(simData)
-
-# Create a {countData} object from test data.
-
-replicates <- c("typeA", "typeA", "typeA", "typeA", "typeA",
-                "typeB", "typeB", "typeB", "typeB", "typeB")
-
-groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
-CD <- new("countData", data = simData, replicates = replicates, groups = groups)
-
-#estimate library sizes for countData object
-CD@libsizes <- getLibsizes(CD)
-
-# Get priors for negative binomial method
-CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)
-
-# Get likelihoods for data with negative binomial method.
-
-CDPost <- getLikelihoods.NBboot(CDPriors, prs = c(0.5, 0.5),
-pET = "BIC", marginalise = FALSE, bootStraps = 1, cl = cl)
+data(CDPost)
 
 try(stopCluster(cl))
 

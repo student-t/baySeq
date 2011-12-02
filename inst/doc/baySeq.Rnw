@@ -30,6 +30,7 @@ We begin by loading the \verb'baySeq' package.
 
 <<echo = false, results = hide>>=
 set.seed(102)
+options(width = 90)
 @
 
 
@@ -212,7 +213,7 @@ cDPair <- cD[,1:4]
 
 We then need to define the replicate structure of the \verb'countData' object. We do this by creating a vector that defines the replicate group that each sample belongs to.
 <<>>=
-cDPair@replicates <- as.factor(c("D3/D3", "D3/D3", "WT/D3", "WT/D3"))
+replicates(cDPair) <- as.factor(c("D3/D3", "D3/D3", "WT/D3", "WT/D3"))
 @ 
 
 We next need to define each of the models applicable to the data. In the first case, it is reasonable to suppose that at least some of the loci will be unaffected by the different experimental conditions prevailing in our replicate groups, and so we create one model of no differential expression. 
@@ -225,13 +226,13 @@ Each member of the \verb'NDE' vector represents one sample in our experiment. By
 
 We may also conjecture that some of the loci will be affected depending on whether the shoot is a Dicer mutant or a wild-type \textsl{Arabidopsis} sample.
 <<>>=
-mobile <- c(1,1,2,2)
+mobile <- c("non-mobile","non-mobile","mobile","mobile")
 @
 This vector indicates that the third and fourth samples, which consist of the wild-type shoot samples, are in a separate expression group to the first and second samples, corresponding to the Dicer 2,3,4 mutant shoot.
 
 We can now add these models to the locus data by modfiying the \verb'@groups' slot
 <<>>=
-cDPair@groups <- list(NDE = NDE, mobile = mobile)  
+groups(cDPair) <- list(NDE = NDE, mobile = mobile)
 @ 
 
 Now that we have defined our models, we need to establish prior distributions for the data. We do this using the \verb'getPriors.NB' function.
@@ -296,14 +297,14 @@ topCounts(cDPair, group = NULL, number = 500)
 @ 
 
  We can visualise the data in a number of ways. We can first examine the posterior likelihoods against log-ratio values.
-<<fig = FALSE, label=plotPosteriors>>=
+<<fig = FALSE, label=plotPairPosteriors>>=
 plotPosteriors(cDPair, group = 2, samplesA = 1:2, samplesB = 3:4)
 @ 
 
 \begin{figure}[!ht]
 \begin{center}
-<<label=figPlotPosteriors, fig=TRUE,echo=FALSE>>=
-<<plotPosteriors>>
+<<label=figPlotPairPosteriors, fig=TRUE,echo=FALSE>>=
+<<plotPairPosteriors>>
 @
 \caption{Posterior likelihoods of differential expression against log-ratios of the data. Where the data in one of the sample groups consists entirely of zeros, the log-ratio would be infinite. In this case, we plot instead the log-values of the non-zero group. Note the skew in the data; there are many more loci with a high-likelihood of differential expression over-expressed in the WT/D3 graft compared to the D3/D3 graft than vice versa.}
 \label{figMAPost}
@@ -339,25 +340,25 @@ As before, we begin by supposing that at least some of the loci will be unaffect
 
 We do this by defining a vector \verb'NDE'.
 <<>>=
-NDE <- c(1,1,1,1,1,1)
+NDE <- factor(c(1,1,1,1,1,1))
 @ 
 Each member of the \verb'NDE' vector represents one sample in our experiment. By giving each item in the \verb'NDE' vector the same number, we indicate that, under the hypothesis of no differential expression, all the samples belong to the same group.
 
 We may also conjecture that some of the loci that are present in the wild-type root will not be present in the Dicer 2,3,4 mutant roots. We represent this conjecture with the vector
 <<>>=
-d3dep <- c(1,1,1,1,2,2)
+d3dep <- c("wtRoot","wtRoot","wtRoot","wtRoot","dicerRoot","dicerRoot")
 @
 This vector indicates that the fifth and sixth samples, which consist of the wild-type root samples, are in a separate expression group to the other samples, corresponding to the Dicer 2,3,4 mutant.
 
 Finally, we hypothesise that some of the small RNAs generated in the wild-type shoot will move to the root. We represent this hypothesis with the vector
 <<>>=
-mobile <- c(1,1,2,2,2,2)
+mobile <- c("dicerShoot","dicerShoot","wtShoot","wtShoot","wtShoot","wtShoot")
 @
 This vector shows that all samples with a wild-type shoot are distinct from those samples with a Dicer 2,3,4 shoot.
 
 We can now add these models to the locus data by modfiying the \verb'@groups' slot
 <<>>=
-cD@groups <- list(NDE = NDE, d3dep = d3dep, mobile = mobile)  
+groups(cD) <- list(NDE = NDE, d3dep = d3dep, mobile = mobile)  
 @ 
 
 Note that in this case the replicate structure does not correspond to any biologically plausible model; we do not expect that any loci will be different between all three experimental groups.

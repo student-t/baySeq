@@ -1,4 +1,4 @@
-plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL, ...)
+plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL, ylab = "M", xlab = "A", ...)
 {
   if(is.character(samplesA)) {
     Asamps <-  which(as.character(cD@replicates) %in% samplesA)
@@ -59,7 +59,7 @@ plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL
   A[Azeros] <- log2(Bdata[Azeros])
   A[Bzeros] <- log2(Adata[Bzeros])
   
-  plot(y = M, x = A, ylim = c(-infRatio - 3, infRatio + 3), axes = FALSE, ylab = "M", xlab = "A",...)
+  plot(y = M, x = A, ylim = c(-infRatio - 3, infRatio + 3), axes = FALSE, xlab = xlab, ylab = ylab, ... )
   axis(side = 1)
 
   #maxis <- axTicks(side = 2)

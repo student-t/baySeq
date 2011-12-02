@@ -9,7 +9,7 @@ function(cD, group)
 
     if(cD@priorType != "NB") stop("Incorrect prior type for this method of likelihood estimation")
 
-    ungroup <- unique(cD@groups[[group]])
+    ungroup <- 1:length(levels(cD@groups[[group]]))
     
     par(mfrow = c(1, length(ungroup)))
     for(ii in ungroup)

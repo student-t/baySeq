@@ -4,7 +4,29 @@ setMethod("rbind", "countData", function(x, ..., deparse.level = 1) {
   print(nargs())
   if(nargs() < 4) rbind2(x, ...) else rbind2(x, Recall(...))
 })
-          
+
+
+setGeneric("groups<-", function(x, value) standardGeneric("groups<-"))
+setMethod("groups<-", signature = "countData", function(x, value) {
+  x@groups <- lapply(value, as.factor)
+  x
+})
+
+setGeneric("groups", function(x) standardGeneric("groups"))
+setMethod("groups", signature = "countData", function(x) {
+  x@groups
+})
+
+setGeneric("replicates<-", function(x, value) standardGeneric("replicates<-"))
+setMethod("replicates<-", signature = "countData", function(x, value) {
+  x@replicates <- as.factor(value)
+  x
+})
+
+setGeneric("replicates", function(x) standardGeneric("replicates"))
+setMethod("replicates", signature = "countData", function(x) {
+  x@replicates
+})
 
 setMethod("rbind2", "countData", function(x, y) {
   if(ncol(x) != ncol(y)) stop("Column numbers are not identical across the objects")
@@ -73,6 +95,8 @@ setMethod("initialize", "countData", function(.Object, ..., replicates, seglens)
   if(length(.Object@estProps) != length(.Object@groups) & length(.Object@estProps) != 0)
     stop("Length of '@estProps' slot must equal length of '@groups' slot.")
 
+  .Object@groups <- lapply(.Object@groups, as.factor)
+
   if(!missing(seglens))
     {
       if(is.vector(seglens))
@@ -122,7 +146,8 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
       }
   if(missing(i))
     i <- 1:nrow(x@data)
-  
+
+  x@replicates <- x@replicates[j]
   x@data <- x@data[i,j, drop = FALSE]
   x@libsizes <- x@libsizes[j]
   x@annotation <- x@annotation[i,, drop = FALSE]

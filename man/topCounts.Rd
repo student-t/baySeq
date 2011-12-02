@@ -42,8 +42,6 @@ topCounts(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
 
 data(CDPost)
 
-try(stopCluster(cl))
-
 # Report the top ten rows of data that have highest likelihood of belonging to
 # group 2 of the data (i.e., differentially expressed)
 

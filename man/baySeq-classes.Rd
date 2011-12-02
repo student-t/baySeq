@@ -8,6 +8,14 @@
 \alias{[,countData-method}
 \alias{show,countData-method}
 \alias{rbind,countData-method}
+\alias{replicates,countData-method}
+\alias{replicates<-,countData-method}
+\alias{replicates}
+\alias{replicates<-}
+\alias{groups,countData-method}
+\alias{groups<-,countData-method}
+\alias{groups}
+\alias{groups<-}
 \alias{rbind}
 
 \title{baySeq - classes}
@@ -58,7 +66,10 @@ all segments have the same length.
 }
 
 \section{Methods}{
-  Methods 'new', 'dim', '[', 'show' and 'rbind' have been defined for this class.
+  The standard methods 'new', 'dim', '[', 'show' and 'rbind' have been
+  defined for this class. The methods 'groups', 'groups<-', 'replicates'
+  and 'replicates<-' have also been defined in order to access and
+  modify these slots, and their use is recommended.
 }
 
 \author{Thomas J. Hardcastle}

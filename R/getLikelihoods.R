@@ -51,8 +51,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                   }
                 
                 sum(sapply(1:nrow(us), function(ii) lfactorial(sum(us[ii,])) - sum(lfactorial(us[ii,])))) +
-                  sum(sapply(unique(group), function(gg)
-                             lbeta.over.beta(apply(matrix(us[group == unique(group)[gg],], ncol = ncol(us)), 2, sum),
+                  sum(sapply(levels(group), function(gg)
+                             lbeta.over.beta(apply(matrix(us[group == gg,], ncol = ncol(us)), 2, sum),
                                              prior[[gg]])))
               }
 
@@ -141,7 +141,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                 if(length(seglen) == 1 & length(cts) > 1)
                   seglen <- rep(seglen, length(cts))
                 
-                  sum(sapply(unique(group), function(gg)
+                  sum(sapply(1:length(levels(group)), function(gg)
                          {
                            gprior <- matrix(unlist(prior[[gg]]), nrow = length(prior[[gg]]), byrow = TRUE)
                            selcts <- group == gg
@@ -160,9 +160,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                     max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
                 
                 sum(cts * log(ns * seglen)) - sum(lfactorial(cts)) +
-                  sum(sapply(unique(group), function(gg)
+                  sum(sapply(1:length(levels(group)), function(gg)
                              {
-                               selcts <- group == gg
+                               selcts <- group == levels(group)[gg]
                                logsum(lgamma(sum(cts[selcts]) + prior[[gg]][,1]) - lgamma(prior[[gg]][,1]) -
                                       sum(cts[selcts]) * log(sum(ns[selcts] * seglen[selcts]) + prior[[gg]][,2]) -
                                       prior[[gg]][,1] * log(1 + sum(ns[selcts] * seglen[selcts]) / prior[[gg]][,2])) - log(nrow(prior[[gg]]))
@@ -259,7 +259,7 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
                   },
                   BIC = {
                     sampleSize <- length(groups[[1]])
-                    bicps <- t(-2 * t(ps[priorSubset, , drop = FALSE]) + (1 + (unlist(lapply(lapply(groups, unique), length)))) * log(sampleSize))
+                    bicps <- t(-2 * t(ps[priorSubset, , drop = FALSE]) + (1 + (unlist(lapply(lapply(groups, levels), length)))) * log(sampleSize))
                     minbicps <- apply(bicps, 1, which.min)
                     prs <- sapply(1:length(groups), function(x) sum(minbicps == x, na.rm = TRUE))
                     if(any(prs == 0)) prs[prs == 0] <- 1
@@ -328,8 +328,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
             seglen <- rep(seglen, length(cts))
           
           sum(
-              sapply(unique(group[!is.na(group)]), function(gg) {
-                selcts <- group == gg & !is.na(group)
+              sapply(1:length(levels(group)), function(gg) {
+                selcts <- group == levels(group)[gg] & !is.na(group)
                 prior <- priors[[gg]]
                 weightings <- wts[[gg]]
                 nzWts <- weightings != 0
@@ -443,7 +443,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         
         ndePriors <- log(NBpriors[[ndelocGroup]][[1]][,1])
         weights <- priorWeights[[ndelocGroup]][[1]]
-        sep <- bimodalSep(ndePriors[ndePriors > -Inf], weights[ndePriors > -Inf], bQ = c(0, 1))
+        sep <- bimodalSep(ndePriors[ndePriors > -Inf], weights[ndePriors > -Inf], bQ = c(0.75, 1))
         
         groups <- c(groups, groups[ndelocGroup])
         ndenulGroup <- length(groups)

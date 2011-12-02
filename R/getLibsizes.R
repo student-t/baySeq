@@ -20,7 +20,7 @@
                          if(!("edgeR" %in% loadedNamespaces()))
                            library(edgeR)
                          d <- DGEList(counts = data[subset,, drop = FALSE], group = replicates)
-                         d <- calcNormFactors(d, quantile = quantile, ...)
+                         d <- calcNormFactors(d, ...)
                          d$samples$norm.factors
                        })
     libsizes <- libsizes

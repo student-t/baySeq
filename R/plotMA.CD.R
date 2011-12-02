@@ -1,4 +1,4 @@
-plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL, ylab = "M", xlab = "A", ...)
+plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL, xlab = "A", ylab = "M", ...)
 {
   if(is.character(samplesA)) {
     Asamps <-  which(as.character(cD@replicates) %in% samplesA)

@@ -119,8 +119,8 @@ cl <- NULL
 # can parallelise the functions. This will usually (not always) offer
 # significant performance gain.
 
-try(library(snow))
-try(cl <- makeCluster(4, "SOCK"))
+\dontrun{try(library(snow))}
+\dontrun{try(cl <- makeCluster(4, "SOCK"))}
 
 # load test data
 data(simData)

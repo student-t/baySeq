@@ -304,7 +304,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
                                    optimize(muZeros, interval = c(0, max(1 / libsizes[group == unqgrp] * len[group == unqgrp], na.rm = TRUE)),
                                             cts = cts[which(group == unqgrp)], dispersion = 1, libsizes = libsizes[which(group == unqgrp)], len = len[which(group == unqgrp)], tol = 1e-50, maximum = FALSE)$minimum
                                    )
-                          } else return(optimise(mualt, interval = c(0, 1), cts = cts[which(group == unqgrp)], dispersion = disp, libsizes = libsizes[which(group == unqgrp)], len = len[which(group == unqgrp)], tol = 1e-50, maximum = TRUE)$maximum))            
+                          } else return(optimise(mualt, interval = c(0, max(cts / libsizes[which(group == unqgrp)]) * 2), cts = cts[which(group == unqgrp)], dispersion = disp, libsizes = libsizes[which(group == unqgrp)], len = len[which(group == unqgrp)], tol = 1e-50, maximum = TRUE)$maximum))            
             list(dispersion = dispersion, mus = mus)
                             })
         } else {

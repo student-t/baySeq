@@ -120,23 +120,23 @@ CD@annotation <- data.frame(name = paste("count", 1:1000, sep = "_"))
 
 We first estimate an empirical distribution on the parameters of the Negative Binomial distribution by bootstrapping from the data, taking individual counts and finding the quasi-likelihood parameters for a Negative Binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
 <<>>=
-CDP.NBML <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
+CD <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
 @
 
 The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced as before. For the negative-binomial method, we are unable to form a conjugate prior distribution. Instead, we build an empirical prior distribution which we record in the list object \verb'$priors' of the slot \verb'@priors'. Each member of this list object corresponds to one of the models defined by the \verb'group' slot of the \verb'countData' object and contains the estimated parameters for each of the individual counts selected under the models. The vector \verb'$sampled' contained in the slot \verb'@priors' describes which rows were sampled to create these sets of parameters.
 
-We then acquire posterior likelihoods as before, estimating the proportions of differentially expressed counts.
+We then acquire posterior likelihoods, estimating the proportions of differentially expressed counts.
 <<>>=
-CDPost.NBML <- getLikelihoods.NB(CDP.NBML, pET = 'BIC', cl = cl)
-CDPost.NBML@estProps
-CDPost.NBML@posteriors[1:10,]
-CDPost.NBML@posteriors[101:110,]
+CD <- getLikelihoods.NB(CD, pET = 'BIC', cl = cl)
+CD@estProps
+CD@posteriors[1:10,]
+CD@posteriors[101:110,]
 @ 
 
 
 Here the assumption of a Negative Binomial distribution with priors estimated by maximum likelihood gives an estimate of 
 <<echo = FALSE>>=
-CDPost.NBML@estProps[2]
+CD@estProps[2]
 @
 as the proportion of differential expressed counts in the simulated data, where in fact the proportion is known to be $0.1$.
 
@@ -144,12 +144,12 @@ as the proportion of differential expressed counts in the simulated data, where 
 
 We can ask for the top candidates for differential expression using the \verb'topCounts' function.
 <<>>=
-topCounts(CDPost.NBML, group = "DE")  
+topCounts(CD, group = "DE")  
 @ 
 
 We can plot the posterior likelihoods against the log-ratios of the two sets of samples using the \verb'plotPosteriors' function, coloring the truly differentially expressed data red and the non-differentially expressed data black (Figure~\ref{figPPs}).
 <<fig = FALSE, label=plotPosteriors>>=
-plotPosteriors(CDPost.NBML, group = "DE", col = c(rep("red", 100), rep("black", 900)))
+plotPosteriors(CD, group = "DE", col = c(rep("red", 100), rep("black", 900)))
 @ 
 
 \begin{figure}[!ht]

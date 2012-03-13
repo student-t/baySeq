@@ -126,7 +126,7 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   if(!missing(j))
     if(!all(1:ncol(x@data) %in% j))
       {
-        x@replicates <- x@replicates[j]
+        replicates(x) <- as.character(x@replicates[j])
 
         if(length(x@groups) > 0)
           {
@@ -147,7 +147,6 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   if(missing(i))
     i <- 1:nrow(x@data)
 
-  x@replicates <- x@replicates[j]
   x@data <- x@data[i,j, drop = FALSE]
   x@libsizes <- x@libsizes[j]
   x@annotation <- x@annotation[i,, drop = FALSE]

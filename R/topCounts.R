@@ -1,5 +1,5 @@
 `topCounts` <-
-function(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
+function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseData = FALSE)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
@@ -15,17 +15,23 @@ function(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
     if(nrow(cD@annotation) == 0) annotation <- data.frame(rowID = paste("row" , 1:nrow(cD), sep = "_")) else annotation <- cD@annotation
     
     if(class(cD) == "lociData") annotation <- cbind(data.frame(chr = as.character(seqnames(cD@coordinates)), start = as.numeric(start(cD@coordinates)), end = as.numeric(end(cD@coordinates))), annotation) else annotation <- annotation
+
+    if(is.null(group)) {
+      if(length(cD@nullPosts) == 0)
+        stop("The '@nullPosts' slot of cD is empty - you can't use 'group = NULL'.")
+      likes <- cD@nullPosts        
+    } else likes <- cD@posteriors[,group]
     
-    if(is.null(group))
-      {
-        if(length(cD@nullPosts) == 0)
-          stop("The '@nullPosts' slot of cD is empty - you can't use 'group = NULL'.")
-        selTags <- order(cD@nullPosts, decreasing = decreasing)[1:number]
-        topTags <- data.frame(cD@annotation[selTags,, drop = FALSE], data[selTags,,drop = FALSE], Likelihood = exp(cD@nullPosts[selTags]), FDR = cumsum(1 - exp(cD@nullPosts[selTags])) / 1:number)
-      } else {
-        selTags <- order(cD@posteriors[,group], decreasing = decreasing)[1:number]
-        topTags <- data.frame(annotation[selTags,, drop = FALSE], data[selTags,,drop = FALSE], Likelihood = exp(cD@posteriors[selTags, group]), FDR = cumsum(1 - exp(cD@posteriors[selTags, group])) / 1:number)
-      }
+    if(!missing(likelihood)) cutNumber <- sum(likes > log(likelihood))      
+    if(missing(likelihood) & !missing(FDR)) cutNumber <- sum(cumsum(1 - exp(sort(likes, decreasing = decreasing))) / 1:length(likes) < FDR)
+
+    if(!missing(likelihood) | !missing(FDR))
+      if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood or FDR specified; using the 'number' argument instead") else number <- cutNumber
+      
+    
+    selTags <- order(likes, decreasing = decreasing)[1:number]
+    topTags <- data.frame(annotation[selTags,, drop = FALSE], data[selTags,,drop = FALSE], Likelihood = exp(likes[selTags]), FDR = cumsum(1 - exp(likes[selTags])) / 1:number)
+
     rownames(topTags) <- rownames(cD@data)[selTags]
     topTags
   }

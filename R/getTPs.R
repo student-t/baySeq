@@ -1,9 +1,5 @@
 getTPs <- function(cD, group, decreasing = TRUE, TPs)
   {
-    `logsum` <-
-      function(x)
-        max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
-
     if(is.character(group))
       group <- pmatch(group, names(cD@groups))
     
@@ -20,7 +16,7 @@ getTPs <- function(cD, group, decreasing = TRUE, TPs)
         pord <- order(posteriors, -apply(cD@posteriors, 1, logsum), decreasing = decreasing)
       } else {
         posteriors <- cD@posteriors[,group]
-        pord <- order(posteriors, -apply(cbind(cD@posteriors[,-group, drop = FALSE], cD@nullPosts), 1, logsum), decreasing = decreasing)
+        pord <- order(posteriors, -.logRowSum(cbind(cD@posteriors[,-group, drop = FALSE], cD@nullPosts)), decreasing = decreasing)
       }
     cumsum(pord[1:length(posteriors)] %in% TPs)
   }

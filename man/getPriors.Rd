@@ -19,7 +19,7 @@ getPriors.Pois(cD, samplesize = 1e5, perSE = 1e-1, takemean = TRUE,
 maxit = 1e5, weights = NULL, verbose = TRUE, cl)
 getPriors.NB(cD, samplesize = 1e5, samplingSubset = NULL,
 equalDispersions = TRUE, estimation = "QL", verbose = TRUE, zeroML =
-FALSE, cl, ...) 
+FALSE, consensus = FALSE, cl, ...) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -49,6 +49,9 @@ FALSE, cl, ...)
   \item{zeroML}{Should parameters from zero data (rows that within a
     group are all zeros) be estimated using maximum likelihood
     methods (which will result in zeros in the parameters? See Details.}
+  \item{consensus}{If TRUE, creates a consensus distribution rather than
+    a separate distribution for each member of the groups structure in
+    the `cD' object. See Details.}
   \item{cl}{A SNOW cluster object.}
   \item{...}{Additional parameters to be passed to the
     \code{\link[edgeR:edgeR-package]{estimateTagwiseDisp}} function if
@@ -89,6 +92,11 @@ FALSE, cl, ...)
   reads but is ten megabases long. If \code{'zeroML'} is \code{FALSE},
   therefore, the dispersion is set to 1 and the mean estimated as the
   value that leaves the likelihood of zero data at fifty percent.
+
+  If `consensus = TRUE', then a consensus distribution is created and
+  used for each group in the 'cD' object. This allows faster computation
+  of the priors and likelihoods, but with some degradation of
+  accuracy.
   
   A 'cluster' object is recommended in order to estimate the priors for
   the negative binomial distribution. Passing NULL to this variable will

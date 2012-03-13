@@ -7,7 +7,7 @@
   lowest) likelihood of association with a given group.
 }
 \usage{
-topCounts(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
+topCounts(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseData = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -16,6 +16,10 @@ topCounts(cD, group, decreasing = TRUE, number = 10, normaliseData = FALSE)
   \item{group}{Which group should we give the counts for? See Details.}
   \item{decreasing}{Ordering on posterior likelihoods.}
   \item{number}{How many results should be returned?}
+  \item{likelihood}{If given, ignores `number' and returns all results
+    above a certain likelihood.}
+  \item{FDR}{If given, ignores `number' and returns all results with an
+    FDR lower than this threshold. Will be ignored if `likelihood' is given.}
   \item{normaliseData}{Should the displayed counts be normalised by library
     size? Defaults to FALSE.}
 }

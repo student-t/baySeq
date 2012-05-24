@@ -28,7 +28,7 @@ plotPriors(cD, group)
 \details{
   If the plot of the data appears bimodal, then it may be sensible to
   try and look for data with no true expression by using the option
-  \code{nullPosts = TRUE} in \code{\link{getLikelihoods.NBboot}}.
+  \code{nullPosts = TRUE} in \code{\link{getLikelihoods.NB}}.
 }
 \value{
   Plotting function.

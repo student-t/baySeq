@@ -4,6 +4,10 @@
 \alias{baySeq-class}
 \alias{countData}
 \alias{countData-class}
+\alias{pairedData}
+\alias{pairedData-class}
+\alias{show,pairedData-method}
+\alias{[,pairedData-method}
 \alias{dim,countData-method}
 \alias{[,countData-method}
 \alias{show,countData-method}
@@ -22,14 +26,19 @@
 
 \description{
   The \code{countData} class is used to define summaries of count data
-  and establishing prior and posterior parameters on distributions defined upon the
-  count data.
+  and establishing prior and posterior parameters on distributions
+  defined upon the count data.
+
+  The \code{pairedData} class is based on the countData class and performs
+  the same functions for paired count data.
 }
 
 \section{Slots}{
-  Objects of the \code{'countData'} class should contain the following components:  
+  Objects of these class contain the following components:  
   \tabular{ll}{
     \code{data}:\tab Count data (matrix).\cr
+    \code{pairData}:\tab Count data (matrix) for paired samples; slot
+  exists only in \code{'pairedData'} class.\cr
     \code{replicates}:\tab The replicate structure of the data. Stored
   as a factor, but can be given in any form.\cr
     \code{libsizes}:\tab Vector of library size for each sample.\cr
@@ -67,7 +76,7 @@ all segments have the same length.
 
 \section{Methods}{
   The standard methods 'new', 'dim', '[', 'show' and 'rbind' have been
-  defined for this class. The methods 'groups', 'groups<-', 'replicates'
+  defined for these classes. The methods 'groups', 'groups<-', 'replicates'
   and 'replicates<-' have also been defined in order to access and
   modify these slots, and their use is recommended.
 }
@@ -85,7 +94,7 @@ groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
 CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 
 #estimate library sizes for countData object
-CD@libsizes <- getLibsizes(CD)
+CD <- getLibsizes(CD)
 
 CD[1:10,]
 dim(CD)

@@ -1,44 +1,30 @@
 \name{getPriors}
 \alias{getPriors}
-\alias{getPriors.Dirichlet}
-\alias{getPriors.Pois}
+\alias{getPriors.BB}
 \alias{getPriors.NB}
 
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{Estimates prior parameters for the underlying distributions of
   'count' data.}
 \description{
-  These functions estimate, via maximum likelihood methods, the
-  parameters of the underlying distributions for the different methods
-  of describing the 'count' data.
+  These functions estimate, via maximum or quasi-likelihood methods, the
+  parameters of the underlying distributions for negative binomial
+  distributions on count data, or for beta-binomial distributions on
+  paired count data.
 }
 \usage{
-getPriors.Dirichlet(cD, samplesize = 1e5, perSE = 1e-1, maxit = 1e6,
-verbose = TRUE)
-getPriors.Pois(cD, samplesize = 1e5, perSE = 1e-1, takemean = TRUE,
-maxit = 1e5, weights = NULL, verbose = TRUE, cl)
 getPriors.NB(cD, samplesize = 1e5, samplingSubset = NULL,
 equalDispersions = TRUE, estimation = "QL", verbose = TRUE, zeroML =
-FALSE, consensus = FALSE, cl, ...) 
+FALSE, consensus = FALSE, cl, ...)
+getPriors.BB(cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{cD}{A \code{\link{countData}} object.}
+  \item{cD}{A \code{\link{countData}} or \code{\link{pairedData}} object.}
   \item{samplesize}{How large a sample should be taken in estimating the
     priors?}
   \item{samplingSubset}{If given, the priors will be sampled only from
     the subset specified.}
-  \item{perSE}{What should the relative standard error of the estimated
-    parameters fall below?}
-  \item{maxit}{Over how many iterations (at most) should we take samples and
-    re-estimate the priors in order to achieve convergence?}
-  \item{takemean}{If TRUE (recommended), we take the mean of the
-    estimated priors to define a gamma distribution. If FALSE, we use
-    all estimated priors to define an empirical distribtion on the
-    parameters of the gamma distribution.}
-  \item{weights}{If not NULL, specifies a weighting on the random
-    sampling of rows of the \code{'cD'} object used to estimate
-    parameters of the underlying distribution.}
   \item{equalDispersions}{Should we assume equal dispersions of data
     across all groups in the \code{'cD'} object? Defaults to TRUE; see Details.}
   \item{estimation}{Defaults to "QL", indicating quasi-likelihood
@@ -58,12 +44,12 @@ FALSE, consensus = FALSE, cl, ...)
     \code{'estimation = "edgeR"'}.}
 }
 \details{
-  These functions empirically estimate prior parameters for different
+  These functions empirically estimate prior parameters for the
   distributions used in estimating posterior likelihoods of each count
-  belonging to a particular group. The choice of which function to use
-  for estimating the prior parameters will depend on the choice of which
-  method is being used to estimate the posterior likelihoods (see
-  \link{getLikelihoods}).
+  belonging to a particular group. For unpaired count data, the
+  distributions on the data are assumed to be negative binomial. For
+  paired count data, the distributions on the data are assumed to be
+  beta-binomial.
 
   For priors estimated for the negative binomial methods, three options
   are available. Differences in the options focus on the way in which
@@ -101,10 +87,6 @@ FALSE, consensus = FALSE, cl, ...)
   A 'cluster' object is recommended in order to estimate the priors for
   the negative binomial distribution. Passing NULL to this variable will
   cause the function to run in non-parallel mode.
-
-  getPriors.Dirichlet and getPriors.Pois will issue warnings if the
-  estimation of any priors fails to achieve less than the relative
-  standard error specified in the maximum number of iterations.
 }
 \value{
   A \code{\link{countData}} object.
@@ -140,7 +122,7 @@ groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
 CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 
 #estimate library sizes for countData object
-CD@libsizes <- getLibsizes(CD)
+CD <- getLibsizes(CD)
 
 # Get priors for negative binomial method
 CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation = "QL", cl = cl)

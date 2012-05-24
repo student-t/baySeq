@@ -1,220 +1,11 @@
-'getLikelihoods' <- function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, verbose = TRUE, ..., cl)
-  {
-    type = cD@priorType
-    switch(type,
-           "Dir" = getLikelihoods.Dirichlet(cD = cD, prs = prs, pET = pET, marginalise = marginalise, subset = subset, priorSubset = priorSubset, verbose = verbose, cl = cl),
-           "Poi" = getLikelihoods.Pois(cD = cD, prs = prs, pET = pET, marginalise = marginalise, subset = subset, priorSubset = priorSubset, verbose = verbose, ..., cl = cl),
-           "NB" = getLikelihoods.NB(cD = cD, prs = prs, pET = pET, marginalise = marginalise, subset = subset, priorSubset = priorSubset, verbose = verbose, ..., cl = cl))
-  }
-           
-`getLikelihoods.Dirichlet` <-
-function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, verbose = TRUE, cl)
-  {
-    if(!inherits(cD, what = "countData"))
-      stop("variable 'cD' must be of or descend from class 'countData'")
-
-    if(cD@priorType != "Dir") stop("Incorrect prior type for this method of likelihood estimation")
-    if(class(cD) != "countData")
-      stop("variable 'countData' in 'getGroupPriors' must be of class 'countData'")
-
-    if(pET %in% c("none", "iteratively"))
-      {
-        if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
-        if(any(prs < 0))
-          stop("Negative values in the 'prs' vector are not permitted")
-      } else if(pET %in% c("BIC"))
-        prs <- rep(NA, length(cD@groups))
-
-    
-    if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
-      stop("'subset' must be integer, numeric, or NULL")
-
-    if(is.null(subset)) subset <- 1:nrow(cD@data)
-
-    if(!is.null(priorSubset))
-      {
-        priorSub <- rep(FALSE, nrow(cD@data))
-        priorSub[priorSubset] <- TRUE
-        priorSubset <- priorSub[subset]
-      }
-    
-    `PrgivenD.Dirichlet` <-
-      function(us, libsizes, priors, groups, priorgroups = c(0.99, 0.01))
-        {
-          `PDgivenr.Dirichlet` <-
-            function(us, prior, group)
-              {
-                lbeta.over.beta <- function(us, alphas)
-                  {
-                    if(all(alphas > 0))
-                      sum(lgamma(alphas + us)) + lgamma(sum(alphas)) - sum(lgamma(alphas)) - lgamma(sum(alphas) + sum(us)) else -Inf
-                  }
-                
-                sum(sapply(1:nrow(us), function(ii) lfactorial(sum(us[ii,])) - sum(lfactorial(us[ii,])))) +
-                  sum(sapply(levels(group), function(gg)
-                             lbeta.over.beta(apply(matrix(us[group == gg,], ncol = ncol(us)), 2, sum),
-                                             prior[[gg]])))
-              }
-
-          
-          us <- cbind(us, libsizes - us)
-          ps <- sapply(1:length(groups), function(ii)
-                       PDgivenr.Dirichlet(us, priors[[ii]], groups[[ii]]))
-          
-          ps
-        }
-
-    if(!is.null(cl))
-      {
-
-        getLikelihoodsEnv <- new.env(parent = .GlobalEnv)
-        environment(PrgivenD.Dirichlet) <- getLikelihoodsEnv
-      }
-
-    if(verbose) message("Finding posterior likelihoods...", appendLF = FALSE)
-    
-    if(is.null(cl)) {
-      ps <- apply(cD@data[subset,, drop = FALSE], 1, PrgivenD.Dirichlet, cD@libsizes, cD@priors$priors, cD@groups)
-    } else {
-      ps <- parRapply(cl, cD@data[subset,, drop = FALSE], PrgivenD.Dirichlet, cD@libsizes, cD@priors$priors, cD@groups)
-    }
-    ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
-    groups <- cD@groups
-
-    if(!is.null(cl))
-      clusterEvalQ(cl, rm(list = ls()))
-    
-    pps <- getPosteriors(ps = ps, prs = prs, pET = pET, marginalise = marginalise, groups = groups, priorSubset = priorSubset, cl = cl)
-    
-    posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
-    posteriors[subset,] <- t(pps$posteriors)
-
-    if(verbose) message("done.")
-    
-    colnames(posteriors) <- names(cD@groups)
-    estProps <- apply(exp(posteriors), 2, mean)
-    names(estProps) <- names(cD@groups)
-    
-    new(class(cD), cD, posteriors = posteriors, estProps = estProps)
-  }
-
-
-
-getLikelihoods.Pois <- function (cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, 
-    priorSubset = NULL, distpriors = FALSE, verbose = TRUE, cl) 
-{
-    if (!inherits(cD, what = "countData")) 
-        stop("variable 'cD' must be of or descend from class 'countData'")
-    if (cD@priorType != "Poi") 
-        stop("Incorrect prior type for this method of likelihood estimation")
-    if (pET %in% c("none", "iteratively")) {
-        if (length(prs) != length(cD@groups)) 
-            stop("'prs' must be of same length as the number of groups in the 'cD' object")
-        if (any(prs < 0)) 
-            stop("Negative values in the 'prs' vector are not permitted")
-    }    else if (pET %in% c("BIC")) 
-        prs <- rep(NA, length(cD@groups))
-    if (!(class(subset) == "integer" | class(subset) == "numeric" | 
-        is.null(subset))) 
-        stop("'subset' must be integer, numeric, or NULL")
-    if (is.null(subset)) 
-        subset <- 1:nrow(cD@data)
-    if (!is.null(priorSubset)) {
-        priorSub <- rep(FALSE, nrow(cD@data))
-        priorSub[priorSubset] <- TRUE
-        priorSubset <- priorSub[subset]
-    }
-    if (nrow(cD@seglens) > 0) seglens <- cD@seglens else seglens <- matrix(1, ncol = 1, nrow = nrow(cD@data))    
-    if (ncol(seglens) == 1) lensameFlag <- TRUE else lensameFlag <- FALSE
-    PrgivenD.Pois <- function(us, libsizes, priors, groups, distpriors = FALSE, 
-        lensameFlag) {
-        PDgivenr.Pois <- function(cts, ns, seglen, prior, group) {
-          if (length(seglen) == 1 & length(cts) > 1) 
-                seglen <- rep(seglen, length(cts))
-          sum(sapply(1:length(levels(group)), function(gg) {
-            gprior <- matrix(unlist(prior[[gg]]), nrow = length(prior[[gg]]), 
-                             byrow = TRUE)
-            selcts <- group == levels(group)[gg]
-            lgamma(sum(cts[selcts]) + prior[[gg]][1]) - lgamma(prior[[gg]][1]) + 
-              prior[[gg]][1] * log(prior[[gg]][2]) - (prior[[gg]][1] + 
-                                                      sum(cts[selcts])) * log(prior[[gg]][2] + sum(ns[selcts] * 
-                                                                                                   seglen[selcts]))
-            }))
-        }
-        PDgivenr.PoisIndie <- function(cts, ns, seglen, prior, 
-            group) {
-            if (length(seglen) == 1 & length(cts) > 1) 
-                seglen <- rep(seglen, length(cts))
-            logsum <- function(x) max(x, max(x, na.rm = TRUE) + 
-                log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), 
-                na.rm = TRUE)
-            sum(cts * log(ns * seglen)) - sum(lfactorial(cts)) + 
-              sum(sapply(1:length(levels(group)), function(gg) {
-                selcts <- group == levels(group)[gg]
-                logsum(lgamma(sum(cts[selcts]) + prior[[gg]][, 
-                    1]) - lgamma(prior[[gg]][, 1]) - sum(cts[selcts]) * 
-                    log(sum(ns[selcts] * seglen[selcts]) + prior[[gg]][, 
-                      2]) - prior[[gg]][, 1] * log(1 + sum(ns[selcts] * 
-                    seglen[selcts])/prior[[gg]][, 2])) - log(nrow(prior[[gg]]))
-                }))
-        }
-        if (lensameFlag) {
-            cts <- us[-1]
-            lens <- us[1]
-        }
-        else {
-            cts <- us[-(1:(length(us)/2))]
-            lens <- us[1:(length(us)/2)]
-        }
-        if (!distpriors) {
-          ps <- sapply(1:length(groups), function(ii) PDgivenr.Pois(cts = cts, 
-                ns = libsizes, seglen = lens, prior = priors[[ii]], 
-                group = groups[[ii]]))
-        }
-        else {
-            ps <- sapply(1:length(groups), function(ii) PDgivenr.PoisIndie(us = us, 
-                ns = libsizes, seglen = lens, prior = priors[[ii]], 
-                group = groups[[ii]]))
-        }
-    }
-    if (!is.null(cl)) {
-        getLikelihoodsEnv <- new.env(parent = .GlobalEnv)
-        environment(PrgivenD.Pois) <- getLikelihoodsEnv
-    }
-    if (verbose) 
-        message("Finding posterior likelihoods...", appendLF = FALSE)
-    if (is.null(cl)) {
-        ps <- apply(cbind(seglens, cD@data)[subset, , drop = FALSE], 
-            1, PrgivenD.Pois, cD@libsizes, cD@priors$priors, 
-            cD@groups, distpriors, lensameFlag = lensameFlag)
-    }
-    else {
-      ps <- parRapply(cl, cbind(seglens, cD@data)[subset, , 
-            drop = FALSE], PrgivenD.Pois, cD@libsizes, cD@priors$priors, 
-            cD@groups, distpriors, lensameFlag = lensameFlag)
-    }
-    ps <- matrix(ps, ncol = length(cD@groups), byrow = TRUE)
-    groups <- cD@groups
-    if (!is.null(cl)) 
-        clusterEvalQ(cl, rm(list = ls()))
-    pps <- getPosteriors(ps = ps, prs = prs, pET = pET, marginalise = marginalise, 
-        groups = groups, priorSubset = priorSubset, cl = cl)
-    posteriors <- matrix(NA, ncol = length(cD@groups), nrow(cD@data))
-    posteriors[subset, ] <- pps$posteriors
-    if (verbose) 
-        message("done.")
-    colnames(posteriors) <- names(cD@groups)
-    estProps <- apply(exp(posteriors), 2, mean)
-    names(estProps) <- names(cD@groups)
-    new(class(cD), cD, posteriors = posteriors, estProps = estProps)
-}
-
-
-getLikelihoods.NBboot <- function(...)
-  {
-    warning("This function has been deprecated and will soon be removed. Use 'getLikelihoods.NB' instead. Passing arguments to this function now.")
-    getLikelihoods.NB(...)
-  }
+#'getLikelihoods' <- function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, verbose = TRUE, ..., cl)
+#  {
+#    type = cD@priorType
+#    switch(type,
+#           "Dir" = getLikelihoods.Dirichlet(cD = cD, prs = prs, pET = pET, marginalise = marginalise, subset = subset, priorSubset = priorSubset, verbose = verbose, cl = cl),
+#           "Poi" = getLikelihoods.Pois(cD = cD, prs = prs, pET = pET, marginalise = marginalise, subset = subset, priorSubset = priorSubset, verbose = verbose, ..., cl = cl),
+#           "NB" = getLikelihoods.NB(cD = cD, prs = prs, pET = pET, marginalise = marginalise, subset = subset, priorSubset = priorSubset, verbose = verbose, ..., cl = cl))
+#  }
 
 
 `getPosteriors` <-
@@ -331,20 +122,40 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                                      , log = TRUE),
                              ncol = length(cts))
 
-          sapply(1:length(groups), function(grpnum) {
-            group <- groups[[grpnum]]
-            wts <- priorWeights[[c(1, grpnum)[differentWeights + 1]]]
-            sampInfo <- numintSamp[[c(1, grpnum)[differentWeights + 1]]]
-            sum(sapply(1:length(levels(group)), function(gg) {
-              selcts <- group == levels(group)[gg] & !is.na(group)
-              prior <- priors[[gg]]
-              weightings <- wts[[c(1, gg)[differentWeights + 1]]]
-              nzWts <- weightings != 0
-              wsInfo <- which(sampInfo[[c(1, gg)[differentWeights + 1]]][,1] == number)
-              weightings[sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,2]] <- weightings[sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,2]] - sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,3]
-              logsum(rowSums(dnbinoms[nzWts,selcts,drop = FALSE]) + log(weightings[nzWts])) - log(sum(weightings[nzWts]))
-            }))
-          })                   
+          if(differentWeights)
+            {
+              ld <- sapply(1:length(groups), function(grpnum) {
+                group <- groups[[grpnum]]
+                wts <- priorWeights[[grpnum]]
+                sampInfo <- numintSamp[[grpnum]]
+                sum(sapply(1:length(levels(group)), function(gg) {
+                  selcts <- group == levels(group)[gg] & !is.na(group)
+                  weightings <- wts[[gg]]
+                  nzWts <- weightings != 0
+                  wsInfo <- which(sampInfo[[gg]][,1] == number)
+                  weightings[sampInfo[[gg]][wsInfo,2]] <- weightings[sampInfo[[gg]][wsInfo,2]] - sampInfo[[gg]][wsInfo,3]
+                  logsum(rowSums(dnbinoms[nzWts,selcts,drop = FALSE]) + log(weightings[nzWts])) - log(sum(weightings[nzWts]))
+                }))
+              })
+            } else {
+              weightings <- priorWeights[[1]][[1]]
+              wsInfo <- which(numintSamp[[1]][[1]][,1] == number)
+              weightings[numintSamp[[1]][[1]][wsInfo,2]] <- weightings[numintSamp[[1]][[1]][wsInfo,2]] - numintSamp[[1]][[1]][wsInfo,3]
+              nzWts <- weightings != 0            
+              dnbinoms <- dnbinoms[nzWts,,drop = FALSE]
+              lweight <- log(weightings[nzWts])
+              lsumweight <- log(sum(weightings[nzWts]))
+              
+              ld <- sapply(1:length(groups), function(grpnum) {
+                group <- groups[[grpnum]]
+                sum(sapply(1:length(levels(group)), function(gg) {
+                  selcts <- which(group == levels(group)[gg] & !is.na(group))
+                  logsum(rowSums(dnbinoms[,selcts,drop = FALSE]) + lweight) - lsumweight
+                })) 
+              })
+              
+            }
+          ld
         }
       
       PDgivenr.NB <- function (number, cts, seglen, libsizes, priors, group, wts, sampInfo, differentWeights)
@@ -553,16 +364,17 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
           ps <- parRapply(cl, cbind(1:nrow(cD@data), seglens, cD@data)[postRows[whunq],, drop = FALSE],
                           NBbootStrap, libsizes = libsizes, groups = groups, lensameFlag = lensameFlag, consensus = consensus, differentWeights = differentWeights)
         }
-        
+
         ps <- matrix(ps, ncol = length(groups), byrow = TRUE)
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
+
         rps[postRows[whunq],] <- ps
 
         if(length(priorReps) == 0 || !any(priorReps %in% postRows))
           {
-            rps[postRows,][orddat,] <- rps[postRows,][orddat[rep(which(whunq), diff(c(which(whunq), length(whunq) + 1)))],]
+            rps[postRows[orddat],] <- rps[postRows[orddat[rep(which(whunq), diff(c(which(whunq), length(whunq) + 1)))]],]
           }
- 
+        
 
         if(returnPD) {
               if(verbose) message("done.")
@@ -574,7 +386,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
             restprs <- getPosteriors(rps[priorSubset,, drop = FALSE], prs, pET = pET, marginalise = FALSE, groups = groups, priorSubset = NULL, cl = cl)$priors
           } else restprs <- prs
         
-        pps <- getPosteriors(rps[union(priorReps,subset),], prs = restprs, pET = "none", marginalise = marginalise, groups = groups, priorSubset = NULL, cl = cl)
+        pps <- getPosteriors(rps[union(priorReps,subset),,drop = FALSE], prs = restprs, pET = "none", marginalise = marginalise, groups = groups, priorSubset = NULL, cl = cl)
         
         if(any(!is.na(posteriors)))
           if(all(abs(exp(posteriors[union(priorReps,subset),]) - exp(pps$posteriors)) < conv)) converged <- TRUE

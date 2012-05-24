@@ -6,15 +6,30 @@ function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseDa
     if(nrow(cD@posteriors) == 0)
       stop("The '@posteriors' slot of cD is empty!")
 
-    if(normaliseData)
-      data <- round(t(t(cD@data) / cD@libsizes) * (prod(cD@libsizes))^(1/length(cD@libsizes))) else data <- cD@data
-
+    if(inherits(cD, what = "pairedData"))
+      {
+        if(normaliseData) {
+          data <- round(t(t(cD@data) / cD@libsizes) * (prod(cD@libsizes))^(1/length(cD@libsizes)))
+          pairData <- round(t(t(cD@pairData) / cD@libsizes) * (prod(cD@libsizes))^(1/length(cD@libsizes)))
+        } else {
+          data <- cD@data
+          pairData <- cD@pairData
+        }
+        data <- matrix(paste(data, pairData, sep = ":"), ncol = ncol(cD), nrow = nrow(cD))                
+      } else {
+        if(normaliseData) {
+          data <- t(t(cD@data) / cD@libsizes) * (prod(cD@libsizes))^(1/length(cD@libsizes))          
+          data <- round(data)
+        } else data <- cD@data
+      }
+    colnames(data) <- colnames(cD@data)
+    
     if(is.character(group))
       group <- pmatch(group, names(cD@groups))
 
     if(nrow(cD@annotation) == 0) annotation <- data.frame(rowID = paste("row" , 1:nrow(cD), sep = "_")) else annotation <- cD@annotation
     
-    if(class(cD) == "lociData") annotation <- cbind(data.frame(chr = as.character(seqnames(cD@coordinates)), start = as.numeric(start(cD@coordinates)), end = as.numeric(end(cD@coordinates))), annotation) else annotation <- annotation
+    if(inherits(cD, what = "lociData") | inherits(cD, what = "methData")) annotation <- cbind(data.frame(chr = as.character(seqnames(cD@coordinates)), start = as.numeric(start(cD@coordinates)), end = as.numeric(end(cD@coordinates))), annotation) else annotation <- annotation
 
     if(is.null(group)) {
       if(length(cD@nullPosts) == 0)

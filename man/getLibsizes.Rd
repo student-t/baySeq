@@ -54,8 +54,10 @@ getLibsizes(cD, data, replicates, subset = NULL, estimationType = c("quantile", 
   which samples belong to which replicate group) can be given.
   }
 \value{
-  A numerical vector of library sizes (scaling factors) for each library
-  in the data.
+  If a \verb{\link{countData}} object is given, an identical object will
+  be returned with updated library sizes. If only the data and replicate
+  structure are given, a numerical vector of library sizes (scaling
+  factors) for each library in the data will be returned.
 }
 \author{
   Thomas J. Hardcastle
@@ -70,7 +72,7 @@ replicates <- c(1,1,1,1,1,2,2,2,2,2)
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
 CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 
-CD@libsizes <- getLibsizes(CD)
+CD <- getLibsizes(CD)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

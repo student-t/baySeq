@@ -61,14 +61,14 @@ CD <- new("countData", data = simData, replicates = replicates, groups =
 groups)
 
 #estimate library sizes for countData object
-CD@libsizes <- getLibsizes(CD)
+CD <- getLibsizes(CD)
 
 # estimate prior distributions on 'countData' object using negative binomial
 # method. Other methods are available - see getPriors
 CDPriors <- getPriors.NB(CD, cl = NULL)
 
 # estimate posterior likelihoods for each row of data belonging to each hypothesis
-CDPost <- getLikelihoods(CDPriors, cl = NULL)
+CDPost <- getLikelihoods.NB(CDPriors, cl = NULL)
 
 # display the rows of data showing greatest association with the second
 # hypothesis (differential expression)

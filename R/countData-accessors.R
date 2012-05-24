@@ -190,6 +190,7 @@ setMethod("show", "countData", function(object) {
       print(object@data[1:5,])
       cat(paste(nrow(object) - 5), "more rows...\n")
     } else print(object@data)
+  
   cat('\nSlot "annotation":\n')
   if(nrow(object@annotation) > 5 & ncol(object@annotation) > 0)
     {

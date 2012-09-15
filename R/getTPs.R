@@ -7,6 +7,8 @@ getTPs <- function(cD, group, decreasing = TRUE, TPs)
       stop("variable 'cD' must be of or descend from class 'countData'")
     if(nrow(cD@posteriors) == 0)
       stop("The '@posteriors' slot of cD is empty!")
+
+    nulls <- cD@nullPosts
     
     if(is.null(group))
       {
@@ -15,8 +17,9 @@ getTPs <- function(cD, group, decreasing = TRUE, TPs)
         posteriors <- cD@nullPosts
         pord <- order(posteriors, -apply(cD@posteriors, 1, logsum), decreasing = decreasing)
       } else {
+        if(length(nulls) == 0 || nrow(nulls) == 0) nulls <- matrix(ncol = 0, nrow = nrow(cD))
         posteriors <- cD@posteriors[,group]
-        pord <- order(posteriors, -.logRowSum(cbind(cD@posteriors[,-group, drop = FALSE], cD@nullPosts)), decreasing = decreasing)
+        pord <- order(posteriors, -.logRowSum(cbind(cD@posteriors[,-group, drop = FALSE], nulls)), decreasing = decreasing)
       }
     cumsum(pord[1:length(posteriors)] %in% TPs)
   }

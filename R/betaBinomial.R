@@ -1,56 +1,108 @@
 
-
 .logRowSum <- function(z)
   {
     maxes <- do.call(pmax, c(as.list(data.frame(z)), list(na.rm = TRUE)))
     pmax(maxes, maxes + log(rowSums(exp(z - maxes), na.rm = TRUE)), na.rm = TRUE)
   }
 
-
 `getPriors.BB` <-
-function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
+function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate = TRUE,
+          #zeroDispersion = FALSE, monoModal = FALSE,
+          cl, ...)
 {
+  monoModal = FALSE
+  zeroDispersion = FALSE
+  dbetabinom <- function(x, n, prop, disp, monoModal, log = TRUE) {
+
+    ps <- rep(NA, (length(x)))
+    disp <- rep(disp, length(prop))    
+
+    smallDisp <- disp < 1e-15 & disp >= 0
+    largeDisp <- disp > 1e-15
+    
+    if(any(disp < 0 | disp >= 1 | prop > 1 | prop < 0)) ps[disp < 0 | disp >= 1 | prop > 1 | prop < 0] <- NA
+    if(any(smallDisp))
+      ps[smallDisp] <- dbinom(x[smallDisp], n[smallDisp], prob = prop[smallDisp], log = log)
+
+    if(any(largeDisp)) {
+      alpha = (1/disp - 1) * prop
+      beta = (1/disp - 1) * (1-prop)
+
+      if(monoModal)
+        if (any(alpha < 1) | any(beta < 1)) return(NA)
+
+      if(!log) {
+        ps[largeDisp] <- choose(n[largeDisp], x[largeDisp]) * beta((x + alpha)[largeDisp], (n - x + beta)[largeDisp]) / beta(alpha[largeDisp], beta[largeDisp])
+      } else ps[largeDisp] <- lchoose(n[largeDisp], x[largeDisp]) + lbeta((x + alpha)[largeDisp], (n - x + beta)[largeDisp]) - lbeta(alpha[largeDisp], beta[largeDisp])
+    }
+    return(ps)
+  }
+  
   if(!inherits(cD, what = "countData"))
     stop("variable 'cD' must be of or descend from class 'countData'")
 
   if(verbose) message("Finding priors...", appendLF = FALSE)
 
-  getDisps <- function(selRow, replicates)
+  getDisps <- function(selRow, replicates, moderate, zeroDispersion, monoModal)
     {
-      propDispReplicates <- function(propDisp, z, secondz)
-        {
-          dbetabin.small <- function(x, y, alpha, beta)
-            lchoose(x + y, x) + lbeta(x + alpha, y + beta) - lbeta(alpha, beta)
+      nzRep <- levels(replicates)[sapply(levels(replicates), function(rep) any(y[selRow, replicates == rep] != 0) & any(secondy[selRow, replicates == rep] != 0))]
+      nzreplicates <- replicates[replicates %in% nzRep] 
           
-          props <- propDisp[match(replicates, levels(replicates))]
-          props <- props * libsizes / (props * libsizes + (1-props) * pairLibsizes)
-          if(any(props < 0)| any(props > 1)) return(NA) 
-          disp <- propDisp[length(propDisp)]
-          sum(dbetabin.small(z, secondz, props / exp(disp), (1-props) / exp(disp)))
-        }
+      propDispReplicates <- function(propDisp, z, secondz, subLibsizes, subPairLibsizes, monoModal)
+        {
+          props <- propDisp[match(nzreplicates, nzRep)]          
+          props <- props * subLibsizes / (props * subLibsizes + (1-props) * subPairLibsizes)
 
-      pars <- optim(par = c(rep(0.5, length(levels(replicates))), 0), propDispReplicates, z = y[selRow,], secondz = secondy[selRow,], control = list(fnscale = -1, trace = FALSE))$par
-      disp <- pars[length(pars)]
+          if(any(props < 0, na.rm = TRUE)| any(props > 1, na.rm = TRUE)) return(NA)          
+          
+          disp <- propDisp[length(propDisp)]
+
+          if(disp < 0 | disp > 1) return(NA)
+          
+          sum(dbetabinom(z, z + secondz, props, disp = disp, monoModal = monoModal))
+        }
+      
+      z <- y[selRow,]
+      secondz <- secondy[selRow,]
+
+      if(all(z == 0) | all(secondz == 0))
+        if(zeroDispersion) return(0) else return(NA)
+      
+      if(moderate)
+        if(all(secondz[z != 0] == 0) & all(z[secondz != 0] == 0) & any(z != 0) & any(secondz != 0))
+          {              
+            maxInZ <- max(z[secondz == 0] / libsizes[secondz == 0])
+            maxInSecondZ <- max(secondz[z == 0] / pairLibsizes[z == 0])
+            if(maxInZ >= maxInSecondZ) {
+              secondz[which(secondz == 0)[which.max(z[secondz == 0] / libsizes[secondz == 0])]] <- 1
+            } else {
+              z[which(z == 0)[which.max(secondz[z == 0] / pairLibsizes[z == 0])]] <- 1
+            }
+          }                
+      pars <- optim(par = c(rep(0.5, length(nzRep)), 0.01), propDispReplicates, z = z[replicates %in% nzRep], secondz = secondz[replicates %in% nzRep], 
+                    subLibsizes = libsizes[replicates %in% nzRep], subPairLibsizes = pairLibsizes[replicates %in% nzRep], monoModal = monoModal,
+                    control = list(fnscale = -1, trace = FALSE, reltol = 1e-50, maxit = 1000))$par
+        disp <- pars[length(pars)]
       disp
-    }
-  
+    }         
+
   optimoverPriors <- function(selRow, selcts)
     {
       propOnly <- function(prop, disp, z, secondz, libz, pairLibz)
-        {
-          dbetabin.small <- function(x, y, alpha, beta)
-            lchoose(x + y, x) + lbeta(x + alpha, y + beta) - lbeta(alpha, beta)
-          
+        {          
           props <- rep(prop, length(z))
           props <- props * libz / (props * libz + (1-props) * pairLibz)
-          sum(dbetabin.small(z, secondz, props / exp(disp), (1 - props) / exp(disp)))
+          sum(dbetabinom(z, z + secondz, props, disp = disp, monoModal = FALSE))
         }
       
-      c(optimize(propOnly, interval = c(0, 1), disp = disps[selRow],
-                 z = y[selRow,selcts], secondz = secondy[selRow,selcts],
-                 libz = libsizes[selcts], pairLibz = pairLibsizes[selcts], maximum = TRUE)$maximum, disps[selRow])
       
+      pars <- c(optimize(propOnly, interval = c(0, 1),
+                         disp = disps[selRow],
+                         z = y[selRow,selcts], secondz = secondy[selRow,selcts],
+                         libz = libsizes[selcts], pairLibz = pairLibsizes[selcts], tol = 1e-50, maximum = TRUE)$maximum, disps[selRow])
+
     }
+
   
   if(!is.null(cl))
     {
@@ -79,6 +131,9 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
   
   libsizes <- as.double(sD@libsizes)
   pairLibsizes <- as.double(sD@pairLibsizes)
+  if(length(cD@libsizes) == 0) libsizes <- rep(1, ncol(sD))
+  if(length(cD@pairLibsizes) == 0) pairLibsizes <- libsizes
+  
   groups <- sD@groups
   replicates <- as.factor(sD@replicates)
 
@@ -92,9 +147,12 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
   
   y <- sD@data
   secondy <- sD@pairData
-
-
   selrow <- which(rowSums(y != 0) > 0 | rowSums(secondy != 0) > 0)
+
+  if(length(selrow) > samplesize)
+    selrow <- sample(selrow, size = samplesize)
+  
+  disps <- c()
   
   if (!is.null(cl)) {
     clustAssign <- function(object, name)
@@ -109,26 +167,28 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
     clusterCall(cl, clustAssign, y, "y")
     clusterCall(cl, clustAssign, secondy, "secondy")
     clusterCall(cl, clustAssign, libsizes, "libsizes")
-    clusterCall(cl, clustAssign, pairLibsizes, "pairLibsizes")    
-    disps <- parSapply(cl, 1:nrow(y), getDisps, replicates = sD@replicates)
+    clusterCall(cl, clustAssign, pairLibsizes, "pairLibsizes")
+
+    clusterCall(cl, clustAssign, dbetabinom, "dbetabinom")
+
+    disps[selrow] <- parSapply(cl, selrow, getDisps, replicates = sD@replicates, moderate = moderate, zeroDispersion = zeroDispersion, monoModal = monoModal)
+    if(any(is.na(disps[selrow]))) disps[selrow][is.na(disps)[selrow]] <- sample(disps[selrow][!is.na(disps)[selrow]], sum(is.na(disps)[selrow]))
+    
     clusterCall(cl, clustAssign, disps, "disps")
     BBpar <- lapply(sD@groups, function(group)
                        lapply(unique(levels(group)), function(uu){
                          t(parSapply(cl, selrow, optimoverPriors, selcts = group == uu))
-                    }))
+                    }))    
   } else {
-    disps <- sapply(1:nrow(y), getDisps, replicates = sD@replicates)
+    disps[selrow] <- sapply(selrow, getDisps, replicates = sD@replicates, moderate = moderate, zeroDispersion = zeroDispersion, monoModal = monoModal)
+    if(any(is.na(disps[selrow]))) disps[selrow][is.na(disps)[selrow]] <- sample(disps[selrow][!is.na(disps)[selrow]], sum(is.na(disps)[selrow]))
+    
     BBpar <- lapply(sD@groups, function(group)
                   lapply(unique(levels(group)), function(uu){
                     t(sapply(selrow, optimoverPriors, selcts = group == uu))
                   }))
   }
-    
-  
-                                        #  BBpar <- lapply(sD@groups, function(group)
-                                        #                  lapply(unique(levels(group)), function(uu)
-                                        #                         gpriors <- t(sapply(1:nrow(y), optimoverPriors, groupSelect = group == uu))))
-  
+
   sampled <- cbind(sampled = selrow, representative = 1:length(selrow))
   weights <- rep(1, length(selrow))
   
@@ -137,7 +197,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
 
 
 
-`getLikelihoods.BB` <- function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE, returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, cl)
+`getLikelihoods.BB` <- function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullProps, returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, cl)
   {
     constructWeights <- function(withinCluster = FALSE)
       {
@@ -170,56 +230,54 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
         
         PDgivenr.BB <- function (number, cts, secondcts, priors, group, wts, sampInfo)
           {
-            dbetabinom <- function(x, y, alpha, beta, p, disp, log = FALSE)
-              {    
-                if(missing(alpha) | missing(beta)) {      
-                  alpha <- p / exp(disp)
-                  beta <- (1-p) / exp(disp)
-                  dispLarge <- disp > -10 & !is.na(disp)
-                } else dispLarge <- rep(TRUE, length(alpha))
+            dbetabinom <- function(x, n, prop, disp) {
+              
+              smallDisp <- disp < 1e-15 & disp >= 0
+              largeDisp <- disp > 1e-15
+
+              ps <- matrix(NA, ncol = ncol(prop), nrow = nrow(prop))
+              disp <- matrix(disp, ncol = ncol(prop), nrow = nrow(prop))
+              x <- matrix(x, ncol = ncol(prop), nrow = nrow(prop), byrow = TRUE)
+              n <- matrix(n, ncol = ncol(prop), nrow = nrow(prop), byrow = TRUE)
+              
+              if(any(largeDisp)) {
+
+                alpha = (1/disp - 1) * prop
+                beta = (1/disp - 1) * (1-prop)
                 
-                if(is.vector(x)) x <- matrix(x, ncol = 1, nrow = length(x))
-                if(is.vector(y)) y <- matrix(y, ncol = 1, nrow = length(y))
-                
-                ps <- matrix(NA, ncol = ncol(x), nrow = nrow(x))
-                
-                if(log) {
-                  ps[which(dispLarge),] <- lchoose(x[which(dispLarge),,drop = FALSE] + y[which(dispLarge),,drop = FALSE], x[which(dispLarge),,drop = FALSE]) +
-                    suppressWarnings(lbeta(x[which(dispLarge),,drop = FALSE] + alpha[which(dispLarge),,drop=FALSE], y[which(dispLarge),,drop = FALSE] + beta[which(dispLarge),,drop = FALSE])) -
-                      suppressWarnings(lbeta(alpha[which(dispLarge),,drop = FALSE], beta[which(dispLarge),,drop = FALSE]))
-                  if(any(!dispLarge, na.rm = TRUE)) ps[which(!dispLarge),] <- dbinom(x[which(!dispLarge),,drop = FALSE], x[which(!dispLarge),,drop = FALSE]+y[which(!dispLarge),,drop = FALSE], p[which(!dispLarge),drop = FALSE], log = TRUE)
-                } else ps <- (choose(x + y, y) * suppressWarnings(beta(x + alpha, y + beta)) / suppressWarnings(beta(alpha, beta)))
-                ps[is.na(ps)] <- NA
-#                if(ncol(ps) == 1) ps <- ps[,1,drop= TRUE]
-                ps
+                ps[largeDisp,] <- lchoose(n[largeDisp,,drop = FALSE], x[largeDisp,,drop = FALSE]) +
+                  lbeta((x + alpha)[largeDisp,,drop = FALSE], (n - x + beta)[largeDisp,, drop = FALSE]) -
+                    lbeta(alpha[largeDisp,, drop = FALSE], beta[largeDisp,, drop = FALSE]) 
               }
-            
+              if(any(smallDisp))
+                ps[smallDisp,] <- dbinom(x[smallDisp,,drop = FALSE], n[smallDisp,,drop = FALSE], prob = prop[smallDisp,,drop = FALSE], log = TRUE)
+              
+              return(ps)
+            }
+                                   
             sum(
-                sapply(1:length(levels(group)), function(gg) {
-                  selcts <- group == levels(group)[gg] & !is.na(group)
-                  prior <- priors[[gg]]
-                  weightings <- wts[[gg]]
-                  nzWts <- weightings != 0
-                  wsInfo <- which(sampInfo[[gg]][,1] == number)
-                  weightings[sampInfo[[gg]][wsInfo,2]] <- weightings[sampInfo[[gg]][wsInfo,2]] - sampInfo[[gg]][wsInfo,3]
+                sapply(1:length(levels(group)), function(ll) {
+                  selcts <- group == levels(group)[ll] & !is.na(group)
+                  prior <- priors[[ll]]
+                  weightings <- wts[[ll]]
+                  nzWts <- weightings != 0 & !is.na(weightings)
+                  #wsInfo <- which(sampInfo[[ll]][,1] == number)
+                  #weightings[sampInfo[[ll]][wsInfo,2]] <- weightings[sampInfo[[ll]][wsInfo,2]] - sampInfo[[ll]][wsInfo,3]
+                  
+                  p = outer(prior[nzWts,1], libsizes[selcts]) / (outer(1-prior[nzWts,1], pairLibsizes[selcts]) + outer(prior[nzWts,1], libsizes[selcts]))
+                  disp = prior[nzWts,2]
+                  ps <- dbetabinom(cts[selcts], cts[selcts] + secondcts[selcts], prop = p, disp = disp)
                   
                   logsum(
-                         rowSums(
-                                 dbetabinom(
-                                            x = matrix(cts[selcts], ncol = sum(selcts), nrow = sum(nzWts), byrow = TRUE),
-                                            y = matrix(secondcts[selcts], ncol = sum(selcts), nrow = sum(nzWts), byrow = TRUE),
-                                            p = outer(prior[nzWts,1], libsizes[selcts]) / (outer(1-prior[nzWts,1], pairLibsizes[selcts]) + outer(prior[nzWts,1], libsizes[selcts])),
-                                            disp = prior[nzWts,2]
-                                            , log = TRUE)                           
-                                 ) + log(weightings[nzWts])
+                         rowSums(ps) + log(weightings[nzWts])                                 
                          )  - log(sum(weightings[nzWts]))
                 })
                 )
           }
         
         sapply(1:length(BBpriors), function(gg)
-               PDgivenr.BB(row, y[row,], secondy[row,],
-                           BBpriors[[gg]], group = groups[[gg]], wts = priorWeights[[gg]], sampInfo = numintSamp[[gg]])
+               PDgivenr.BB(number = row, cts = y[row,], secondcts = secondy[row,], priors = BBpriors[[gg]], group = groups[[gg]], wts = priorWeights[[gg]], sampInfo = numintSamp[[gg]])
+                           
                )
       }
     
@@ -249,11 +307,11 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
         if(length(prs) != length(cD@groups)) stop("'prs' must be of same length as the number of groups in the 'cD' object")
         if(any(prs < 0))
           stop("Negative values in the 'prs' vector are not permitted")
-        if(!nullData & sum(prs) != 1)
-          stop("If 'nullData = FALSE' then the 'prs' vector should sum to 1.")
+        if(missing(nullProps) & sum(prs) != 1)
+          stop("If no values given for 'nullProps' then the 'prs' vector should sum to 1.")
         
-        if(nullData & sum(prs) >= 1)
-          stop("If 'nullData = TRUE' then the 'prs' vector should sum to less than 1.")
+        if(!missing(nullProps) & sum(prs) >= 1)
+          stop("If some value given for 'nullProps' then the 'prs' vector should sum to less than 1.")
         
       } else if(pET %in% c("BIC"))
         prs <- rep(NA, length(cD@groups))
@@ -263,7 +321,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
     
     if(is.null(subset)) subset <- 1:nrow(cD)
 
-    subset <- subset[rowSums(is.na(cD@data[subset,,drop = FALSE])) == 0]
+    subset <- subset[(rowSums(cD@data[subset,,drop = FALSE]) != 0 | rowSums(cD@pairData[subset,,drop = FALSE]) != 0)]
     
     if(is.null(priorSubset)) priorSubset <- subset
     
@@ -277,6 +335,21 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
     libsizes <- cD@libsizes
     pairLibsizes <- cD@pairLibsizes
 
+    if(length(libsizes) == 0) libsizes <- rep(1, ncol(cD))
+    if(length(pairLibsizes) == 0) pairLibsizes <- libsizes
+    
+    if(!missing(nullProps)) {
+
+      ndelocGroup <- which(unlist(lapply(cD@groups, function(x) all(x[!is.na(x)] == x[!is.na(x)][1])))) 
+      if(length(ndelocGroup) == 0) stop("If 'nullProps' is given then there must exist some vector in groups whose members are all identical") else ndelocGroup <- ndelocGroup[1]      
+      
+      nulpPriors <- lapply(nullProps, function(x) list(cbind(x, BBpriors[[ndelocGroup]][[1]][,2])))
+      nulpGroups <- lapply(nullProps, function(x) as.factor(rep(1, ncol(y))))
+      names(nulpGroups) <- sapply(nullProps, function(x) paste("nde_", x, sep = ""))
+      groups <- c(nulpGroups, cD@groups)
+      BBpriors <- c(nulpPriors, BBpriors)      
+    }
+        
     if(discardSampling) numintSamp[,1] <- NA
 
     if(is.matrix(numintSamp))
@@ -331,21 +404,18 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
 #      } else whunq <- TRUE
 
 #    orddat <- 1:nrow(cD)
+
     whunq <- TRUE
 
     for(cc in 1:bootStraps)
       {
+        if(cc > 1) numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]][,1:2], weights = exp(posteriors[numintSamp[[ii]][[jj]][,1],ii]))))
+
         if (is.null(cl)) {
           if(cc > 1)
-            {
-              numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]][,1:2], weights = exp(posteriors[numintSamp[[ii]][[jj]][,1],ii]))))
-              priorWeights <- constructWeights()
-            }
-
+            priorWeights <- constructWeights()
           ps <- sapply(postRows[whunq], BBbootStrap, groups = groups)
-
         } else {
-
           environment(constructWeights) <- getLikelihoodsEnv
           clusterCall(cl, clustAssign, numintSamp, "numintSamp")
           clusterCall(cl, constructWeights, TRUE)
@@ -358,7 +428,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
         ps <- matrix(ps, ncol = length(groups), byrow = TRUE)
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
         rps[postRows,] <- ps
-#        print(dim(rps))
 
 #        if(length(priorReps) == 0 || !any(priorReps %in% postRows))
 #          {
@@ -396,10 +465,11 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, cl, ...)
             retPosts <- posteriors
             retPosts[priorReps[!(priorReps %in% subset)],] <- NA
             
-            nullPosts <- numeric(0)
-            if(nullData) {
-              nullPosts <- retPosts[,ndenulGroup]
-              retPosts <- retPosts[,-ndenulGroup, drop = FALSE]
+            nullPosts <- matrix(nrow = 0, ncol = 0)
+            if(!missing(nullProps)) {
+              nullPosts <- retPosts[,1:length(nullProps), drop = FALSE]
+              colnames(nullPosts) <- sapply(nullProps, function(x) paste("nde_", x, sep = ""))
+              retPosts <- retPosts[,-(1:length(nullProps)), drop = FALSE]
             }
             estProps <- apply(exp(retPosts), 2, mean, na.rm = TRUE)
             

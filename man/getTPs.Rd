@@ -46,8 +46,6 @@ getTPs(cD, group, decreasing = TRUE, TPs)
 
 data(CDPost)
 
-try(stopCluster(cl))
-
 # If the first hundred rows in the 'simData' matrix are known to be
 # truly differentially expressed (the second hypothesis defined in the
 # 'groups' list) then we find the number of true positives for the top n

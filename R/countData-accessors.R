@@ -17,6 +17,20 @@ setMethod("groups", signature = "countData", function(x) {
   x@groups
 })
 
+setGeneric("libsizes<-", function(x, value) standardGeneric("libsizes<-"))
+setMethod("libsizes<-", signature = "countData", function(x, value) {
+  if(!is.numeric(value)) stop("All members of libsizes for a countData object must be numeric.")
+  if(length(value) != ncol(x)) stop("Length of libsizes must be identical to the number of columns of the countData object.")
+  if(any(value <= 0)) stop("Library sizes less than or equal to zero make no sense to me!")
+  x@libsizes <- value
+  x
+})
+
+setGeneric("libsizes", function(x) standardGeneric("libsizes"))
+setMethod("libsizes", signature = "countData", function(x) {
+  x@libsizes
+})
+
 setGeneric("replicates<-", function(x, value) standardGeneric("replicates<-"))
 setMethod("replicates<-", signature = "countData", function(x, value) {
   x@replicates <- as.factor(value)
@@ -88,9 +102,11 @@ setMethod("initialize", "countData", function(.Object, ..., replicates, seglens)
 
   if(ncol(.Object@posteriors) != length(.Object@groups) & ncol(.Object@posteriors) != 0)
     stop("Number of columns in '@posteriors' slot must equal length of '@groups' slot.")
-  
-  if(length(.Object@nullPosts) != nrow(.Object@data) & length((.Object@nullPosts) != 0))
-    stop("Number of rows in '@data' slot must equal length of '@nullPosts' slot.")
+
+  if(length(.Object@nullPosts) != 0) {
+    if(nrow(.Object@nullPosts) != nrow(.Object@data) & nrow((.Object@nullPosts) != 0))
+      stop("Number of rows in '@data' slot must equal number of rows of '@nullPosts' slot.")
+  } else nullPosts <- matrix(ncol = 0, nrow = nrow(.Object@data))
   
   if(length(.Object@estProps) != length(.Object@groups) & length(.Object@estProps) != 0)
     stop("Length of '@estProps' slot must equal length of '@groups' slot.")
@@ -148,13 +164,13 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
     i <- 1:nrow(x@data)
 
   x@data <- x@data[i,j, drop = FALSE]
-  x@libsizes <- x@libsizes[j]
+  if(length(x@libsizes) > 0) x@libsizes <- x@libsizes[j]
   x@annotation <- x@annotation[i,, drop = FALSE]
   if(nrow(x@posteriors) > 0)
     x@posteriors <- x@posteriors[i,, drop = FALSE]
 
-  if(length(x@nullPosts) > 0)
-    x@nullPosts <- x@nullPosts[i]
+  if(nrow(x@nullPosts) > 0)
+    x@nullPosts <- x@nullPosts[i,,drop = FALSE]
 
   if(nrow(x@seglens) > 0)
     {

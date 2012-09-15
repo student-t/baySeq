@@ -90,7 +90,7 @@ CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 Library sizes can be inferred from the data if the user is not able to supply them.
 
 <<>>=
-  CD <- getLibsizes(CD)
+  libsizes(CD) <- getLibsizes(CD)
 @ 
 
 We can then plot the data in the form of an MA-plot, suitable modified to plot those data where the data are uniformly zero (and hence the log-ratio is infinite) (Figure~\ref{figMA}). Truly differentially expressed data can be identified in the plot by coloring these data red, while non-differentially expressed data are colored black.
@@ -189,7 +189,7 @@ The first four columns in these data are paired with the second four columns. We
 We can find the library sizes for the data with the \verb'getLibsizes' function.
 
 <<>>=
-  pairCD <- getLibsizes(pairCD)
+  libsizes(pairCD) <- getLibsizes(pairCD)
 @ 
 
 We estimate an empirical distribution on the parameters of a beta-binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a beta-binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
@@ -237,7 +237,7 @@ cD <- new("countData", data = mobData, seglens = seglens, annotation = mobAnnota
 
 Determining the best library scaling factor to use is a non-trivial task. The simplest approach would be to use the total number of sequenced reads aligning to the genome. However, this approach meas that a few sequences that appear at very high levels can drastically skew the size of the scaling factor. Bullard \textsl{et al} suggest that good results can be obtained by taking the sum of the reads below the $n$th percentile of the data.
 <<>>=
-cD <- getLibsizes(cD, estimationType = "quantile")
+libsizes(cD) <- getLibsizes(cD, estimationType = "quantile")
 @ 
 
 \subsection{Pairwise Differential Expression}

@@ -72,7 +72,7 @@ replicates <- c(1,1,1,1,1,2,2,2,2,2)
 groups <- list(c(1,1,1,1,1,1,1,1,1,1), c(1,1,1,1,1,2,2,2,2,2))
 CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 
-CD <- getLibsizes(CD)
+libsizes(CD) <- getLibsizes(CD)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

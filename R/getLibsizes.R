@@ -1,16 +1,22 @@
 'getLibsizes' <- function(cD, data, replicates, subset = NULL, estimationType = c("quantile", "total", "edgeR"), quantile = 0.75, ...)
   {
     if(!missing(cD)) {
-      data <- cD@data
-      replicates <- cD@replicates
-      returnCD = TRUE
-    } else returnCD = FALSE
+      if(inherits(cD, what = "pairedData"))
+        {
+          data <- cbind(cD@data, cD@pairData)
+          replicates <- paste(as.character(rep(cD@replicates, 2)), rep(c("a", "b"), each = ncol(cD)), sep = "")
+        } else {
+          data <- cD@data
+          replicates <- cD@replicates
+        }
+    }
     
     if(missing(subset)) subset <- NULL
     if(is.null(subset)) subset <- 1:nrow(data)
       
-    
+    print(estimationType)
     estimationType = match.arg(estimationType)
+    print(estimationType)
     if(is.na(estimationType)) stop("'estimationType' not known")
     estLibs <- function(data)
       {
@@ -18,24 +24,24 @@
                            total = colSums(data[subset,,drop = FALSE], na.rm = TRUE),
                            quantile = apply(data[subset,, drop = FALSE], 2, function(z) {
                              x <- z[z > 0]
-                             sum(x[x <= quantile(x, quantile, na.rm = TRUE)], na.rm = TRUE) }),
-                           edgeR = {
+                             sum(x[x <= quantile(x, quantile, na.rm = TRUE)], na.rm = TRUE)
+                               }),
+                           
+                           edgeR = {                             
                              if(!("edgeR" %in% loadedNamespaces()))
                                library(edgeR)
                              d <- DGEList(counts = data[subset,, drop = FALSE], group = replicates)
                              d <- calcNormFactors(d, ...)
-                             d$samples$norm.factors
+                             d$samples$norm.factors * d$samples$lib.size
                            })
         names(libsizes) <- colnames(data)
         libsizes
       }
-    libsizes <- estLibs(data)
+    estLibsizes <- estLibs(data)
     
-    if(returnCD)
-      {
-        cD@libsizes <- libsizes
-        if(inherits(cD, what = "pairedData")) cD@pairLibsizes <- estLibs(cD@pairData)
-        return(cD)
-      } else return(libsizes)
+    if(!missing(cD))
+      if(inherits(cD, what = "pairedData")) return(list(estLibsizes[1:ncol(cD)], estLibsizes[1:ncol(cD) + ncol(cD)]))
+        
+    return(estLibsizes)
   }
 

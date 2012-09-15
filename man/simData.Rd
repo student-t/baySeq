@@ -2,9 +2,7 @@
 \docType{data}
 \alias{simData}
 
-\title{Simulated data for testing the baySeq package methods; simulated
-  counts and library sizes from a pairwise differential expression
-  analysis.}
+\title{Simulated data for testing the baySeq package methods}
 
 \description{This data set is a matrix (`simData') of simulated counts
   from a simple pairwise expression analysis. It is simulated according

@@ -134,7 +134,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                   nzWts <- weightings != 0
                   wsInfo <- which(sampInfo[[gg]][,1] == number)
                   weightings[sampInfo[[gg]][wsInfo,2]] <- weightings[sampInfo[[gg]][wsInfo,2]] - sampInfo[[gg]][wsInfo,3]
-                  logsum(rowSums(dnbinoms[nzWts,selcts,drop = FALSE]) + log(weightings[nzWts])) - log(sum(weightings[nzWts]))
+                  logsum(rowSums(dnbinoms[nzWts,selcts,drop = FALSE], na.rm = TRUE) + log(weightings[nzWts])) - log(sum(weightings[nzWts]))
                 }))
               })
             } else {
@@ -150,7 +150,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                 group <- groups[[grpnum]]
                 sum(sapply(1:length(levels(group)), function(gg) {
                   selcts <- which(group == levels(group)[gg] & !is.na(group))
-                  logsum(rowSums(dnbinoms[,selcts,drop = FALSE]) + lweight) - lsumweight
+                  logsum(rowSums(dnbinoms[,selcts,drop = FALSE], na.rm = TRUE) + lweight) - lsumweight
                 })) 
               })
               
@@ -179,9 +179,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                                               size = 1 / prior[nzWts,2],
                                               mu = rep(libsizes[selcts] * seglen[selcts], each = sum(nzWts)) * prior[nzWts,1]
                                               , log = TRUE),
-                                      ncol = sum(selcts))
-                               ) + log(weightings[nzWts])
-                       ) - log(sum(weightings[nzWts]))
+                                      ncol = sum(selcts)), na.rm = TRUE) + log(weightings[nzWts])) - log(sum(weightings[nzWts]))                
               })
               )
         }
@@ -248,7 +246,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     
     if(is.null(subset)) subset <- 1:nrow(cD)
 
-    subset <- subset[rowSums(is.na(cD@data[subset,,drop = FALSE])) == 0]
+    subset <- subset[rowSums(do.call("cbind", lapply(cD@groups, function(x) do.call("cbind", lapply(levels(x), function(rep) rowSums(is.na(cD@data[,x == rep,drop = FALSE])) == sum(x == rep)))))) == 0]
     
     if(is.null(priorSubset)) priorSubset <- subset
     
@@ -291,8 +289,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     if(nullData)
       {
         ndelocGroup <- which(unlist(lapply(cD@groups, function(x) all(x[!is.na(x)] == x[!is.na(x)][1])))) 
-        if(length(ndelocGroup) == 0)
-          stop("If 'nullData = TRUE' then there must exist some vector in groups whose members are all identical")
+        if(length(ndelocGroup) == 0) stop("If 'nullData = TRUE' then there must exist some vector in groups whose members are all identical") else ndelocGroup <- ndelocGroup[1]
         
         NZLs <- NZLpriors <- NULL
         
@@ -348,12 +345,12 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     
     for(cc in 1:bootStraps)
       {
+        if(cc > 1) numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]][,1:2], weights = exp(posteriors[numintSamp[[ii]][[jj]][,1],ii]))))          
+        
         if (is.null(cl) | length(postRows[whunq]) < 2) {
           if(cc > 1)
-            {
-              numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]][,1:2], weights = exp(posteriors[numintSamp[[ii]][[jj]][,1],ii]))))
-              priorWeights <- constructWeights()
-            }
+            priorWeights <- constructWeights()
+
           ps <- apply(cbind(1:nrow(cD@data), seglens, cD@data)[postRows[whunq],,drop = FALSE],
                       1, NBbootStrap, libsizes = libsizes, groups = groups, lensameFlag = lensameFlag, consensus = consensus, differentWeights = differentWeights)
         } else {
@@ -406,9 +403,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
             retPosts <- posteriors
             retPosts[priorReps[!(priorReps %in% subset)],] <- NA
             
-            nullPosts <- numeric(0)
+            nullPosts <- matrix(ncol = 0, nrow = 0)
             if(nullData) {
-              nullPosts <- retPosts[,ndenulGroup]
+              nullPosts <- retPosts[,ndenulGroup,drop = FALSE]
               retPosts <- retPosts[,-ndenulGroup, drop = FALSE]
             }
             estProps <- apply(exp(retPosts), 2, mean, na.rm = TRUE)

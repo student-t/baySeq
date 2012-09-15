@@ -68,7 +68,7 @@ groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
 CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 
 #estimate library sizes for countData object
-CD <- getLibsizes(CD)
+libsizes(CD) <- getLibsizes(CD)
 
 #MA-plot comparing replicate groups
 plotMA.CD(CD, samplesA = "simA", samplesB = 6:10)

@@ -20,6 +20,12 @@
 \alias{groups<-,countData-method}
 \alias{groups}
 \alias{groups<-}
+\alias{libsizes,countData-method}
+\alias{libsizes<-,countData-method}
+\alias{libsizes,pairedData-method}
+\alias{libsizes<-,pairedData-method}
+\alias{libsizes}
+\alias{libsizes<-}
 \alias{rbind}
 
 \title{baySeq - classes}
@@ -76,9 +82,9 @@ all segments have the same length.
 
 \section{Methods}{
   The standard methods 'new', 'dim', '[', 'show' and 'rbind' have been
-  defined for these classes. The methods 'groups', 'groups<-', 'replicates'
-  and 'replicates<-' have also been defined in order to access and
-  modify these slots, and their use is recommended.
+  defined for these classes. The methods 'groups', 'groups<-',
+  'replicates', 'replicates<-', 'libsizes' and 'libsizes<-' have also
+  been defined in order to access and modify these slots, and their use is recommended.
 }
 
 \author{Thomas J. Hardcastle}
@@ -94,7 +100,7 @@ groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
 CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 
 #estimate library sizes for countData object
-CD <- getLibsizes(CD)
+libsizes(CD) <- getLibsizes(CD)
 
 CD[1:10,]
 dim(CD)

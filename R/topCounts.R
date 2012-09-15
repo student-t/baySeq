@@ -9,8 +9,8 @@ function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseDa
     if(inherits(cD, what = "pairedData"))
       {
         if(normaliseData) {
-          data <- round(t(t(cD@data) / cD@libsizes) * (prod(cD@libsizes))^(1/length(cD@libsizes)))
-          pairData <- round(t(t(cD@pairData) / cD@libsizes) * (prod(cD@libsizes))^(1/length(cD@libsizes)))
+          data <- round(t(t(cD@data) / cD@libsizes) * exp(mean(log(c(cD@libsizes, cD@pairLibsizes)))))
+          pairData <- round(t(t(cD@pairData) / cD@pairLibsizes) * exp(mean(log(c(cD@libsizes, cD@pairLibsizes)))))
         } else {
           data <- cD@data
           pairData <- cD@pairData
@@ -18,8 +18,7 @@ function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseDa
         data <- matrix(paste(data, pairData, sep = ":"), ncol = ncol(cD), nrow = nrow(cD))                
       } else {
         if(normaliseData) {
-          data <- t(t(cD@data) / cD@libsizes) * (prod(cD@libsizes))^(1/length(cD@libsizes))          
-          data <- round(data)
+          data <- round(t(t(cD@data) / cD@libsizes) * exp(mean(log(cD@libsizes))))
         } else data <- cD@data
       }
     colnames(data) <- colnames(cD@data)

@@ -61,7 +61,7 @@ CD <- new("countData", data = simData, replicates = replicates, groups =
 groups)
 
 #estimate library sizes for countData object
-CD <- getLibsizes(CD)
+libsizes(CD) <- getLibsizes(CD)
 
 # estimate prior distributions on 'countData' object using negative binomial
 # method. Other methods are available - see getPriors

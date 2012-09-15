@@ -16,7 +16,7 @@ getLikelihoods.NB(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
 priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE,
 returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling =
 FALSE, cl)
-getLikelihoods.BB(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-04, nullData = FALSE, returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, cl)
+getLikelihoods.BB(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-04, nullProps, returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, cl)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -43,6 +43,8 @@ getLikelihoods.BB(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, prio
     bootstraps drops below this value.}
   \item{nullData}{If TRUE, looks for segments or counts with no true
     expression. See Details.}
+  \item{nullProps}{If given, a vector of numeric values that define some
+    `null' proportion of expression (usually 0.5). See Details.}
   \item{returnAll}{If TRUE, and bootStraps > 1, then instead of returning a
     single countData object, the function returns a list of countData
     objects; one for each bootstrap. Largely used for debugging
@@ -95,11 +97,18 @@ getLikelihoods.BB(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, prio
   defining a subset of the data for which posterior likelihoods are
   required.
 
-  If 'nullData = TRUE', the algorithm attempts to find those counts or
-  segments that have no true expression in all samples. This means that
-  there is another, implied group where all samples are equal. The prior
-  likelihoods given in the 'prs' object must thus sum to less than 1,
-  with the residual going to this group.
+  If 'nullData = TRUE', the getLikelihoods.NB algorithm attempts to find
+  those counts or segments that have no true expression in all
+  samples. This means that there is another, implied group where all
+  samples are equal. The prior likelihoods given in the 'prs' object
+  must thus sum to less than 1, with the residual going to this group.
+
+  The equivalent for the getLikelihoods.BB algorithm is the `nullProps'
+  variable, which, if used, defines a vector of `null' proportions of
+  data in the first member of each pair. A common example is if
+  identical expression between paired samples should be separated from
+  differential expression between paired samples; we would then use
+  `nullProps = 0.5'.
   
   See Hardcastle & Kelly (2010) for a definition of the negative
   binomial methods.
@@ -147,7 +156,7 @@ groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1), DE = c(1,1,1,1,1,2,2,2,2,2))
 CD <- new("countData", data = simData, replicates = replicates, groups = groups)
 
 #estimate library sizes for countData object
-CD <- getLibsizes(CD)
+libsizes(CD) <- getLibsizes(CD)
 
 # Get priors for negative binomial method
 \dontrun{CDPriors <- getPriors.NB(CD, samplesize = 10^5, estimation =

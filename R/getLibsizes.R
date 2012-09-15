@@ -14,9 +14,7 @@
     if(missing(subset)) subset <- NULL
     if(is.null(subset)) subset <- 1:nrow(data)
       
-    print(estimationType)
     estimationType = match.arg(estimationType)
-    print(estimationType)
     if(is.na(estimationType)) stop("'estimationType' not known")
     estLibs <- function(data)
       {

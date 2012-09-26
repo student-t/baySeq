@@ -191,6 +191,8 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
 
   sampled <- cbind(sampled = selrow, representative = 1:length(selrow))
   weights <- rep(1, length(selrow))
+
+  message("done!")
   
   new(class(cD), cD, priorType = "BB", priors = list(sampled = sampled, weights = weights, priors = BBpar))
 }

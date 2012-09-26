@@ -61,7 +61,8 @@ simData[1:10,]
 
 The data are simulated such that the first hundred counts show differential expression between the first five libraries and the second five libraries. Our replicate structure, used to estimate the prior distributions on the data, can thus be defined as
 <<>>=
-  replicates <- c("simA", "simA", "simA", "simA", "simA", "simB", "simB", "simB", "simB", "simB")
+  replicates <- c("simA", "simA", "simA", "simA", "simA",
+                  "simB", "simB", "simB", "simB", "simB")
 @ 
 
 We can also establish two group structures for the data.
@@ -96,7 +97,8 @@ Library sizes can be inferred from the data if the user is not able to supply th
 We can then plot the data in the form of an MA-plot, suitable modified to plot those data where the data are uniformly zero (and hence the log-ratio is infinite) (Figure~\ref{figMA}). Truly differentially expressed data can be identified in the plot by coloring these data red, while non-differentially expressed data are colored black.
 
 <<fig = FALSE, label=plotMA>>=
-plotMA.CD(CD, samplesA = "simA", samplesB = "simB", col = c(rep("red", 100), rep("black", 900)))
+plotMA.CD(CD, samplesA = "simA", samplesB = "simB",
+          col = c(rep("red", 100), rep("black", 900)))
 @ 
 
 \begin{figure}[!ht]
@@ -170,24 +172,25 @@ if(!is.null(cl))
   stopCluster(cl)
 @
 
+\clearpage
+
 \section{Paired Data Analysis}
 
-There now exists functionality to analyse paired data through a similar process, using the beta-binomial distribution. The process for analysing paired data follows the same steps as for analysing unpaired data.
+There now exists functionality to analyse paired data through a similar process, using the beta-binomial distribution. The process for analysing paired data follows approximately the same steps as for analysing unpaired data. However, two different types of differential expression can exist within paired data. Firstly, we can find differential expression between replicate groups, as before. However, we can also find (consistent) differential expression between pairs; this would occur when for a single row of data, the first member of each pair differs from the second member of each pair. \verb'baySeq' can identify both these types of differential expression simultaneously, and we implement this proceedure below.
 
 We begin by loading a simulated dataset containing counts for four paired datasets.
-
 <<>>=
   data(pairData)  
 @ 
 
 The first four columns in these data are paired with the second four columns. We construct a pairedData in a similar fashion to the countData object.
-
 <<>>=
-   pairCD <- new("pairedData", data = pairData[,1:4], pairData = pairData[,5:8], replicates = c(1,1,2,2), groups = list(NDE = c(1,1,1,1), DE = c(1,1,2,2)))
+   pairCD <- new("pairedData", data = pairData[,1:4], pairData = pairData[,5:8],
+                 replicates = c(1,1,2,2),
+                 groups = list(NDE = c(1,1,1,1), DE = c(1,1,2,2)))
 @
 
 We can find the library sizes for the data with the \verb'getLibsizes' function.
-
 <<>>=
   libsizes(pairCD) <- getLibsizes(pairCD)
 @ 
@@ -197,15 +200,18 @@ We estimate an empirical distribution on the parameters of a beta-binomial distr
   pairCD <- getPriors.BB(pairCD, samplesize = 1000, cl = cl)
 @
 
-We then acquire posterior likelihoods, estimating the proportions of differentially expressed counts.
+We then acquire posterior likelihoods as before. The `nullProps' parameter indicates that the proportion of counts observed in the first member of a non-differentially expressed pair is 0.5.
 <<>>=
-  pairCD <- getLikelihoods.BB(pairCD, pET = 'BIC', cl = cl)
+  pairCD <- getLikelihoods.BB(pairCD, pET = 'BIC', nullProps = 0.5, cl = cl)
 @ 
 
-We can ask for the top candidates for differential expression using the \verb'topCounts' function as before.
-
+We can ask for the top candidates for differential expression between replicate groups using the \verb'topCounts' function as before.
 <<>>=
   topCounts(pairCD, group = 2)
+@ 
+However, we can also look for consistent differential expression between the pairs. Since we set the `nullProps' variable to 0.5, the first grouping model describes pairs which show no differential expression between replicate groups, but does show deviation from a one-to-one ratio of data between pairs.
+<<>>=
+  topCounts(pairCD, group = 1)
 @ 
 
 \section{Case Study: Analysis of sRNA-Seq Data}

@@ -10,7 +10,8 @@
   with the second four columns of data respectively. The first two
   paired samples form one replicate group, the second two paired samples
   form another replicate group. The first hundred rows of the data are
-  truly differentially expressed between replicate groups, the remainder
+  truly differentially expressed between replicate groups, the second
+  hundred are differentially expressed between pairs, the remainder
   have no differential expression. 
 
   It is simulated according to a set of Poisson distributions whose

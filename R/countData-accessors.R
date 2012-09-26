@@ -169,7 +169,7 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   if(nrow(x@posteriors) > 0)
     x@posteriors <- x@posteriors[i,, drop = FALSE]
 
-  if(nrow(x@nullPosts) > 0)
+  if(length(x@nullPosts) > 0)
     x@nullPosts <- x@nullPosts[i,,drop = FALSE]
 
   if(nrow(x@seglens) > 0)

@@ -46,8 +46,9 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
   getDisps <- function(selRow, replicates, moderate, zeroDispersion, monoModal)
     {
       nzRep <- levels(replicates)[sapply(levels(replicates), function(rep) any(y[selRow, replicates == rep] != 0) & any(secondy[selRow, replicates == rep] != 0))]
-      nzreplicates <- replicates[replicates %in% nzRep] 
-          
+      nzreplicates <- replicates[replicates %in% nzRep]
+      if(length(nzreplicates) == 0) return(NA)
+      
       propDispReplicates <- function(propDisp, z, secondz, subLibsizes, subPairLibsizes, monoModal)
         {
           props <- propDisp[match(nzreplicates, nzRep)]          
@@ -115,6 +116,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
     samplingSubset <- 1:nrow(cD)
 
   samplingSubset <- samplingSubset[rowSums(is.na(cD@data[samplingSubset,,drop = FALSE])) == 0]
+  samplingSubset <- samplingSubset[rowSums(cD@data[samplingSubset,,drop = FALSE]) > 0 | rowSums(cD@pairData[samplingSubset,,drop = FALSE]) > 0]
 
   if(any(sapply(cD@groups, class) != "factor"))
     {
@@ -140,7 +142,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
   if(nrow(sD@seglens) > 0) seglens <- sD@seglens[,,drop = TRUE] else seglens <- rep(1, nrow(sD@data))
   if(is.vector(seglens)) lensameFlag <- TRUE else lensameFlag <- FALSE
 
-  tupData <- log(sD@data) - log(sD@pairData)
+  #tupData <- log(sD@data) - log(sD@pairData)
   
   #carve out some stratified sampling here...
   #also account for duplicates
@@ -180,7 +182,8 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
                          t(parSapply(cl, selrow, optimoverPriors, selcts = group == uu))
                     }))    
   } else {
-    disps[selrow] <- sapply(selrow, getDisps, replicates = sD@replicates, moderate = moderate, zeroDispersion = zeroDispersion, monoModal = monoModal)
+    disps[selrow] <-
+      sapply(selrow, getDisps, replicates = sD@replicates, moderate = moderate, zeroDispersion = zeroDispersion, monoModal = monoModal)
     if(any(is.na(disps[selrow]))) disps[selrow][is.na(disps)[selrow]] <- sample(disps[selrow][!is.na(disps)[selrow]], sum(is.na(disps)[selrow]))
     
     BBpar <- lapply(sD@groups, function(group)
@@ -278,8 +281,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
           }
         
         sapply(1:length(BBpriors), function(gg)
-               PDgivenr.BB(number = row, cts = y[row,], secondcts = secondy[row,], priors = BBpriors[[gg]], group = groups[[gg]], wts = priorWeights[[gg]], sampInfo = numintSamp[[gg]])
-                           
+               PDgivenr.BB(number = row, cts = y[row,], secondcts = secondy[row,], priors = BBpriors[[gg]], group = groups[[gg]], wts = priorWeights[[gg]], sampInfo = numintSamp[[gg]])                           
                )
       }
     
@@ -430,12 +432,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
         ps <- matrix(ps, ncol = length(groups), byrow = TRUE)
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
         rps[postRows,] <- ps
-
-#        if(length(priorReps) == 0 || !any(priorReps %in% postRows))
-#          {
-#            rps[postRows,][orddat,] <- rps[postRows,][orddat[rep(which(whunq), diff(c(which(whunq), length(whunq) + 1)))],]
-#          }
- 
 
         if(returnPD) {
               if(verbose) message("done.")

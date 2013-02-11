@@ -121,7 +121,7 @@ setMethod("initialize", "countData", function(.Object, ..., replicates, seglens)
       
   if(nrow(.Object@seglens) != nrow(.Object@data) & nrow(.Object@seglens) != 0)
     stop("If 'seglens' specified, the number of rows (or length if submitting as vector) of '@seglens' slot must equal number of rows of '@data' slot.")
-  if(ncol(.Object@seglens) != 1 & ncol(.Object@seglens) != ncol(.Object@data))
+  if(nrow(.Object@seglens) >0 & ncol(.Object@seglens) != 1 & ncol(.Object@seglens) != ncol(.Object@data))
     stop("If 'seglens' specified, it must either be a vector, a matrix with one column, or a matrix with the same number of columns as 'data'.")
     }
   if(!missing(replicates)) {

@@ -167,11 +167,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
     }
   
   
-  if(is.null(samplingSubset))
-    samplingSubset <- 1:nrow(cD)
-
-  samplingSubset <- samplingSubset[rowSums(do.call("cbind", lapply(cD@groups, function(x) do.call("cbind", lapply(levels(x), function(rep) rowSums(is.na(cD@data[,x == rep,drop = FALSE])) == sum(x == rep)))))) == 0]
-
   if(any(sapply(cD@groups, class) != "factor"))
     {
       cD@groups <- lapply(cD@groups, as.factor)
@@ -182,6 +177,11 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
       cD@replicates <- as.factor(cD@replicates)
       warning("The '@replicates' slot is not a factor; converting now.")
     }
+
+  if(is.null(samplingSubset))
+    samplingSubset <- 1:nrow(cD)
+  
+  samplingSubset <- samplingSubset[rowSums(do.call("cbind", lapply(cD@groups, function(x) do.call("cbind", lapply(levels(x), function(rep) rowSums(is.na(cD@data[samplingSubset,which(x == rep),drop = FALSE])) == length(which(x == rep))))))) == 0]
 
   sD <- cD[samplingSubset,]
   

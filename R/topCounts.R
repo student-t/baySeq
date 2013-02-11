@@ -28,7 +28,7 @@ function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseDa
 
     if(nrow(cD@annotation) == 0) annotation <- data.frame(rowID = paste("row" , 1:nrow(cD), sep = "_")) else annotation <- cD@annotation
     
-    if(inherits(cD, what = "lociData") | inherits(cD, what = "methData")) annotation <- cbind(data.frame(chr = as.character(seqnames(cD@coordinates)), start = as.numeric(start(cD@coordinates)), end = as.numeric(end(cD@coordinates))), annotation) else annotation <- annotation
+    if(inherits(cD, what = "lociData") | inherits(cD, what = "methData")) annotation <- cbind(data.frame(chr = as.character(seqnames(cD@coordinates)), start = as.numeric(start(cD@coordinates)), end = as.numeric(end(cD@coordinates)), strand = as.character(strand(cD@coordinates))), annotation) else annotation <- annotation
 
     if(is.null(group)) {
       if(length(cD@nullPosts) == 0)
@@ -36,8 +36,8 @@ function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseDa
       likes <- cD@nullPosts        
     } else likes <- cD@posteriors[,group]
     
-    if(!missing(likelihood)) cutNumber <- sum(likes > log(likelihood))      
-    if(missing(likelihood) & !missing(FDR)) cutNumber <- sum(cumsum(1 - exp(sort(likes, decreasing = decreasing))) / 1:length(likes) < FDR)
+    if(!missing(likelihood)) cutNumber <- sum(likes > log(likelihood), na.rm = TRUE)
+    if(missing(likelihood) & !missing(FDR)) cutNumber <- sum(cumsum(1 - exp(sort(likes, decreasing = decreasing))) / 1:length(likes) < FDR, na.rm = TRUE)
 
     if(!missing(likelihood) | !missing(FDR))
       if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood or FDR specified; using the 'number' argument instead") else number <- cutNumber

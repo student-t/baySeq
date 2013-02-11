@@ -1,3 +1,4 @@
+
 #'getLikelihoods' <- function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, verbose = TRUE, ..., cl)
 #  {
 #    type = cD@priorType
@@ -246,8 +247,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     
     if(is.null(subset)) subset <- 1:nrow(cD)
 
-    subset <- subset[rowSums(do.call("cbind", lapply(cD@groups, function(x) do.call("cbind", lapply(levels(x), function(rep) rowSums(is.na(cD@data[,x == rep,drop = FALSE])) == sum(x == rep)))))) == 0]
-    
+    subset <- subset[rowSums(do.call("cbind", lapply(cD@groups, function(x) do.call("cbind", lapply(levels(x), function(rep) rowSums(is.na(cD@data[subset,which(x == rep),drop = FALSE])) == length(which(x == rep))))))) == 0]
+
     if(is.null(priorSubset)) priorSubset <- subset
     
     if(is.null(conv)) conv <- 0
@@ -328,8 +329,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         bootStraps <- 1
       }
 
-    postRows <- unique(c(priorReps, priorSubset, subset))
-
+    postRows <- unique(c(priorReps, priorSubset, subset))   
+    
     .fastUniques <- function(x){
       if (nrow(x) > 1) {
         return(c(TRUE, rowSums(x[-1L, , drop = FALSE] == x[-nrow(x),, drop = FALSE]) != ncol(x)))

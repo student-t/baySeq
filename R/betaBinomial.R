@@ -416,8 +416,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
         if(cc > 1) numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]][,1:2], weights = exp(posteriors[numintSamp[[ii]][[jj]][,1],ii]))))
 
         if (is.null(cl)) {
-          if(cc > 1)
-            priorWeights <- constructWeights()
+          if(cc > 1) priorWeights <- constructWeights()            
           ps <- sapply(postRows[whunq], BBbootStrap, groups = groups)
         } else {
           environment(constructWeights) <- getLikelihoodsEnv

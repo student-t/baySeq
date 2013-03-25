@@ -5,10 +5,15 @@
         {
           data <- cbind(cD@data, cD@pairData)
           replicates <- paste(as.character(rep(cD@replicates, 2)), rep(c("a", "b"), each = ncol(cD)), sep = "")
+        } else if(inherits(cD, what = "alignmentData")) {
+          libSet <- !duplicated(as.character(values(cD@alignments)$tag))
+          data <- sapply(1:ncol(cD), function(ii) as.integer(cD@data[libSet,ii]))
+          replicates <- cD@replicates
         } else {
           data <- cD@data
           replicates <- cD@replicates
         }
+      
     }
     
     if(missing(subset)) subset <- NULL

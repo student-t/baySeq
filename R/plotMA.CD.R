@@ -28,8 +28,8 @@ plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL
   Bdata <- cD@data[,samplesB]
   
   if(normaliseData) {
-    Adata <- Adata / cD@libsizes[samplesA] * mean(cD@libsizes[c(samplesA, samplesB)])
-    Bdata <- Bdata / cD@libsizes[samplesB] * mean(cD@libsizes[c(samplesA, samplesB)])
+    Adata <- t(t(Adata) / cD@libsizes[samplesA]) * mean(cD@libsizes[c(samplesA, samplesB)])
+    Bdata <- t(t(Bdata) / cD@libsizes[samplesB]) * mean(cD@libsizes[c(samplesA, samplesB)])
   }  
 
   if(nrow(cD@seglens) > 0)

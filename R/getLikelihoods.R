@@ -174,13 +174,14 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                 weightings[sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,2]] <- weightings[sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,2]] - sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,3]
                 
                 logsum(
-                       rowSums(
-                               matrix(
-                                      dnbinom(rep(cts[selcts], each = sum(nzWts)),
-                                              size = 1 / prior[nzWts,2],
-                                              mu = rep(libsizes[selcts] * seglen[selcts], each = sum(nzWts)) * prior[nzWts,1]
-                                              , log = TRUE),
-                                      ncol = sum(selcts)), na.rm = TRUE) + log(weightings[nzWts])) - log(sum(weightings[nzWts]))                
+                  rowSums(
+                    matrix(
+                      dnbinom(rep(cts[selcts], each = sum(nzWts)),
+                              size = 1 / prior[nzWts,2],
+                              mu = rep(libsizes[selcts] * seglen[selcts], each = sum(nzWts)) * prior[nzWts,1]
+                              , log = TRUE),
+                      ncol = sum(selcts)), na.rm = TRUE) + log(weightings[nzWts])
+                  ) - log(sum(weightings[nzWts]))
               })
               )
         }
@@ -202,7 +203,10 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         PDgivenr.NBConsensus(number, cts, seglen = seglen, libsizes = libsizes, priors = NBpriors, groups = groups, priorWeights = priorWeights, numintSamp = numintSamp, differentWeights = differentWeights)
       } else {      
         sapply(1:length(NBpriors), function(gg)
-               PDgivenr.NB(number = number, cts = cts, seglen = seglen, libsizes = libsizes, priors = NBpriors[[gg]], group = groups[[gg]], wts = priorWeights[[c(1, gg)[differentWeights + 1]]], sampInfo = numintSamp[[c(1, gg)[differentWeights + 1]]], differentWeights = differentWeights)
+               PDgivenr.NB(number = number, cts = cts, seglen = seglen, libsizes = libsizes, priors = NBpriors[[gg]], group = groups[[gg]],
+                           wts = priorWeights[[c(1, gg)[differentWeights + 1]]],
+                           sampInfo = numintSamp[[c(1, gg)[differentWeights + 1]]],
+                           differentWeights = differentWeights)
                )
       }
     }

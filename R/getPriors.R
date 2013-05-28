@@ -128,36 +128,45 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
           return(optimise(mualt, interval = c(0, max(cts[samples] / libsizes[samples], na.rm = TRUE) * 2), cts = cts[which(samples)], dispersion = disp, libsizes = libsizes[which(samples)], len = len[which(samples)], tol = 1e-50, maximum = TRUE)$maximum)
         }
       }
-      
-      if(equalDispersions | consensus)
-        {          
-          disp <- switch(estimation,
+
+      if(!any(sapply(replicates[which(cts != 0)], function(rep) sum(replicates == rep) > 1))) {
+        groupness <- lapply(groups, function(group) {
+          dispersion <- rep(NA, length(levels(group)))
+          mus <- sapply(levels(group), function(unqgrp)
+                        mean(cts[group == unqgrp] / len[group == unqgrp] / libsizes[group == unqgrp])
+                        )
+          list(dispersion = dispersion, mus = mus)
+        })
+      } else {
+        if(equalDispersions | consensus)
+          {          
+            disp <- switch(estimation,
                          QL = findDisp.QL(list(replicates = replicates, cts = cts, len = len, libsizes = libsizes)),
-                         ML = findDisp.ML(list(replicates = replicates, cts = cts, len = len, libsizes = libsizes))
-                         )
-          if(consensus) {
-            mu <- getMu(replicates == sample(levels(replicates), size = 1), disp = disp)
-            groupness <- c(mu, disp)
+                           ML = findDisp.ML(list(replicates = replicates, cts = cts, len = len, libsizes = libsizes))
+                           )
+            if(consensus) {
+              mu <- getMu(replicates == sample(levels(replicates), size = 1), disp = disp)
+              groupness <- c(mu, disp)
+            } else {
+              groupness <- lapply(groups, function(group) {
+                dispersion <- rep(disp, length(levels(group)))
+                mus <- sapply(levels(group), function(unqgrp) getMu(group == unqgrp, disp = disp))
+                list(dispersion = dispersion, mus = mus)
+              })}
           } else {
-            groupness <- lapply(groups, function(group) {
-              dispersion <- rep(disp, length(levels(group)))
-              mus <- sapply(levels(group), function(unqgrp) getMu(group == unqgrp, disp = disp))
-              list(dispersion = dispersion, mus = mus)
-            })}
-         } else {
-           repgroups <- lapply(groups, function(group) list(group = group, repData = lapply(levels(group[!is.na(group)]), function(unqgrp) list(replicates = replicates[which(group == unqgrp)], cts = cts[which(group == unqgrp)], len = len[which(group == unqgrp)], libsizes = libsizes[which(group == unqgrp)]))))
-           
-          dispgroups <- switch(estimation,
-                               QL = lapply(repgroups, function(repgroup) list(group = repgroup$group, dispersion = sapply(repgroup$repData, findDisp.QL))),
-                               ML = lapply(repgroups, function(repgroup) list(group = repgroup$group, dispersion = sapply(repgroup$repData, findDisp.ML)))
-                               )
-          groupness <- lapply(dispgroups, function(dispgroup)
-                              list(dispersion = dispgroup$dispersion,                                                                     
-                                   mus = sapply(levels(dispgroup$group[!is.na(dispgroup$group)]), function(unqgrp) getMu(dispgroup$group == unqgrp, dispgroup$dispersion[levels(dispgroup$group) == unqgrp]))))
-        }
-      
-      groupness
-      
+            repgroups <- lapply(groups, function(group) list(group = group, repData = lapply(levels(group[!is.na(group)]), function(unqgrp) list(replicates = replicates[which(group == unqgrp)], cts = cts[which(group == unqgrp)], len = len[which(group == unqgrp)], libsizes = libsizes[which(group == unqgrp)]))))
+            
+            dispgroups <- switch(estimation,
+                                 QL = lapply(repgroups, function(repgroup) list(group = repgroup$group, dispersion = sapply(repgroup$repData, findDisp.QL))),
+                                 ML = lapply(repgroups, function(repgroup) list(group = repgroup$group, dispersion = sapply(repgroup$repData, findDisp.ML)))
+                                 )
+            groupness <- lapply(dispgroups, function(dispgroup)
+                                list(dispersion = dispgroup$dispersion,                                                                     
+                                     mus = sapply(levels(dispgroup$group[!is.na(dispgroup$group)]), function(unqgrp) getMu(dispgroup$group == unqgrp, dispgroup$dispersion[levels(dispgroup$group) == unqgrp]))))
+          }
+        
+        groupness
+      }
     }
   
   if(!is.null(cl))
@@ -347,8 +356,17 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
 
   if(consensus) NBpar <- t(parEach) else {
     NBpar <- lapply(1:length(groups), function(gg)
-                    lapply(1:length(levels(groups[[gg]])), function(ii) t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], 1)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))))
+                    lapply(1:length(levels(groups[[gg]])), function(ii) t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], NA)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))))
   }
+
+  NBpar <- lapply(1:length(groups), function(gg)
+                  lapply(1:length(levels(groups[[gg]])), function(ii) {
+                    par <- NBpar[[gg]][[ii]]
+                    par[is.na(par[,2]),2] <- 1
+                                        #par[is.na(par),2] <- mean(par[,2], na.rm = TRUE)
+                    par
+                  }))
+                
   
   if(verbose) message("done.")
 

@@ -351,9 +351,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
       } else parEach <- parApply(cl, z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag, zeroML, consensus = consensus)
     }
 
-  if(!is.null(cl))
-    clusterEvalQ(cl, rm(list = ls()))
-
   if(consensus) NBpar <- t(parEach) else {
     NBpar <- lapply(1:length(groups), function(gg)
                     lapply(1:length(levels(groups[[gg]])), function(ii) t(sapply(parEach, function(x) c(x[[gg]]$mus[ii], c(x[[gg]]$dispersion[ii], NA)[as.numeric(is.na(x[[gg]]$dispersion[ii])) + 1])))))

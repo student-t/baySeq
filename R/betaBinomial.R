@@ -45,6 +45,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
 
   getDisps <- function(selRow, replicates, moderate, zeroDispersion, monoModal)
     {
+      message(selRow)
       nzRep <- levels(replicates)[sapply(levels(replicates), function(rep) any(y[selRow, replicates == rep] != 0) & any(secondy[selRow, replicates == rep] != 0))]
       nzreplicates <- replicates[replicates %in% nzRep]
       if(length(nzreplicates) == 0) return(NA)
@@ -147,8 +148,8 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
   #carve out some stratified sampling here...
   #also account for duplicates
   
-  y <- sD@data
-  secondy <- sD@pairData
+  y <- round(sD@data)
+  secondy <- round(sD@pairData)
   selrow <- which(rowSums(y != 0) > 0 | rowSums(secondy != 0) > 0)
 
   if(length(selrow) > samplesize)
@@ -174,7 +175,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
     clusterCall(cl, clustAssign, dbetabinom, "dbetabinom")
 
     disps[selrow] <- parSapply(cl, selrow, getDisps, replicates = sD@replicates, moderate = moderate, zeroDispersion = zeroDispersion, monoModal = monoModal)
-    if(any(is.na(disps[selrow]))) disps[selrow][is.na(disps)[selrow]] <- sample(disps[selrow][!is.na(disps)[selrow]], sum(is.na(disps)[selrow]))
+    if(any(is.na(disps[selrow]))) disps[selrow][is.na(disps)[selrow]] <- sample(disps[selrow][!is.na(disps)[selrow]], sum(is.na(disps)[selrow]), replace = TRUE)
     
     clusterCall(cl, clustAssign, disps, "disps")
     BBpar <- lapply(sD@groups, function(group)
@@ -184,7 +185,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
   } else {
     disps[selrow] <-
       sapply(selrow, getDisps, replicates = sD@replicates, moderate = moderate, zeroDispersion = zeroDispersion, monoModal = monoModal)
-    if(any(is.na(disps[selrow]))) disps[selrow][is.na(disps)[selrow]] <- sample(disps[selrow][!is.na(disps)[selrow]], sum(is.na(disps)[selrow]))
+    if(any(is.na(disps[selrow]))) disps[selrow][is.na(disps)[selrow]] <- sample(disps[selrow][!is.na(disps)[selrow]], sum(is.na(disps)[selrow]), replace = TRUE)
     
     BBpar <- lapply(sD@groups, function(group)
                   lapply(unique(levels(group)), function(uu){
@@ -195,7 +196,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
   sampled <- cbind(sampled = selrow, representative = 1:length(selrow))
   weights <- rep(1, length(selrow))
 
-  message("done!")
+  if(verbose) message("done.")
   
   new(class(cD), cD, priorType = "BB", priors = list(sampled = sampled, weights = weights, priors = BBpar))
 }
@@ -323,21 +324,21 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
       stop("'subset' must be integer, numeric, or NULL")
     
-    if(is.null(subset)) subset <- 1:nrow(cD)
-
-    subset <- subset[(rowSums(cD@data[subset,,drop = FALSE]) != 0 | rowSums(cD@pairData[subset,,drop = FALSE]) != 0)]
-    
-    if(is.null(priorSubset)) priorSubset <- subset
-    
     if(is.null(conv)) conv <- 0
 
     groups <- cD@groups
     BBpriors <- cD@priors$priors
     numintSamp <- cD@priors$sampled
-    y <- cD@data
-    secondy <- cD@pairData
+    y <- round(cD@data)
+    secondy <- round(cD@pairData)
     libsizes <- cD@libsizes
     pairLibsizes <- cD@pairLibsizes
+
+    if(is.null(subset)) subset <- 1:nrow(cD)
+    subset <- subset[(rowSums(y[subset,,drop = FALSE]) != 0 | rowSums(secondy[subset,,drop = FALSE]) != 0)]
+    
+    if(is.null(priorSubset)) priorSubset <- subset
+
 
     if(length(libsizes) == 0) libsizes <- rep(1, ncol(cD))
     if(length(pairLibsizes) == 0) pairLibsizes <- libsizes
@@ -430,13 +431,14 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
         
         ps <- matrix(ps, ncol = length(groups), byrow = TRUE)
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
+        
         rps[postRows,] <- ps
 
         if(returnPD) {
               if(verbose) message("done.")
               return(rps)
             }
-        
+
         if(pET != "none")
           {
             restprs <- getPosteriors(rps[priorSubset,, drop = FALSE], prs, pET = pET, marginalise = FALSE, groups = groups, priorSubset = NULL, cl = cl)$priors
@@ -448,7 +450,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
           if(all(abs(exp(posteriors[union(priorReps,subset),]) - exp(pps$posteriors)) < conv)) converged <- TRUE
         
         posteriors[union(priorReps, subset),] <- pps$posteriors
-        
+
         prs <- pps$priors
         propest <- rbind(propest, prs)
 
@@ -472,6 +474,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
             
             colnames(retPosts) <- names(cD@groups)
             listPosts[[cc]] <- (new(class(cD), cD, posteriors = retPosts, estProps = estProps, nullPosts = nullPosts))
+            listPosts[[cc]]@orderings <- .makeOrderings(listPosts[[cc]])
           }
 
         if(converged)
@@ -480,7 +483,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
 
     if(!is.null(cl))
       clusterEvalQ(cl, rm(list = ls()))
-    
+
     if(verbose) message("done.")
 
     if(!returnAll) return(listPosts[[cc]]) else {

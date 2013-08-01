@@ -234,6 +234,8 @@ We can create a \verb'countData' object containing all the information we need f
 
 \subsubsection{Including lengths}
 
+\label{Section::seglen}
+
 If two genes are expressed at the same level, but one is twice the length of the other, then (on average) we will sequence twice as many reads from the longer gene. The same is true for sRNA loci, and so in these analyses it is often useful to include the lengths of each feature. The lengths can be derived from the annotation of each feature, but we need to explicitly declare them within the `countData' object.
 
 <<>>=

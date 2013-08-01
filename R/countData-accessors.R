@@ -159,6 +159,12 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
             warning("Selection of samples (columns) will invalidate the values calculated in slot 'posteriors', and so these will be discarded.")
             x@posteriors <- matrix(nrow = 0, ncol = 0)
           }
+        if(length(x@orderings) > 0)
+          {
+            warning("Selection of samples (columns) will invalidate the values calculated in slot 'orderings', and so these will be discarded.")
+            x@orderings <- matrix(nrow = 0, ncol = 0)
+          }
+
       }
   if(missing(i))
     i <- 1:nrow(x@data)
@@ -168,6 +174,9 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
   x@annotation <- x@annotation[i,, drop = FALSE]
   if(nrow(x@posteriors) > 0)
     x@posteriors <- x@posteriors[i,, drop = FALSE]
+  if(nrow(x@orderings) > 0)
+    x@orderings <- x@orderings[i,, drop = FALSE]
+  
 
   if(length(x@nullPosts) > 0)
     x@nullPosts <- x@nullPosts[i,,drop = FALSE]

@@ -1,4 +1,47 @@
 
+.makeOrderings <- function(cD)
+  {
+    orderings <- do.call("cbind", lapply(cD@groups, function(group) {
+      if(length(levels(group)) > 1) {
+        glev <- levels(group)
+        if(length(cD@libsizes) == 0) cD@libsizes <- rep(1, ncol(cD))           
+        if(inherits(cD, what = "pairedData") && length(cD@pairLibsizes) == 0) cD@pairLibsizes <- rep(1, ncol(cD))
+
+        if(inherits(cD, what = "pairedData")) {
+          data <- (t(t(cD@data) / cD@libsizes) * exp(mean(log(c(cD@libsizes, cD@pairLibsizes)))))
+          pairData <- (t(t(cD@pairData) / cD@pairLibsizes) * exp(mean(log(c(cD@libsizes, cD@pairLibsizes)))))
+          adjmin <- min(c(data[data > 0], pairData[pairData > 0])) / 10
+          amhMeds <- sapply(glev, function(gg) 
+                            rowMeans(log(data[,group == gg, drop = FALSE] + adjmin) - log(pairData[,group == gg, drop = FALSE] + adjmin), na.rm = TRUE))
+        } else {
+          data <- (t(t(cD@data) / cD@libsizes) * exp(mean(log(cD@libsizes))))
+          amhMeds <- sapply(glev, function(gg) rowMeans(data[,group == gg, drop = FALSE], na.rm = TRUE))                            
+        }
+        rownames(amhMeds) <- NULL
+
+        matlev <- matrix(glev, ncol(amhMeds), nrow = nrow(amhMeds), byrow = TRUE)
+        orderings <- rep("", nrow(amhMeds))
+        
+        for(ii in 1:ncol(amhMeds)) {
+          maxes <- amhMeds == matrix(do.call("pmax", c(as.list(data.frame(amhMeds)), na.rm = TRUE)), ncol = ncol(amhMeds), nrow = nrow(amhMeds))
+          maxes[is.na(maxes)] <- FALSE
+          subord <- matrix(NA, ncol(amhMeds), nrow = nrow(amhMeds))
+          subord[maxes] <- matlev[maxes]
+          eqord <- do.call("paste", c(as.list(as.data.frame(subord)), sep = "="))
+          eqord <- gsub("=*NA=*", "", eqord)
+          orderings = paste(orderings, eqord, ">", sep = "")
+          orderings <- gsub(">+", ">", orderings)
+          amhMeds[maxes] <- NA
+        }
+        orderings <- gsub(">$", "", orderings)        
+      } else orderings = rep("", nrow(cD))
+      orderings
+    }
+                            ))
+    colnames(orderings) <- colnames(cD@posteriors)
+    orderings
+}
+
 #'getLikelihoods' <- function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, verbose = TRUE, ..., cl)
 #  {
 #    type = cD@priorType
@@ -11,7 +54,8 @@
 
 `getPosteriors` <-
 function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL, maxit = 100, accuracy = 1e-5, cl = cl)
-  {            
+  {
+    if(nrow(ps) == 0) return(list(posteriors = ps, priors = prs))
     getPosts <- function(ps, prs)
       {
         posts <- t(t(ps) + log(prs))
@@ -319,8 +363,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     propest <- NULL
     converged <- FALSE
 
-    if(!is.null(cl))
+    if(!is.null(cl)) {
       clusterCall(cl, clustAssign, NBpriors, "NBpriors")
+    }
 
     if(verbose) message("Finding posterior likelihoods...", appendLF = FALSE)
 
@@ -352,7 +397,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
       {
         if(cc > 1) numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]][,1:2], weights = exp(posteriors[numintSamp[[ii]][[jj]][,1],ii]))))          
         
-        if (is.null(cl) | length(postRows[whunq]) < 2) {
+        if (is.null(cl)) {
           if(cc > 1)
             priorWeights <- constructWeights()
 
@@ -363,7 +408,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
           clusterCall(cl, clustAssign, numintSamp, "numintSamp")
           #clusterCall(cl, clustAssign, priorWeights, "priorWeights")
           clusterCall(cl, constructWeights, withinCluster = TRUE, consensus = consensus)
-          ps <- parRapply(cl, cbind(1:nrow(cD@data), seglens, cD@data)[postRows[whunq],, drop = FALSE],
+
+          ps <- parRapply(cl[1:min(length(cl), length(postRows[whunq]))], cbind(1:nrow(cD@data), seglens, cD@data)[postRows[whunq],, drop = FALSE],
                           NBbootStrap, libsizes = libsizes, groups = groups, lensameFlag = lensameFlag, consensus = consensus, differentWeights = differentWeights)
         }
 
@@ -389,9 +435,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
           } else restprs <- prs
         
         pps <- getPosteriors(rps[union(priorReps,subset),,drop = FALSE], prs = restprs, pET = "none", marginalise = marginalise, groups = groups, priorSubset = NULL, cl = cl)
-        
+
         if(any(!is.na(posteriors)))
-          if(all(abs(exp(posteriors[union(priorReps,subset),]) - exp(pps$posteriors)) < conv)) converged <- TRUE
+          if(all(abs(exp(posteriors[union(priorReps,subset),,drop = FALSE]) - exp(pps$posteriors)) < conv)) converged <- TRUE
         
         posteriors[union(priorReps, subset),] <- pps$posteriors
         
@@ -417,6 +463,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
             
             colnames(retPosts) <- names(cD@groups)
             listPosts[[cc]] <- (new(class(cD), cD, posteriors = retPosts, estProps = estProps, nullPosts = nullPosts))
+            listPosts[[cc]]@orderings <- .makeOrderings(listPosts[[cc]])
           }
 
         if(converged)

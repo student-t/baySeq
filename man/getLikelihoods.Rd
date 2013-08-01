@@ -168,8 +168,7 @@ data(CDPriors)
 
 # Get likelihoods for data with negative binomial method.
 
-CDPost <- getLikelihoods.NB(CDPriors, prs = c(0.5, 0.5),
-pET = "BIC", marginalise = FALSE, bootStraps = 1, cl = cl)
+CDPost <- getLikelihoods.NB(CDPriors, pET = "BIC", cl = cl)
 
 try(stopCluster(cl))
 

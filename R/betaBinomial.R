@@ -45,7 +45,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, moderate 
 
   getDisps <- function(selRow, replicates, moderate, zeroDispersion, monoModal)
     {
-      message(selRow)
       nzRep <- levels(replicates)[sapply(levels(replicates), function(rep) any(y[selRow, replicates == rep] != 0) & any(secondy[selRow, replicates == rep] != 0))]
       nzreplicates <- replicates[replicates %in% nzRep]
       if(length(nzreplicates) == 0) return(NA)

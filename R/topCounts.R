@@ -54,7 +54,7 @@ function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseDa
     if(nrow(cD@annotation) == 0) annotation <- data.frame(rowID = selTags) else annotation <- cD@annotation[selTags,]    
     
     if(inherits(cD, what = "lociData") | inherits(cD, what = "methData"))
-      annotation <- cbind(annotation, as.data.frame(cD@coordinates[selTags])) else annotation <- annotation
+      annotation <- cbind(annotation, GenomicRanges::as.data.frame(cD@coordinates[selTags])) else annotation <- annotation
 
     topTags <- data.frame(annotation, data, Likelihood = exp(likes[selTags,]), ordering = ordering, FDR = cumsum(1 - exp(likes[selTags,1])) / 1:number)
     names(topTags)[names(topTags) == "FDR"] <- paste("FDR", names(cD@groups)[group[1]], sep = ".")

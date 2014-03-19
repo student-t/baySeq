@@ -1,7 +1,7 @@
 
 .makeOrderings <- function(cD)
   {
-    orderings <- do.call("cbind", lapply(cD@groups, function(group) {
+    orderings <- do.call("data.frame", lapply(cD@groups, function(group) {
       if(length(levels(group)) > 1) {
         glev <- levels(group)
         if(length(cD@libsizes) == 0) cD@libsizes <- rep(1, ncol(cD))           
@@ -28,14 +28,16 @@
           subord <- matrix(NA, ncol(amhMeds), nrow = nrow(amhMeds))
           subord[maxes] <- matlev[maxes]
           eqord <- do.call("paste", c(as.list(as.data.frame(subord)), sep = "="))
-          eqord <- gsub("=*NA=*", "", eqord)
+          eqord <- gsub("=*(NA)+=*", "=", eqord)
+          eqord <- gsub("^=+", "", eqord)
+          eqord <- gsub("=+$", "", eqord)
+          eqord <- gsub("=+", "=", eqord)          
           orderings = paste(orderings, eqord, ">", sep = "")
-          orderings <- gsub(">+", ">", orderings)
           amhMeds[maxes] <- NA
         }
-        orderings <- gsub(">$", "", orderings)        
+        orderings <- gsub(">+$", "", orderings)        
       } else orderings = rep("", nrow(cD))
-      orderings
+      as.factor(orderings)
     }
                             ))
     colnames(orderings) <- colnames(cD@posteriors)

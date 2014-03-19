@@ -1,5 +1,5 @@
 `topCounts` <-
-function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseData = FALSE)
+function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, FWER, normaliseData = FALSE)
   {
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
@@ -16,10 +16,15 @@ function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseDa
       likes <- cD@nullPosts        
     } else likes <- cD@posteriors[,group,drop = FALSE]    
 
-    if(!missing(likelihood)) cutNumber <- sum(likes > log(likelihood), na.rm = TRUE)
-    if(missing(likelihood) & !missing(FDR)) cutNumber <- sum(cumsum(1 - exp(sort(likes[,1], decreasing = decreasing))) / 1:sum(!is.na(likes[,1])) < FDR, na.rm = TRUE)
-        if(!missing(likelihood) | !missing(FDR))
-      if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood or FDR specified; using the 'number' argument instead") else number <- cutNumber
+    if(!missing(likelihood)) {
+      cutNumber <- sum(likes > log(likelihood), na.rm = TRUE)
+    } else if (!missing(FDR)) {
+      cutNumber <- sum(cumsum(1 - exp(sort(likes[,1], decreasing = decreasing))) / 1:sum(!is.na(likes[,1])) < FDR, na.rm = TRUE)
+    } else if (!missing(FWER)) {
+      cutNumber <- sum(FWER = 1 - cumprod(sort(exp(likes[,1]), decreasing = decreasing)) < FWER, na.rm = TRUE)
+    }
+    if(!missing(likelihood) | !missing(FDR) | !missing(FWER))
+      if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood, FDR or FWER specified; using the 'number' argument instead") else number <- cutNumber
 
     number <- min(number, nrow(likes))
     
@@ -56,8 +61,11 @@ function(cD, group, decreasing = TRUE, number = 10, likelihood, FDR, normaliseDa
     if(inherits(cD, what = "lociData") | inherits(cD, what = "methData"))
       annotation <- cbind(annotation, GenomicRanges::as.data.frame(cD@coordinates[selTags])) else annotation <- annotation
 
-    topTags <- data.frame(annotation, data, Likelihood = exp(likes[selTags,]), ordering = ordering, FDR = cumsum(1 - exp(likes[selTags,1])) / 1:number)
+    topTags <- data.frame(annotation, data, Likelihood = exp(likes[selTags,]), ordering = ordering,
+                          FDR = cumsum(1 - exp(likes[selTags,1])) / 1:number,
+                          FWER = 1 - cumprod(exp(likes[selTags,1])))
     names(topTags)[names(topTags) == "FDR"] <- paste("FDR", names(cD@groups)[group[1]], sep = ".")
+    names(topTags)[names(topTags) == "FWER"] <- paste("FWER", names(cD@groups)[group[1]], sep = ".")
     rownames(topTags) <- rownames(cD@data)[selTags]
     topTags
   }

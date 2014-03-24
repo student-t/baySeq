@@ -7,9 +7,9 @@
 \alias{pairedData}
 \alias{pairedData-class}
 \alias{show,pairedData-method}
-\alias{[,pairedData-method}
+\alias{[,pairedData,ANY-method}
 \alias{dim,countData-method}
-\alias{[,countData-method}
+\alias{[,countData,ANY-method}
 \alias{show,countData-method}
 \alias{rbind,countData-method}
 \alias{replicates,countData-method}

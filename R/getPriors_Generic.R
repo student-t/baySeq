@@ -150,7 +150,7 @@
       weights <- rep(sapply(spldat, length) / sapply(sampDat, length), sapply(sampDat, length))
       sampDat <- unlist(sampDat)
     } else {
-      sampDat <- lapply(spldat, function(x) sample(x, size = ceiling(samplesize / length(spldat)), replace = FALSE))        
+      sampDat <- lapply(spldat, function(x) sample(x, size = min(length(x), ceiling(samplesize / length(spldat))), replace = FALSE))        
       weights <- rep(sapply(spldat, length) / sapply(sampDat, length), sapply(sampDat, length))
       sampDat <- unlist(sampDat)
     }

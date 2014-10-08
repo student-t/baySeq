@@ -17,11 +17,11 @@
     }
     
     if(missing(subset)) subset <- NULL
-    if(is.null(subset)) subset <- 1:nrow(data)
-      
+    if(is.null(subset)) subset <- 1:nrow(data)      
     estimationType = match.arg(estimationType)
     if(is.na(estimationType)) stop("'estimationType' not known")
-    estLibs <- function(data)
+
+    estLibs <- function(data, replicates)
       {
         libsizes <- switch(estimationType,
                            total = colSums(data[subset,,drop = FALSE], na.rm = TRUE),
@@ -40,10 +40,20 @@
         names(libsizes) <- colnames(data)
         libsizes
       }
-    estLibsizes <- estLibs(data)
-    
+
+    if(length(dim(data)) == 2) estLibsizes <- estLibs(data, replicates)
+    if(length(dim(data)) == 3) {
+      combData <- do.call("cbind", lapply(1:dim(data)[3], function(kk) data[,,kk]))
+      combReps <- paste(as.character(rep(replicates, dim(data)[3])), rep(c("a", "b"), each = ncol(data)), sep = "")
+      estLibsizes <- estLibs(combData, combReps)
+      estLibsizes <- do.call("cbind",
+                             split(estLibsizes, cut(1:length(estLibsizes), breaks = dim(data)[3], labels = FALSE)))
+    }
+                            
     if(!missing(cD))
       if(inherits(cD, what = "pairedData")) return(list(estLibsizes[1:ncol(cD)], estLibsizes[1:ncol(cD) + ncol(cD)]))
-        
+
+    if(length(dim(data)) > 2) estLibsizes <- array(estLibsizes, dim = dim(cD@data)[-1])
+    
     return(estLibsizes)
   }

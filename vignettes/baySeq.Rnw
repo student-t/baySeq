@@ -6,6 +6,10 @@
 \title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data}
 \author{Thomas J. Hardcastle}
 
+<<<style-Sweave, eval=TRUE, echo=FALSE, results=tex>>=
+BiocStyle::latex()
+@ 
+
 \begin{document}
 
 \maketitle
@@ -38,19 +42,10 @@ options(width = 90)
 library(baySeq)
 @
 
-Note that because the experiments that \verb'baySeq' is designed to analyse are usually massive, we should use (if possible) parallel processing as implemented by the \verb'snow' package. We therefore need to load the \verb'snow' package (if it exists), define a \textsl{cluster} and load the \verb'baySeq' library onto each member of the cluster. 
-<<results = hide, eval = FALSE>>=
-  library(snow)
-cl <- makeCluster(4, "SOCK")
-@
-
-If \verb'snow' is not present, we can proceed anyway with a \verb'NULL' cluster. Results may be slightly different depending on whether or not a cluster is used owing to the non-deterministic elements of the method.
+Note that because the experiments that \verb'baySeq' is designed to analyse are usually massive, we should use (if possible) parallel processing as implemented by the \verb'snow' package. We use the \verb'parallel' package (if it exists), and define a \textsl{cluster}. If \verb'parallel' is not present, we can proceed anyway with a \verb'NULL' cluster. Results may be slightly different depending on whether or not a cluster is used owing to the non-deterministic elements of the method.
 <<results = hide>>=
-  cl <- NULL
-@ 
-
-
-Here we have (if the \verb'snow' package is installed) defined a cluster of four processors on sockets; that is to say, on the local machine. If the local machine has multiple processors this may be a valid method of accelerating \verb'baySeq', but if very large data sets are being analysed we may wish to consider some other form of parallelisation (e.g. LAM/MPI) that allows processors on multiple nodes to be used. See the \verb'snow' documentation for details on how to achieve this.
+if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
+@
 
 We load a simulated data set consisting of count data on one thousand counts.
 
@@ -121,20 +116,33 @@ CD@annotation <- data.frame(name = paste("count", 1:1000, sep = "_"))
 \section{Negative-Binomial Approach}
 
 We first estimate an empirical distribution on the parameters of the Negative Binomial distribution by bootstrapping from the data, taking individual counts and finding the quasi-likelihood parameters for a Negative Binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
+
+<<results = hide, echo = FALSE>>=
+if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
+@
+
 <<>>=
 CD <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
 @
 
+<<results = hide, echo = FALSE>>=
+stopCluster(cl)
+@ 
+
 The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced as before. For the negative-binomial method, we are unable to form a conjugate prior distribution. Instead, we build an empirical prior distribution which we record in the list object \verb'$priors' of the slot \verb'@priors'. Each member of this list object corresponds to one of the models defined by the \verb'group' slot of the \verb'countData' object and contains the estimated parameters for each of the individual counts selected under the models. The vector \verb'$sampled' contained in the slot \verb'@priors' describes which rows were sampled to create these sets of parameters.
 
 We then acquire posterior likelihoods, estimating the proportions of differentially expressed counts.
+
+<<results = hide, echo = FALSE>>=
+if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
+@
+
 <<>>=
-CD <- getLikelihoods.NB(CD, pET = 'BIC', cl = cl)
+CD <- getLikelihoods(CD, pET = 'BIC', cl = cl)
 CD@estProps
 CD@posteriors[1:10,]
 CD@posteriors[101:110,]
 @ 
-
 
 Here the assumption of a Negative Binomial distribution with priors estimated by maximum likelihood gives an estimate of 
 <<echo = FALSE>>=
@@ -185,31 +193,43 @@ We begin by loading a simulated dataset containing counts for four paired datase
 
 The first four columns in these data are paired with the second four columns. We construct a pairedData in a similar fashion to the countData object.
 <<>>=
-   pairCD <- new("pairedData", data = pairData[,1:4], pairData = pairData[,5:8],
+pairCD <- new("countData", data = list(pairData[,1:4], pairData[,5:8]),
                  replicates = c(1,1,2,2),
-                 groups = list(NDE = c(1,1,1,1), DE = c(1,1,2,2)))
+                 groups = list(NDE = c(1,1,1,1), DE = c(1,1,2,2)),
+              densityFunction = bbDensity)
 @
 
 We can find the library sizes for the data with the \verb'getLibsizes' function.
 <<>>=
-  libsizes(pairCD) <- getLibsizes(pairCD)
+libsizes(pairCD) <- getLibsizes(pairCD)
 @ 
 
 We estimate an empirical distribution on the parameters of a beta-binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a beta-binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
-<<>>=
-  pairCD <- getPriors.BB(pairCD, samplesize = 1000, cl = cl)
+
+<<results = hide, echo = FALSE>>=
+if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
 @
 
-We then acquire posterior likelihoods as before. The `nullProps' parameter indicates that the proportion of counts observed in the first member of a non-differentially expressed pair is 0.5.
 <<>>=
-  pairCD <- getLikelihoods.BB(pairCD, pET = 'BIC', nullProps = 0.5, cl = cl)
+pairCD <- getPriors(pairCD, samplesize = 1000, cl = cl)
+@
+
+We then acquire posterior likelihoods as before. The use of 'nullData = TRUE' in this context allows us to identify pairs which show no differential expression between replicate groups, but does show deviation from a one-to-one ratio of data between pairs.
+
+<<>>=
+  pairCD <- getLikelihoods(pairCD, pET = 'BIC', nullData = TRUE, cl = cl)
 @ 
+
+<<results = hide, echo = FALSE>>=
+stopCluster(cl)
+@ 
+
 
 We can ask for the top candidates for differential expression between replicate groups using the \verb'topCounts' function as before.
 <<>>=
   topCounts(pairCD, group = 2)
 @ 
-However, we can also look for consistent differential expression between the pairs. Since we set the `nullProps' variable to 0.5, the first grouping model describes pairs which show no differential expression between replicate groups, but does show deviation from a one-to-one ratio of data between pairs.
+However, we can also look for consistent differential expression between the pairs. 
 <<>>=
   topCounts(pairCD, group = 1)
 @ 
@@ -282,9 +302,20 @@ groups(cDPair) <- list(NDE = NDE, mobile = mobile)
 @ 
 
 Now that we have defined our models, we need to establish prior distributions for the data. We do this using the \verb'getPriors.NB' function.
+
+<<results = hide, echo = FALSE>>=
+if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
+@
+
 <<results = hide>>=
-cDPair <- getPriors.NB(cDPair, samplesize = 1e4, cl = NULL)
+cDPair <- getPriors.NB(cDPair, samplesize = 1e4, cl = cl)
 @ 
+
+<<results = hide, echo = FALSE>>=
+stopCluster(cl)
+@ 
+
+
 The accuracy of the distribution is determined by the number of data points used to estimate the distribution; the `samplesize'. Here we've used a small sample size to reduce the computational effort required, but higher values will give more accurate results (the default is 1e5).
 
 Having found prior distributions for the data, we can identify posterior likelihoods for the data using the \verb'getLikelihoods' function. Before we do this, however, it is worth considering the possibility that some loci will not be expressed at all in our data.
@@ -293,23 +324,35 @@ Having found prior distributions for the data, we can identify posterior likelih
 
 We first examine the priors to see if any `null' data, consisting of un-expressed sRNA loci, are present. If the distribution of priors for the non-differentially expressed group is bimodal, it is likely that some of the loci are expressed at substantially lower levels than others.
 <<fig = FALSE, label=plotPriors>>=
-plotPriors(cDPair, group = "NDE")
+plotNullPrior(cDPair)
 @ 
+
+There is some evidence for bimodality, with a small peak of lowly expressed data to the left of the distribution.
 
 \begin{figure}[!ht]
 \begin{center}
 <<label=figPlotPriors, fig=TRUE,echo=FALSE>>=
 <<plotPriors>>
 @
-\caption{Distribution of $\mu_{ij}$ estimated as priors. Bimodality suggests the presence of `null', or un-expressed, data.}
+\caption{Distribution of $\mu_{ij}$. Bimodality suggests the presence of `null', or un-expressed, data.}
 \label{figMAPost}
 \end{center}
 \end{figure}
 
-We can use the \verb'nullData = TRUE' option in the \verb'getLikelihoods.NB' function to allow for the possibility that some of the loci are miscalled in our locus map, and should properly be identified as nulls.
+We can use the \verb'nullData = TRUE' option in the \verb'getLikelihoods' function to allow for the possibility that some of the loci are miscalled in our locus map, and should properly be identified as nulls.
+
+<<results = hide, echo = FALSE>>=
+if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
+@
+
 <<results=hide>>=
-cDPair <- getLikelihoods.NB(cDPair, nullData = TRUE, cl = NULL)
+cDPair <- getLikelihoods(cDPair, nullData = TRUE, cl = cl)
 @ 
+
+<<results = hide, echo = FALSE>>=
+stopCluster(cl)
+@ 
+
 
 If we now look at the \verb'cDPair' object, we can see that we have acquired posterior likelihoods for the data
 <<>>=
@@ -319,19 +362,13 @@ The estimated posterior likelihoods for each model are stored in the natural log
 
 Try looking at the proportions of data belonging to each group. Note that these no longer sum to 1, as some data are now classified as `null'.
 <<>>=
-cDPair@estProps
+summarisePosteriors(cD)
 @
 
 The value contained in the \verb'@estProps' slot is a best-guess figure for the proportion of data belonging to each model defined by the \verb'@groups' slot. In this case, it is is estimated that approximately 65\% of the loci are not differentially expressed, while 35\% are differentially expressed. These estimates should not be relied upon absolutely, but are a useful indicator of the global structure of the data.
 
 
-We can ask for the rows most likely to be differentially expressed under our different models using the \verb'topCounts' function. If we look at the second model, or grouping structure, we see the top candidates for differential expression.
-<<>>=
-topCounts(cDPair, group = 2)
-@
-Looking at the data in this way can be misleading. Because the library sizes of the different libraries differ, it can be unclear as to why some loci are identified as differentially expressed.
-
- Try viewing the normalised results.
+We can ask for the rows most likely to be differentially expressed under our different models using the \verb'topCounts' function. If we look at the second model, or grouping structure, we see the top candidates for differential expression. Because the library sizes of the different libraries differ, it can be unclear as to why some loci are identified as differentially expressed unless the data are normalised.
 <<>>=
 topCounts(cDPair, group = 2, normaliseData = TRUE)
 @
@@ -410,10 +447,21 @@ groups(cD) <- list(NDE = NDE, d3dep = d3dep, mobile = mobile)
 Note that in this case the replicate structure does not correspond to any biologically plausible model; we do not expect that any loci will be different between all three experimental groups.
 
 We can now find the priors and likelihoods for this analysis as before.
-<<results=hide>>=
-cD <- getPriors.NB(cD, cl = NULL)
-cD <- getLikelihoods.NB(cD, nullData = TRUE, cl = NULL)
+
+<<results = hide, echo = FALSE>>=
+if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
 @
+
+
+<<results=hide>>=
+cD <- getPriors.NB(cD, cl = cl)
+cD <- getLikelihoods(cD, nullData = TRUE, cl = cl)
+@
+
+<<results = hide, echo = FALSE>>=
+stopCluster(cl)
+@ 
+
 
 We can see if there are any potential candidates for mobile sRNA loci by using the `topCounts' function.
 <<>>=
@@ -426,6 +474,13 @@ topCounts(cD, group = "d3dep", normaliseData = TRUE)
 @
 
 By including more experimental conditions in our analyses, increasingly complex patterns of expression can be detected from sequencing data.
+
+
+\section*{Session Info}
+
+<<>>=
+sessionInfo()
+@ 
 
 
 \begin{thebibliography}{99}

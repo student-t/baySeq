@@ -7,8 +7,9 @@
 \alias{pairedData}
 \alias{pairedData-class}
 \alias{show,pairedData-method}
-\alias{[,pairedData,ANY-method}
+\alias{[,pairedData-method}
 \alias{dim,countData-method}
+\alias{[,countData-method}
 \alias{[,countData,ANY-method}
 \alias{show,countData-method}
 \alias{rbind,countData-method}
@@ -20,6 +21,14 @@
 \alias{groups<-,countData-method}
 \alias{groups}
 \alias{groups<-}
+\alias{seglens,countData-method}
+\alias{seglens<-,countData-method}
+\alias{seglens}
+\alias{seglens<-}
+\alias{densityFunction,countData-method}
+\alias{densityFunction<-,countData-method}
+\alias{densityFunction}
+\alias{densityFunction<-}
 \alias{libsizes,countData-method}
 \alias{libsizes<-,countData-method}
 \alias{libsizes,pairedData-method}
@@ -33,21 +42,15 @@
 \description{
   The \code{countData} class is used to define summaries of count data
   and establishing prior and posterior parameters on distributions
-  defined upon the count data.
-
-  The \code{pairedData} class is based on the countData class and performs
-  the same functions for paired count data.
+  defined upon the count data.  
 }
 
 \section{Slots}{
   Objects of these class contain the following components:  
   \tabular{ll}{
     \code{data}:\tab Count data (matrix).\cr
-    \code{pairData}:\tab Count data (matrix) for paired samples; slot
-  exists only in \code{'pairedData'} class.\cr
     \code{replicates}:\tab The replicate structure of the data. Stored
   as a factor, but can be given in any form.\cr
-    \code{libsizes}:\tab Vector of library size for each sample.\cr
     \code{groups}:\tab Group (model) structure to test on the data
     (list). \cr
     \code{annotation}:\tab Annotation data for each count (data.frame). \cr
@@ -55,14 +58,14 @@
   information available in slot \code{'priors'}. \cr
     \code{priors}:\tab Prior parameter information. Calculated by the
     functions described in \code{\link{getPriors}}. \cr
-    \code{posteriors}:\tab Estimated posterior likelihoods for each group
+    \code{posteriors}:\tab Estimated (log)-posterior likelihoods for each group
     (matrix). Calculated by the functions described in \code{\link{getLikelihoods}}. \cr
     \code{estProps}:\tab Estimated proportion of tags belonging to each
     group (numeric). Calculated by the functions described in
     \code{\link{getLikelihoods}}. \cr
     \code{nullPosts}:\tab If calculated, the posterior likelihoods for
   the data having no true expression of any kind. \cr
-    \code{seglens}:\tab Lengths of segments containing the counts
+  \code{seglens}:\tab Lengths of segments containing the counts
     described in \code{data}. A matrix, but may be initialised with a
   vector, or ignored altogether. See Details. \cr
 }}

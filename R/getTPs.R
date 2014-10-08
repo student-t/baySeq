@@ -15,7 +15,7 @@ getTPs <- function(cD, group, decreasing = TRUE, TPs)
         if(length(cD@nullPosts) == 0)
           stop("The '@nullPosts' slot of cD is empty - you can't use 'group = NULL'.")
         posteriors <- cD@nullPosts
-        pord <- order(posteriors, -apply(cD@posteriors, 1, logsum), decreasing = decreasing)
+        pord <- order(posteriors, -apply(cD@posteriors, 1, .logsum), decreasing = decreasing)
       } else {
         if(length(nulls) == 0 || nrow(nulls) == 0) nulls <- matrix(ncol = 0, nrow = nrow(cD))
         posteriors <- cD@posteriors[,group]

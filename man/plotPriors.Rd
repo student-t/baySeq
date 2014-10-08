@@ -12,7 +12,7 @@
   true expression.
 }
 \usage{
-plotPriors(cD, group)
+plotPriors(cD, group, par = 1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -23,7 +23,8 @@ plotPriors(cD, group)
     should be the group that defines non-differentially expressed
     data. Can be defined either as the number of the element in
     \code{'cD@groups'} or as a string which will be partially matched to
-    the names of the \code{'cD@groups'} elements.} 
+    the names of the \code{'cD@groups'} elements.}
+  \item{par}{The parameter of the prior that will be plotted.}
 }
 \details{
   If the plot of the data appears bimodal, then it may be sensible to
@@ -45,7 +46,7 @@ data(CDPriors)
 
 try(stopCluster(cl))
 
-plotPriors(CDPriors, group = "NDE")
+plotPriors(CDPriors, group = "NDE", par = 1)
 }
 
 \keyword{hplot}

@@ -7,7 +7,7 @@
   lowest) likelihood of association with a given group.
 }
 \usage{
-topCounts(cD, group, decreasing = TRUE, number = 10, likelihood, FDR,
+topCounts(cD, group, ordering, decreasing = TRUE, number = 10, likelihood, FDR,
 FWER, normaliseData = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -15,6 +15,8 @@ FWER, normaliseData = FALSE)
   \item{cD}{\code{\link{countData}} or \code{\link{pairedData}} object,
     containing posterior likelihoods for each group.}
   \item{group}{Which group should we give the counts for? See Details.}
+  \item{ordering}{If specified, restricts the analysis to a particlar
+    ordering on the group.}
   \item{decreasing}{Ordering on posterior likelihoods.}
   \item{number}{How many results should be returned?}
   \item{likelihood}{If given, ignores `number' and returns all results
@@ -69,6 +71,13 @@ topCounts(CDPost, group = "DE", number = 10)
 
 # equivalently...
 topCounts(CDPost, group = 2, number = 10)
+
+
+# Report the top ten rows of data that have highest likelihood of belonging to
+# group 2 of the data (i.e., differentially expressed), with group 1
+# being overexpressed compared to group 2.
+
+topCounts(CDPost, group = "DE", ordering = "1>2", number = 10)
 
 }
 

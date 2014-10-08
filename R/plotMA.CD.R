@@ -1,5 +1,6 @@
 plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL, xlab = "A", ylab = "M", ...)
 {
+  if(length(dim(cD)) > 2) stop("This function is currently only applicable to 2-dimensional countData objects.")
   if(is.character(samplesA)) {
     Asamps <-  which(as.character(cD@replicates) %in% samplesA)
     if(!all(samplesA %in% cD@replicates))
@@ -28,18 +29,21 @@ plotMA.CD <- function(cD, samplesA, samplesB, normaliseData = TRUE, scale = NULL
   Bdata <- cD@data[,samplesB]
   
   if(normaliseData) {
-    Adata <- t(t(Adata) / cD@libsizes[samplesA]) * mean(cD@libsizes[c(samplesA, samplesB)])
-    Bdata <- t(t(Bdata) / cD@libsizes[samplesB]) * mean(cD@libsizes[c(samplesA, samplesB)])
+    if("libsizes" %in% names(cD@sampleObservables)) libsizes <- cD@sampleObservables$libsizes else libsizes <- rep(1, ncol(cD))
+    
+    Adata <- t(t(Adata) / as.vector(libsizes[samplesA]))* mean(libsizes[c(samplesA, samplesB)])
+    Bdata <- t(t(Bdata) / as.vector(libsizes[samplesB])) * mean(libsizes[c(samplesA, samplesB)])
   }  
 
-  if(nrow(cD@seglens) > 0)
-    if(ncol(cD@seglens) == 1) {
-      Adata <- Adata / cD@seglens[,1]
-      Bdata <- Bdata / cD@seglens[,1]
-    } else {
-      Adata <- Adata / cD@seglens[,samplesA]
-      Bdata <- Bdata / cD@seglens[,samplesB]
-    }
+
+  if("seglens" %in% names(cD@rowObservables)) {
+    Adata <- Adata / cD@rowObservables$seglens
+    Bdata <- Bdata / cD@rowObservables$seglens
+  } else if("seglens" %in% names(cD@cellObservables)) {
+    Adata <- Adata / cD@cellObservables$seglens
+    Bdata <- Bdata / cD@cellObservables$seglens
+  }
+
   
   Adata <- colSums(t(Adata)) / length(samplesA)
   Bdata <- colSums(t(Bdata)) / length(samplesB)

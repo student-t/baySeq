@@ -1,4 +1,4 @@
-bimodalSep <- function(z, weights = NULL, bQ = c(0,1))
+.bimodalSep <- function(z, weights = NULL, bQ = c(0,1))
   {
     if(is.null(weights))
       weights <- rep(1, length(z))

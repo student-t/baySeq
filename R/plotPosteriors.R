@@ -1,5 +1,7 @@
 plotPosteriors <- function(cD, group, samplesA, samplesB, ...)
 {
+  if(length(dim(cD)) > 2) stop("This function is currently only applicable to 2-dimensional countData objects.")
+  
   if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")
 
@@ -14,17 +16,19 @@ plotPosteriors <- function(cD, group, samplesA, samplesB, ...)
 
   if(length(samplesA) == 0 | length(samplesB) == 0)
     stop("Sample information is missing, and cannot be inferred.")
-  
+
+  if("libsizes" %in% names(cD@sampleObservables)) libsizes <- as.vector(cD@sampleObservables$libsizes) else libsizes <- rep(1, ncol(cD))
+      
   if(nrow(cD@posteriors) > 0)
     {
-      Adata <- colSums(t(cD@data[,samplesA]) / cD@libsizes[samplesA]) / length(samplesA)
-      Bdata <- colSums(t(cD@data[,samplesB]) / cD@libsizes[samplesB]) / length(samplesB)
+      Adata <- colSums(t(cD@data[,samplesA]) / libsizes[samplesA]) / length(samplesA)
+      Bdata <- colSums(t(cD@data[,samplesB]) / libsizes[samplesB]) / length(samplesB)
 
       Azeros <- which(Adata == 0)
       Bzeros <- which(Bdata == 0)
       
-      bexp <- log2(Bdata[Azeros] * mean(cD@libsizes[c(samplesA, samplesB)]))
-      aexp <- log2(Adata[Bzeros] * mean(cD@libsizes[c(samplesA, samplesB)]))      
+      bexp <- log2(Bdata[Azeros] * mean(libsizes[c(samplesA, samplesB)]))
+      aexp <- log2(Adata[Bzeros] * mean(libsizes[c(samplesA, samplesB)]))      
 
       minZeros <- floor(min(aexp[aexp > -Inf], bexp[bexp > -Inf]))
       maxZeros <- ceiling(max(aexp, bexp))
@@ -50,4 +54,4 @@ plotPosteriors <- function(cD, group, samplesA, samplesB, ...)
            
     }
   else stop("No posterior data found in 'cD' object!")
-}
+  }

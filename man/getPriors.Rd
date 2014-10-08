@@ -17,7 +17,7 @@ getPriors.NB(cD, samplesize = 1e5, samplingSubset = NULL,
 equalDispersions = TRUE, estimation = "QL", verbose = TRUE, zeroML =
 FALSE, consensus = FALSE, cl, ...)
 getPriors.BB(cD, samplesize = 1e5, samplingSubset = NULL, verbose =
-TRUE, moderate = TRUE, cl, ...)
+TRUE, cl, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -39,10 +39,6 @@ TRUE, moderate = TRUE, cl, ...)
   \item{consensus}{If TRUE, creates a consensus distribution rather than
     a separate distribution for each member of the groups structure in
     the `cD' object. See Details.}
-  \item{moderate}{In paired data, if each non-zero count is paired
-    with a zero count, the dispersion of the data (estimated by maximum
-    likelihood) is one. If `moderate' is TRUE, the largest non-zero
-    count is paired with one rather than zero in order to estimate the dispersion.}
   \item{cl}{A SNOW cluster object.}
   \item{...}{Additional parameters to be passed to the
     \code{\link[edgeR:edgeR-package]{estimateTagwiseDisp}} function if

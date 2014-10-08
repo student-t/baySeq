@@ -1,0 +1,230 @@
+%\VignetteIndexEntry{Advanced baySeq analyses}
+%\VignettePackage{baySeq}
+%\VignetteKeywords{baySeq, generic, advanced}
+
+\documentclass[a4paper]{article}
+
+\title{Advanced analysis using baySeq; generic distribution definitions}
+\author{Thomas J. Hardcastle}
+
+<<<style-Sweave, eval=TRUE, echo=FALSE, results=tex>>=
+BiocStyle::latex()
+@ 
+
+\begin{document}
+
+\maketitle
+
+\section{Generic Prior Distributions}
+
+\verb'baySeq' now offers complete user-specification of underlying distributions. This vignette describes using \verb'baySeq' under this protocol. Familiarity with standard (negative-binomial) baySeq is assumed; please consult the other vignettes for a description of this approach.
+
+Analysis is carried out through specification of a \verb'densityFunction' class. The primary value in a \verb'densityFunction' object is the \verb'@density' slot, a user-defined function that should take variables \verb'x', \verb'observables' and \verb'parameters'. \verb'x' corresponds to a row of data in a \verb'countData' object. \verb'observables' is  a list object of observed values that may influence the model. By default, the \verb'@libsizes' and \verb'@seglens' values of the \verb'countData' object will be internally appended to this list, unless objects with these names are otherwise specified by the user. \verb'parameters' is a list object of parameters to be empirically estimated from the data with the \verb'getPriors' function and used to estimate likelihoods with the \verb'getLikelihoods' function. The \verb'@dist' function should return a vector of log-likelihood values (or NA for invalid parameter choices) of the same length as the input variable \verb'x'.
+
+Other required slots of the \verb'densityFunction' object are \verb'initiatingValues', a vector of initiating values to be used in optimisation of the parameters to be used in the \verb'@dist' slot (and thus defining the length of the parameter object) and \verb'equalOverReplicates', a specification of which parameters are fixed for every replicate group and which may vary for different experimental conditions. If only one parameter is variable over experimental conditions, the Nelder-Mead optimisation used may be unstable, and one-dimensional optimisation with user defined functionally specified lower and upper bounds may (optionally) be provided; otherwise, Nelder-Mead will be attempted. 
+
+Optionally a function may be provided in \verb'@stratifyFunction' to stratify the data and improve prior estimation in the tails where the \verb'samplesize' argument in the getPriors function is less than the row dimension of the \verb'countData' object. If this is provided, the \verb'@stratifyBreaks' slot should give the number of strata to be used.
+
+Below a model is constructed based on the normal distribution. The standard deviation is assumed to be constant for a given row of data across all experimental condidtions, while the means (normalised by library scaling factor) are allowed to vary across experimental conditions.
+
+<<echo = false, results = hide>>=
+set.seed(102)
+options(width = 90)
+@
+
+If parallelisation is available, it is useful to use it.
+
+<<>>=
+if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
+@ 
+
+<<>>=
+library(baySeq)
+
+normDensityFunction <- function(x, observables, parameters) {
+  if(any(sapply(parameters, function(x) any(x < 0)))) return(rep(NA, length(x)))
+  dnorm(x, mean = parameters[[2]] * observables$libsizes, sd = parameters[[1]], log = TRUE)
+}
+
+normDensity <- new("densityFunction", density = normDensityFunction, initiatingValues = c(0.1, 1),
+                equalOverReplicates = c(TRUE, FALSE),
+                lower = function(x) 0, upper = function(x) 1 + max(x) * 2,
+                stratifyFunction = rowMeans, stratifyBreaks = 10)
+@ 
+
+We construct the \verb'countData' object as before.
+
+<<>>=
+data(simData)
+CD <- new("countData", data = simData, 
+          replicates = c("simA", "simA", "simA", "simA", "simA",
+            "simB", "simB", "simB", "simB", "simB"),
+          groups = list(NDE = c(1,1,1,1,1,1,1,1,1,1),
+                         DE = c(1,1,1,1,1,2,2,2,2,2))
+          )
+libsizes(CD) <- getLibsizes(CD)
+densityFunction(CD) <- normDensity
+@ 
+
+We can then fit priors and calculate posterior likelihoods based on our specified distributional model.  The distributional model is specified in the 'getPriors' function and will be automatically used in the `getLikelihoods' function
+
+<<>>=
+normCD <- getPriors(CD, cl = cl)
+normCD <- getLikelihoods(normCD, cl = cl)
+@ 
+
+Similarly, we can construct a generic version of the negative-binomial model.
+<<>>=
+nbinomDensityFunction <- function(x, observables, parameters) {
+  if(any(sapply(parameters, function(x) any(x < 0)))) return(NA)
+  dnbinom(x, mu = parameters[[1]] * observables$libsizes * observables$seglens, size = 1 / parameters[[2]], log = TRUE)
+}
+
+densityFunction(CD) <- new("densityFunction", density = nbinomDensityFunction, initiatingValues = c(0.1, 1),
+                          equalOverReplicates = c(FALSE, TRUE),
+                          lower = function(x) 0, upper = function(x) 1 + max(x) * 2,
+                          stratifyFunction = rowMeans, stratifyBreaks = 10)
+
+nbCD <- getPriors(CD, cl = cl)
+nbCD <- getLikelihoods(nbCD, cl = cl)
+@ 
+
+We can compare this to the standard analysis of these data. 
+<<>>=
+CD <- getPriors.NB(CD, cl = cl)
+CD <- getLikelihoods(CD, cl = cl)
+@
+
+<<echo = false, fig = FALSE, label=plotCompPostLikes>>=
+plot(exp(CD@posteriors[,2]), exp(nbCD@posteriors[,2]), ylab = "Standard baySeq", xlab = "Generic (NB-distribution) baySeq")
+@ 
+
+<<echo = false, fig = FALSE, label=plotCompROC>>=
+TPs <- cumsum(order(CD@posteriors[,2], decreasing = TRUE) %in% 1:100); FPs <- 1:1000 - TPs
+nbTPs <- cumsum(order(nbCD@posteriors[,2], decreasing = TRUE) %in% 1:100); nbFPs <- 1:1000 - nbTPs
+plot(x = FPs, y = TPs, type = "l")
+lines(x = nbFPs, y = nbTPs, col = "red")
+legend(x = "bottomright", legend = c("standard baySeq", "Generic (NB-distribution) baySeq"), lty = 1, col = c("black", "red"))
+@ 
+
+\begin{figure}[!ht]
+\begin{center}
+<<label=figCompPostLikes, fig=TRUE,echo=FALSE>>=
+<<plotCompPostLikes>>
+@ 
+\caption{Likelihoods of DE estimated by standard/generic baySeq"}
+\label{figCompPostLikes}
+\end{center}
+\end{figure}
+
+\begin{figure}[!ht]
+\begin{center}
+<<label=figCompRoc, fig=TRUE,echo=FALSE>>=
+<<plotCompROC>>
+@ 
+\caption{ROC curves estimated by standard/generic baySeq"}
+\label{figCompROC}
+\end{center}
+\end{figure}
+
+The generic negative-binomial data performs almost identically to standard baySeq. The methods differ in that the standard baySeq uses quasi-maximum-likelihood to estimate the priors, while generic baySeq uses maximum-likelihood (since no generic method exists for quasi-maximum-likelihood on arbitrary distributions).
+
+
+\section{Different Model Priors}
+
+It is now possible to use different model priors for different subsets of the countData object. If we expect a certain class of genes (for example) to have a different prior likelihood towards differential expression than another such class, we can separate the two sets and estimate (or set) the model priors independently.
+
+Let us suppose that we have reason to believe that the first hundred genes in the `CD' object are likely to behave differently to the remaining genes. Then
+
+<<>>=
+CDv <- getLikelihoods(nbCD, modelPriorSets = list(A = 1:100, B = 101:1000), cl = cl)
+@
+
+The model priors used are recorded in the @priorModels slot.
+<<>>=
+CDv@priorModels
+@ 
+
+We can see the difference in performance by computing the ROC curves as before. Using different model priors can substantially improve performance, although obviously we have cheated here by splitting exactly those data simulated as DE and those as none-DE. It should also be recognised that this approach may bias downstream analyses; e.g. GO enrichment analysis.
+
+<<echo = false, fig = FALSE, label=plotCompVROC>>=
+TPs <- cumsum(order(CD@posteriors[,2], decreasing = TRUE) %in% 1:100); FPs <- 1:1000 - TPs
+nbTPs <- cumsum(order(nbCD@posteriors[,2], decreasing = TRUE) %in% 1:100); nbFPs <- 1:1000 - nbTPs
+vTPs <- cumsum(order(CDv@posteriors[,2], decreasing = TRUE) %in% 1:100); vFPs <- 1:1000 - vTPs
+plot(x = FPs, y = TPs, type = "l")
+lines(x = nbFPs, y = nbTPs, col = "red")
+lines(x = vFPs, y = vTPs, col = "blue")
+legend(x = "bottomright", legend = c("standard", "Generic (NB-distribution)", "Variable model priors"), lty = 1, col = c("black", "red", "blue"))
+@ 
+
+\begin{figure}[!ht]
+\begin{center}
+<<label=figCompVRoc, fig=TRUE,echo=FALSE>>=
+<<plotCompVROC>>
+@ 
+\caption{ROC curves estimated by standard/generic/variable model priors baySeq"}
+\label{figCompROC}
+\end{center}
+\end{figure}
+
+Several pre-existing distributions are built into baySeq. Here we use a pre-developed zero-inflated negative binomial distribution to analyse zero-inflated data.
+
+<<>>=
+data(zimData)
+CD <- new("countData", data = zimData, 
+          replicates = c("simA", "simA", "simA", "simA", "simA",
+            "simB", "simB", "simB", "simB", "simB"),
+          groups = list(NDE = c(1,1,1,1,1,1,1,1,1,1),
+                         DE = c(1,1,1,1,1,2,2,2,2,2))
+          )
+libsizes(CD) <- getLibsizes(CD)
+densityFunction(CD) <- nbinomDensity
+
+CD <- getPriors(CD, cl = cl)
+CD <- getLikelihoods(CD, cl = cl)
+
+CDz <- CD
+densityFunction(CDz) <- ZINBDensity
+CDz <- getPriors(CDz, cl = cl)
+CDz <- getLikelihoods(CDz, cl = cl)
+@ 
+
+\section*{Session Info}
+
+<<>>=
+sessionInfo()
+@ 
+
+
+\end{document}
+
+# multinomial
+
+<<eval = FALSE>>=
+data(pairData)  
+
+
+multCD <- new("countData", data = list(pairData[,1:4], pairData[,5:8], 
+                             matrix(round(abs(rnorm(n = prod(dim(pairData[,5:8])), mean = pairData[,5:8] * 4, sd = 3))), ncol = 4),
+                             matrix(round(abs(rnorm(n = prod(dim(pairData[,5:8])), mean = pairData[,5:8] * 20, sd = 3))), ncol = 4),
+matrix(round(abs(rnorm(n = prod(dim(pairData[,5:8])), mean = pairData[,5:8] * 10, sd = 3))), ncol = 4)),
+replicates = c(1,1,2,2),
+groups = list(NDE = c(1,1,1,1), DE = c(1,1,2,2)))
+
+libsizes(multCD) <- matrix(round(runif(4*5, 30000, 90000)), nrow = 4)
+
+mdDensity@initiatingValues <- c(0.01, rep(1/dim(multCD@data)[3], dim(multCD@data)[3] - 1))
+mdDensity@equalOverReplicates <- c(TRUE, rep(FALSE, dim(multCD@data)[3] - 1))
+
+densityFunction(multCD) = mdDensity
+
+
+multCD <- getPriors(multCD, samplesize = 1000, cl = cl)
+multCD <- getLikelihoods(multCD, subset = 1:1000, cl = cl)
+
+TPs <- cumsum(order(multCD@posteriors[,2], decreasing = TRUE) %in% 1:100)
+FPs <- 1:nrow(multCD) - TPs
+
+plot(FPs / max(FPs), TPs / max(TPs))
+
+@

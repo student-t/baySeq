@@ -7,7 +7,7 @@
     densityFunction(cD) <- nbinomDensity
   }
   
-  .getSinglePriors <- function(x, datdim, replicates, groups, optimFunction, equalOverReplicates, initiatingValues, lower, upper, consensus)#, dataLL)
+  .getSinglePriors <- function(x, datdim, replicates, groups, optimFunction, eqovRep, initiatingValues, lower, upper, consensus)#, dataLL)
     {
 #      xid <- x[1]
 #      x <- x[-1]
@@ -31,8 +31,8 @@
       optimFixed <- function(vars, dat, replicates, xobs)
         {    
           pars <- split(vars, splitOptimFixed)
-          pars[!equalOverReplicates] <- lapply(pars[!equalOverReplicates], function(par) par[match(replicates, levels(replicates))])
-          pars[equalOverReplicates] <- lapply(pars[equalOverReplicates], function(par) rep(par, ncol(dat)))
+          pars[!eqovRep] <- lapply(pars[!eqovRep], function(par) par[match(replicates, levels(replicates))])
+          pars[eqovRep] <- lapply(pars[eqovRep], function(par) rep(par, ncol(dat)))
           xobs$priorEstimator <- TRUE
           sum(optimFunction(dat, xobs, pars))
         }
@@ -40,20 +40,33 @@
       optimGroup <- function(vars, fixed, gdat, xobs, ...)
         {
           pars <- list()
-          pars[equalOverReplicates] <- fixed
-          pars[!equalOverReplicates] <- split(vars, 1:length(vars))
+          pars[eqovRep] <- fixed
+          pars[!eqovRep] <- split(vars, 1:length(vars))
           pars <- lapply(pars, function(par) rep(par, ncol(gdat)))
           xobs$priorEstimator <- TRUE
           sum(optimFunction(gdat, xobs, pars))
         }  
 
+
+      parOptimFixed <- do.call("rbind", lapply(levels(replicates), function(rep) {
+        repdat <- .sliceArray(list(NULL, which(replicates == rep)), dat, drop = FALSE)
+        repobs <- c(xrobs,
+                    lapply(xcobs, function(obs) .sliceArray(list(1, which(replicates == rep)), obs)),
+                    lapply(sampleObservables, function(obs) .sliceArray(list(which(replicates == rep)), obs)),
+                    list(dim = c(datdim[1], dim(repdat)[-1])))
+        repInit <- initiatingValues(repdat, repobs)
+      }))
+
+      parOptimFixed[1,eqovRep] <- colMeans(parOptimFixed[,eqovRep,drop=FALSE])
+      parOptimFixed[-1,eqovRep] <- NA
+      parOptimFixed <- parOptimFixed[!is.na(parOptimFixed)]
       
-      parOptimFixed <- do.call("c", lapply(1:length(initiatingValues), function(ii) if(equalOverReplicates[ii]) initiatingValues[[ii]](dat, xobs) else rep(initiatingValues[[ii]](dat, xobs), length(levels(replicates)))))
+      #parOptimFixed <- do.call("c", lapply(1:length(initiatingValues), function(ii) if(eqovRep[ii]) initiatingValues[[ii]](dat, xobs) else rep(initiatingValues[[ii]](dat, xobs), length(levels(replicates)))))
 
-      splitOptimFixed <- do.call("c", lapply(1:length(initiatingValues), function(ii) if(equalOverReplicates[ii]) ii else rep(ii, length(levels(replicates)))))
+      splitOptimFixed <- do.call("c", lapply(1:length(eqovRep), function(ii) if(eqovRep[ii]) ii else rep(ii, length(levels(replicates)))))
 
-      if(any(equalOverReplicates))
-        fixed <- split(optim(par = parOptimFixed, fn = optimFixed, dat = dat, replicates = replicates, control = list(fnscale = -1, maxit = 5000, reltol = 1e-50), xobs = xobs)$par, splitOptimFixed)[equalOverReplicates]
+      if(any(eqovRep))
+        fixed <- split(optim(par = parOptimFixed, fn = optimFixed, dat = dat, replicates = replicates, control = list(fnscale = -1, maxit = 5000, reltol = 1e-50), xobs = xobs)$par, splitOptimFixed)[eqovRep]
 
       groupValues <- function(gg, group) {
         gdat <- .sliceArray(list(NULL, which(group == gg)), dat, drop = FALSE)
@@ -62,17 +75,17 @@
                    lapply(xcobs, function(obs) .sliceArray(list(1, which(group == gg)), obs)),
                    lapply(sampleObservables, function(obs) .sliceArray(list(which(group == gg)), obs)),
                    list(dim = c(datdim[1], dim(gdat)[-1])))
-        parInitGroup <- sapply(initiatingValues[!equalOverReplicates], function(func) func(gdat, gpobs))
-        if(sum(!equalOverReplicates) > 1 || is.null(lower) || is.null(upper))
-          parGroup[!equalOverReplicates] <- optim(parInitGroup, fn = optimGroup, fixed = fixed, gdat = gdat,
-                                                  xobs = gpobs, control = list(fnscale = -1, maxit = 5000, reltol = 1e-50), method = "Nelder-Mead")$par
-        if(sum(!equalOverReplicates) == 1) {
+        parInitGroup <- initiatingValues(gdat, gpobs)[!eqovRep]
+        if(sum(!eqovRep) > 1 || is.null(lower) || is.null(upper))
+          parGroup[!eqovRep] <- optim(parInitGroup, fn = optimGroup, fixed = fixed, gdat = gdat,
+                                      xobs = gpobs, control = list(fnscale = -1, maxit = 5000, reltol = 1e-50), method = "Nelder-Mead")$par
+        if(sum(!eqovRep) == 1) {
           if(is.function(lower)) lowbound <- lower(gdat) else lowbound = lower
           if(is.function(upper)) uppbound <- upper(gdat) else uppbound = upper
-          parGroup[!equalOverReplicates] <- optimise(optimGroup, fixed = fixed, gdat = gdat,
+          parGroup[!eqovRep] <- optimise(optimGroup, fixed = fixed, gdat = gdat,
                                                      xobs = gpobs, maximum = TRUE, lower = lowbound, upper = uppbound, tol = 1e-50)[[1]]
         }
-        parGroup[equalOverReplicates] <- unlist(fixed)
+        parGroup[eqovRep] <- unlist(fixed)
         parGroup
       }
 
@@ -122,6 +135,8 @@
   rowObservables <- sD@rowObservables
   densityFunction <- cD@densityFunction
 
+  eqovRep <- densityFunction@equalOverReplicates(dim(cD))    
+
   if(!("seglens" %in% names(cellObservables) || "seglens" %in% names(rowObservables))) rowObservables <- c(rowObservables, list(seglens = rep(1, nrow(cD))))
   if(!("libsizes" %in% names(sampleObservables))) sampleObservables <- c(sampleObservables, list(seglens = rep(1, ncol(cD))))
 
@@ -166,7 +181,7 @@
 #  if(dataLL > 1) data <- matrix(apply(z, 3, c), nrow = nrow(z))
   
   if(is.null(cl)) {
-    parEach <- lapply(sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, equalOverReplicates = densityFunction@equalOverReplicates, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
+    parEach <- lapply(sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = eqovRep, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
   } else {
     getPriorsEnv <- new.env(parent = .GlobalEnv)
     environment(.getSinglePriors) <- getPriorsEnv
@@ -181,7 +196,7 @@
     clusterCall(cl, clustAssign, cellObservables, "cellObservables")
     clusterCall(cl, clustAssign, .sliceArray, ".sliceArray")
     clusterCall(cl, clustAssign, .prepareSlice, ".prepareSlice")      
-    parEach <- parLapply(cl, sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, equalOverReplicates = densityFunction@equalOverReplicates, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
+    parEach <- parLapply(cl, sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = eqovRep, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
   }
 
   if(consensus) {

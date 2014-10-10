@@ -6,8 +6,19 @@ densityFunctions <- function() {
 mdDensity <- new("densityFunction",
                  description = "A density function based on the multinomial-Dirichlet distribution, designed to assess genomic events that generate multiple counts (e.g. RNA-Seq from multiple tissue types taken from the same organism).",
                  density = .multiDirichletFunction,
-                 initiatingValues = c(0.01, NA),
-                 equalOverReplicates = c(TRUE, FALSE),
+                 initiatingValues = function(dat, observables) {
+                   dat <- dat / array(observables$libsizes, dim = c(1, dim(observables$libsizes)))
+                   fudgeFactor <- 0.1 / max(observables$libsizes)
+                   props <- rep(1/observables$dim[3], observables$dim[3])
+                   if(sum(dat) > 0) {
+                     sumdat <- apply(dat, 3, sum)
+                     scaledat <- apply(dat, 2, sum)
+                     props[sumdat == 0] <- min(fudgeFactor / scaledat)
+                     props[sumdat > 0] <- apply(dat[,,sumdat > 0,drop = FALSE], 3, function(x) mean(x / scaledat, na.rm = TRUE)) - min(fudgeFactor / scaledat) * sum(sumdat == 0) / sum(sumdat != 0)
+                   }
+                     c(0.01, props[-observables$dim[3]])
+                 },
+                 equalOverReplicates = function(datdim) c(TRUE, rep(FALSE, datdim[3] - 1)),
                  lower = function(data) 0,
                  upper = function(data) 1,
                  stratifyFunction = function(data) rowMeans(data[,,1] / rowSums(data), na.rm = TRUE),
@@ -19,12 +30,16 @@ mdDensity <- new("densityFunction",
 bbDensity <- new("densityFunction",
                  description = "A density function based on the betaBinomial distribution, designed to assess genomic events that generate paired data",
                  density = .betaBinomialFunction,
-                 initiatingValues = c(function(dat, observables) {
-                   if(sum(dat[,,1] + dat[,,2]) == 0) return(0.5)
-                   if(sum(dat[,,1]) == 0) return(0.001)
-                   if(sum(dat[,,2]) == 0) return(1 - 0.001)
-                   mean(dat[,,1] / (dat[,,1] + dat[,,2]), na.rm = TRUE)
-                 }, 0.01),
+                 initiatingValues = function(dat, observables) {                   
+                   if(sum(dat[,,1] + dat[,,2]) == 0) {
+                     prop <- 0.5
+                   } else if(sum(dat[,,1]) == 0) {
+                     prop <- 0.001
+                   } else if(sum(dat[,,2]) == 0) {
+                     prop <- (1 - 0.001)
+                   } else prop <- mean(dat[,,1] / (dat[,,1] + dat[,,2]), na.rm = TRUE)
+                   c(prop, 0.1)
+                 },
                  equalOverReplicates = c(FALSE, TRUE),
                  lower = function(data) 0,
                  upper = function(data) 1,
@@ -43,7 +58,7 @@ bbDensity <- new("densityFunction",
 normDensity <- new("densityFunction",
                    description = "A density function based on the normal distribution.",
                    density = .normDensityFunction,
-                   initiatingValues = c(function(dat, observables) mean(dat) / observables$libsizes, 1),
+                   initiatingValues = function(dat, observables) c(max(sd(dat), 1e-4), max(mean(dat / observables$libsizes), min(0.1 / observables$libsizes))),
                    equalOverReplicates = c(FALSE, TRUE),
                    lower = function(dat) 0, upper = function(dat) 1 + max(dat) * 2,
                    stratifyFunction = rowMeans, stratifyBreaks = 10,
@@ -53,10 +68,10 @@ normDensity <- new("densityFunction",
 ZINBDensity <- new("densityFunction",
                    description = "A density function based on the zero-inflated negative-binomial distribution.",
                    density = .dZINB,
-                   initiatingValues = c(function(dat, observables)
-                     max((0.1 / observables$libsizes / observables$seglens), mean(dat / observables$libsizes / observables$seglens)),                         
+                   initiatingValues = function(dat, observables)
+                   c(mean(pmax(dat,0.1) / observables$libsizes / observables$seglens),
                      0.1,
-                     function(dat, observables) min(0.9, max(0.1, sum(dat == 0)/length(dat)))),
+                     min(0.9, max(0.1, sum(dat == 0)/length(dat)))),
                    equalOverReplicates = c(FALSE, TRUE, TRUE),
                    lower = function(dat) 0, upper = function(dat) 1 + max(dat) * 2,
                    stratifyFunction = rowMeans, stratifyBreaks = 10)
@@ -65,7 +80,7 @@ ZINBDensity <- new("densityFunction",
 nbinomDensity <- new("densityFunction",
                      description = "A density function based on the negative-binomial distribution.",
                      density = .nbinomDens,
-                     initiatingValues = c(function(dat, observables) mean(pmax(dat,1) / observables$libsizes / observables$seglens), 0.01),
+                     initiatingValues = function(dat, observables) c(mean(pmax(dat,0.1) / observables$libsizes / observables$seglens), 0.01),
                      equalOverReplicates = c(FALSE, TRUE),
                      lower = function(dat) 0, upper = function(dat) 1 + max(dat) * 2,
                      stratifyFunction = rowMeans, stratifyBreaks = 10,
@@ -78,12 +93,16 @@ nbinomDensity <- new("densityFunction",
 bbNCDist <- new("densityFunction",
                 description = "A density function based on the beta-binomial distribution, intended for analysis of methylation data with an observed non-conversion rate in each sample.",
                 density = .betaBinomialNCFunction,
-                initiatingValues = c(function(dat, observables) {
-                  if(sum(dat[,,1] + dat[,,2]) == 0) return(0.5)
-                  if(sum(dat[,,1]) == 0) return(0.001)
-                  if(sum(dat[,,2]) == 0) return(1 - 0.001)
-                  mean(dat[,,1] / (dat[,,1] + dat[,,2]), na.rm = TRUE)
-                }, 0.01),
+                initiatingValues = function(dat, observables) {                   
+                  if(sum(dat[,,1] + dat[,,2]) == 0) {
+                    prop <- 0.5
+                  } else if(sum(dat[,,1]) == 0) {
+                    prop <- 0.001
+                  } else if(sum(dat[,,2]) == 0) {
+                    prop <- (1 - 0.001)
+                  } else prop <- mean(dat[,,1] / (dat[,,1] + dat[,,2]), na.rm = TRUE)
+                  c(prop, 0.1)
+                },
                 equalOverReplicates = c(FALSE, TRUE),
                 lower = function(data) 0,
                 upper = function(data) 1,

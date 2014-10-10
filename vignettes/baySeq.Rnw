@@ -117,25 +117,13 @@ CD@annotation <- data.frame(name = paste("count", 1:1000, sep = "_"))
 
 We first estimate an empirical distribution on the parameters of the Negative Binomial distribution by bootstrapping from the data, taking individual counts and finding the quasi-likelihood parameters for a Negative Binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
 
-<<results = hide, echo = FALSE>>=
-if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
-@
-
 <<>>=
 CD <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
 @
 
-<<results = hide, echo = FALSE>>=
-stopCluster(cl)
-@ 
-
 The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced as before. For the negative-binomial method, we are unable to form a conjugate prior distribution. Instead, we build an empirical prior distribution which we record in the list object \verb'$priors' of the slot \verb'@priors'. Each member of this list object corresponds to one of the models defined by the \verb'group' slot of the \verb'countData' object and contains the estimated parameters for each of the individual counts selected under the models. The vector \verb'$sampled' contained in the slot \verb'@priors' describes which rows were sampled to create these sets of parameters.
 
 We then acquire posterior likelihoods, estimating the proportions of differentially expressed counts.
-
-<<results = hide, echo = FALSE>>=
-if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
-@
 
 <<>>=
 CD <- getLikelihoods(CD, pET = 'BIC', cl = cl)
@@ -174,12 +162,6 @@ plotPosteriors(CD, group = "DE", col = c(rep("red", 100), rep("black", 900)))
 \end{figure}
 
 
-Finally, we shut down the cluster (assuming it was started to begin with).
-<<>>=
-if(!is.null(cl))
-  stopCluster(cl)
-@
-
 \clearpage
 
 \section{Paired Data Analysis}
@@ -206,10 +188,6 @@ libsizes(pairCD) <- getLibsizes(pairCD)
 
 We estimate an empirical distribution on the parameters of a beta-binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a beta-binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
 
-<<results = hide, echo = FALSE>>=
-if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
-@
-
 <<>>=
 pairCD <- getPriors(pairCD, samplesize = 1000, cl = cl)
 @
@@ -218,10 +196,6 @@ We then acquire posterior likelihoods as before. The use of 'nullData = TRUE' in
 
 <<>>=
   pairCD <- getLikelihoods(pairCD, pET = 'BIC', nullData = TRUE, cl = cl)
-@ 
-
-<<results = hide, echo = FALSE>>=
-stopCluster(cl)
 @ 
 
 
@@ -303,16 +277,8 @@ groups(cDPair) <- list(NDE = NDE, mobile = mobile)
 
 Now that we have defined our models, we need to establish prior distributions for the data. We do this using the \verb'getPriors.NB' function.
 
-<<results = hide, echo = FALSE>>=
-if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
-@
-
 <<results = hide>>=
 cDPair <- getPriors.NB(cDPair, samplesize = 1e4, cl = cl)
-@ 
-
-<<results = hide, echo = FALSE>>=
-stopCluster(cl)
 @ 
 
 
@@ -341,17 +307,10 @@ There is some evidence for bimodality, with a small peak of lowly expressed data
 
 We can use the \verb'nullData = TRUE' option in the \verb'getLikelihoods' function to allow for the possibility that some of the loci are miscalled in our locus map, and should properly be identified as nulls.
 
-<<results = hide, echo = FALSE>>=
-if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
-@
-
 <<results=hide>>=
 cDPair <- getLikelihoods(cDPair, nullData = TRUE, cl = cl)
 @ 
 
-<<results = hide, echo = FALSE>>=
-stopCluster(cl)
-@ 
 
 
 If we now look at the \verb'cDPair' object, we can see that we have acquired posterior likelihoods for the data
@@ -448,20 +407,10 @@ Note that in this case the replicate structure does not correspond to any biolog
 
 We can now find the priors and likelihoods for this analysis as before.
 
-<<results = hide, echo = FALSE>>=
-if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
-@
-
-
 <<results=hide>>=
 cD <- getPriors.NB(cD, cl = cl)
 cD <- getLikelihoods(cD, nullData = TRUE, cl = cl)
 @
-
-<<results = hide, echo = FALSE>>=
-stopCluster(cl)
-@ 
-
 
 We can see if there are any potential candidates for mobile sRNA loci by using the `topCounts' function.
 <<>>=
@@ -474,6 +423,12 @@ topCounts(cD, group = "d3dep", normaliseData = TRUE)
 @
 
 By including more experimental conditions in our analyses, increasingly complex patterns of expression can be detected from sequencing data.
+
+
+Finally, we shut down the cluster (assuming it was started to begin with).
+<<>>=
+if(!is.null(cl)) stopCluster(cl)
+@
 
 
 \section*{Session Info}

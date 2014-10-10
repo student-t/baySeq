@@ -189,6 +189,12 @@ CDz <- getPriors(CDz, cl = cl)
 CDz <- getLikelihoods(CDz, cl = cl)
 @ 
 
+
+Finally, we shut down the cluster (assuming it was started to begin with).
+<<>>=
+if(!is.null(cl)) stopCluster(cl)
+@
+
 \section*{Session Info}
 
 <<>>=

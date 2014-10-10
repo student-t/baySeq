@@ -17,7 +17,7 @@
       xid <- x$id
       dat <- x$data
 
-      #message(xid)
+#      write(paste(xid, "*", sep = ""), file = "priorlog.txt", append = TRUE)
 
 #      xrobs <- lapply(rowObservables, function(obs) {
 #        if(is.vector(obs)) return(obs[xid])
@@ -49,7 +49,7 @@
 
       
       parOptimFixed <- do.call("c", lapply(1:length(initiatingValues), function(ii) if(equalOverReplicates[ii]) initiatingValues[[ii]](dat, xobs) else rep(initiatingValues[[ii]](dat, xobs), length(levels(replicates)))))
-      
+
       splitOptimFixed <- do.call("c", lapply(1:length(initiatingValues), function(ii) if(equalOverReplicates[ii]) ii else rep(ii, length(levels(replicates)))))
 
       if(any(equalOverReplicates))
@@ -60,7 +60,8 @@
         parGroup <- c()
         gpobs <- c(xrobs,
                    lapply(xcobs, function(obs) .sliceArray(list(1, which(group == gg)), obs)),
-                   lapply(sampleObservables, function(obs) .sliceArray(list(which(group == gg)), obs)))
+                   lapply(sampleObservables, function(obs) .sliceArray(list(which(group == gg)), obs)),
+                   list(dim = c(datdim[1], dim(gdat)[-1])))
         parInitGroup <- sapply(initiatingValues[!equalOverReplicates], function(func) func(gdat, gpobs))
         if(sum(!equalOverReplicates) > 1 || is.null(lower) || is.null(upper))
           parGroup[!equalOverReplicates] <- optim(parInitGroup, fn = optimGroup, fixed = fixed, gdat = gdat,

@@ -8,7 +8,7 @@ mdDensity <- new("densityFunction",
                  density = .multiDirichletFunction,
                  initiatingValues = function(dat, observables) {
                    dat <- dat / array(observables$libsizes, dim = c(1, dim(observables$libsizes)))
-                   fudgeFactor <- 0.1 / max(observables$libsizes)
+                   fudgeFactor <- 0.1/observables$dim[3] / observables$dim[2] / max(observables$libsizes)
                    props <- rep(1/observables$dim[3], observables$dim[3])
                    if(sum(dat) > 0) {
                      sumdat <- apply(dat, 3, sum)

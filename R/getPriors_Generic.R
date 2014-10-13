@@ -60,8 +60,6 @@
       parOptimFixed[1,eqovRep] <- colMeans(parOptimFixed[,eqovRep,drop=FALSE])
       parOptimFixed[-1,eqovRep] <- NA
       parOptimFixed <- parOptimFixed[!is.na(parOptimFixed)]
-      
-      #parOptimFixed <- do.call("c", lapply(1:length(initiatingValues), function(ii) if(eqovRep[ii]) initiatingValues[[ii]](dat, xobs) else rep(initiatingValues[[ii]](dat, xobs), length(levels(replicates)))))
 
       splitOptimFixed <- do.call("c", lapply(1:length(eqovRep), function(ii) if(eqovRep[ii]) ii else rep(ii, length(levels(replicates)))))
 

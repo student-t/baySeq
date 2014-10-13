@@ -1,0 +1,447 @@
+%\VignetteIndexEntry{baySeq}
+%\VignettePackage{baySeq}
+
+\documentclass[a4paper]{article}
+
+\title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data}
+\author{Thomas J. Hardcastle}
+
+<<<style-Sweave, eval=TRUE, echo=FALSE, results=tex>>=
+BiocStyle::latex()
+@ 
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This vignette is intended to give a rapid introduction to the commands used in implementing two methods of evaluating differential expression in Solexa-type, or \textsl{count} data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly \cite{hardcastle}. The major improvement made in this release is the option to include region length in evaluating differential expression between genomic regions (e.g. genes). See Section \ref{Section::seglen} for more details.
+
+We assume that we have discrete data from a set of sequencing or other high-throughput experiments, arranged in a matrix such that each column describes a sample and each row describes some entity for which counts exist. For example, the rows may correspond to the different sequences observed in a sequencing experiment. The data then consists of the number of times each sequence is observed in each sample. We wish to determine which, if any, rows of the data correspond to some patterns of differential expression across the samples. This problem has been addressed for pairwise differential expression by the \verb'edgeR' \cite{edgeR} package. 
+
+However, \verb'baySeq' takes an alternative approach to analysis that allows more complicated patterns of differential expression than simple pairwise comparison, and thus is able to cope with more complex experimental designs. We also observe that the methods implemented in \verb'baySeq' perform at least as well, and in some circumstances considerably better than those implemented in \verb'edgeR' \cite{hardcastle}.
+
+\verb'baySeq' uses empirical Bayesian methods to estimate the posterior likelihoods of each of a set of models that define patterns of differential expression for each row. This approach begins by considering a distribution for the row defined by a set of underlying parameters for which some prior distribution exists. By estimating this prior distribution from the data, we are able to assess, for a given model about the relatedness of our underlying parameters for multiple libraries, the posterior likelihood of the model.
+
+In forming a set of models upon the data, we consider which patterns are biologically likely to occur in the data. For example, suppose we have count data from some organism in condition $A$ and condition $B$. Suppose further that we have two biological replicates for each condition, and hence four libraries $A_1, A_2, B_1, B_2$, where $A_1$, $A_2$ and $B_1$, $B_2$ are the replicates. It is reasonable to suppose that at least some of the rows may be unaffected by our experimental conditions $A$ and $B$, and the count data for each sample in these rows will be \textsl{equivalent}. These data need not in general be identical across each sample due to random effects and different library sizes, but they will share the same underlying parameters. However, some of the rows may be influenced by the different experimental conditions $A$ and $B$. The count data for the samples $A_1$ and $A_2$ will then be equivalent, as will the count data for the samples $B_1$ and $B_2$. However, the count data between samples $A_1, A_2, B_1, B_2$ will not be equivalent. For such a row, the data from samples $A_1$ and $A_2$ will then share the same set of underlying parameters, the data from samples $B_1$ and $B_2$ will share the same set of underlying parameters, but, crucially, the two sets will not be identical.
+
+Our task is thus to determine the posterior likelihood of each model for each row of the data.
+
+\section{Preparation}
+
+We begin by loading the \verb'baySeq' package.
+
+<<echo = false, results = hide>>=
+set.seed(102)
+options(width = 90)
+@
+
+
+<<>>=
+library(baySeq)
+@
+
+Note that because the experiments that \verb'baySeq' is designed to analyse are usually massive, we should use (if possible) parallel processing as implemented by the \verb'snow' package. We use the \verb'parallel' package (if it exists), and define a \textsl{cluster}. If \verb'parallel' is not present, we can proceed anyway with a \verb'NULL' cluster. Results may be slightly different depending on whether or not a cluster is used owing to the non-deterministic elements of the method.
+<<results = hide>>=
+if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
+@
+
+We load a simulated data set consisting of count data on one thousand counts.
+
+<<>>=
+data(simData)
+simData[1:10,]
+@
+
+The data are simulated such that the first hundred counts show differential expression between the first five libraries and the second five libraries. Our replicate structure, used to estimate the prior distributions on the data, can thus be defined as
+<<>>=
+  replicates <- c("simA", "simA", "simA", "simA", "simA",
+                  "simB", "simB", "simB", "simB", "simB")
+@ 
+
+We can also establish two group structures for the data.
+
+Each member (vector) contained within the 'groups' list corresponds to one model upon the data. In this setting, a model describes the patterns of data we expect to see at least some of the tags correspond to. In this simple example, we expect that some of the tags will be equivalently expressed between all ten libraries. This corresponds to the 'NDE' model, or vector \verb'c(1,1,1,1,1,1,1,1,1,1)' - all libraries belong to the same group for these tags. 
+
+We also expect that some tags will show differential expression between the first five libraries and the second five libraries. For these tags, the two sets of libraries belong to different groups, and so we have the model 'DE', or vector \verb'c(1,1,1,1,1,2,2,2,2,2)' - the first five libraries belong to group 1 and the second five libraries to group 2. We thus have the following group structure
+
+<<>>=
+groups <- list(NDE = c(1,1,1,1,1,1,1,1,1,1),
+               DE = c(1,1,1,1,1,2,2,2,2,2))
+@ 
+
+In a more complex experimental design (Section \ref{factorial}) we might have several additional models. The key to constructing vectors corresponding to a model is to see for which groups of libraries we expect equivalent expression of tags.
+
+We note that the group for DE corresponds to the replicate structure. This will often be the case, but need not be in more complex experimental designs.
+
+The ultimate aim of the \verb'baySeq' package is to evaluate posterior likelihoods of each model for each row of the data.
+
+We begin by combining the count data and user-defined groups into a \verb'countData' object.
+
+<<>>=
+CD <- new("countData", data = simData, replicates = replicates, groups = groups)
+@
+
+Library sizes can be inferred from the data if the user is not able to supply them.
+
+<<>>=
+  libsizes(CD) <- getLibsizes(CD)
+@ 
+
+We can then plot the data in the form of an MA-plot, suitable modified to plot those data where the data are uniformly zero (and hence the log-ratio is infinite) (Figure~\ref{figMA}). Truly differentially expressed data can be identified in the plot by coloring these data red, while non-differentially expressed data are colored black.
+
+<<fig = FALSE, label=plotMA>>=
+plotMA.CD(CD, samplesA = "simA", samplesB = "simB",
+          col = c(rep("red", 100), rep("black", 900)))
+@ 
+
+\begin{figure}[!ht]
+\begin{center}
+<<label=figPlotMA, fig=TRUE,echo=FALSE>>=
+<<plotMA>>
+@
+\caption{'MA'-plot for count data. Where the log-ratio would be infinite (because the data in one of the sample groups consists entirely of zeros, we plot instead the log-values of the other group. Truly differentially expressed data are colored red, and non-differentially expressed data black.}
+\label{figMA}
+\end{center}
+\end{figure}
+
+
+We can also optionally add annotation details into the \verb'@annotation' slot of the \verb'countData' object.
+
+<<>>=
+CD@annotation <- data.frame(name = paste("count", 1:1000, sep = "_"))
+@ 
+
+\section{Negative-Binomial Approach}
+
+We first estimate an empirical distribution on the parameters of the Negative Binomial distribution by bootstrapping from the data, taking individual counts and finding the quasi-likelihood parameters for a Negative Binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
+
+<<>>=
+CD <- getPriors.NB(CD, samplesize = 1000, estimation = "QL", cl = cl)
+@
+
+The calculated priors are stored in the \verb'@priors' slot of the \verb'countData' object produced as before. For the negative-binomial method, we are unable to form a conjugate prior distribution. Instead, we build an empirical prior distribution which we record in the list object \verb'$priors' of the slot \verb'@priors'. Each member of this list object corresponds to one of the models defined by the \verb'group' slot of the \verb'countData' object and contains the estimated parameters for each of the individual counts selected under the models. The vector \verb'$sampled' contained in the slot \verb'@priors' describes which rows were sampled to create these sets of parameters.
+
+We then acquire posterior likelihoods, estimating the proportions of differentially expressed counts.
+
+<<>>=
+CD <- getLikelihoods(CD, pET = 'BIC', cl = cl)
+CD@estProps
+CD@posteriors[1:10,]
+CD@posteriors[101:110,]
+@ 
+
+Here the assumption of a Negative Binomial distribution with priors estimated by maximum likelihood gives an estimate of 
+<<echo = FALSE>>=
+CD@estProps[2]
+@
+as the proportion of differential expressed counts in the simulated data, where in fact the proportion is known to be $0.1$.
+
+\section{Results}
+
+We can ask for the top candidates for differential expression using the \verb'topCounts' function.
+<<>>=
+topCounts(CD, group = "DE")  
+@ 
+
+We can plot the posterior likelihoods against the log-ratios of the two sets of samples using the \verb'plotPosteriors' function, coloring the truly differentially expressed data red and the non-differentially expressed data black (Figure~\ref{figPPs}).
+<<fig = FALSE, label=plotPosteriors>>=
+plotPosteriors(CD, group = "DE", col = c(rep("red", 100), rep("black", 900)))
+@ 
+
+\begin{figure}[!ht]
+\begin{center}
+
+<<label=figPlotPosteriors, fig=TRUE,echo=FALSE>>=
+<<plotPosteriors>>
+@ 
+\caption{Posterior likelihoods of differential expression against log-ratio (where this would be non-infinite) or log values (where all data in the other sample group consists of zeros). Truly differentially expressed data are colored red, and non-differentially expressed data black.}
+\label{figPPs}
+\end{center}
+\end{figure}
+
+
+\clearpage
+
+\section{Paired Data Analysis}
+
+There now exists functionality to analyse paired data through a similar process, using the beta-binomial distribution. The process for analysing paired data follows approximately the same steps as for analysing unpaired data. However, two different types of differential expression can exist within paired data. Firstly, we can find differential expression between replicate groups, as before. However, we can also find (consistent) differential expression between pairs; this would occur when for a single row of data, the first member of each pair differs from the second member of each pair. \verb'baySeq' can identify both these types of differential expression simultaneously, and we implement this proceedure below.
+
+We begin by loading a simulated dataset containing counts for four paired datasets.
+<<>>=
+  data(pairData)  
+@ 
+
+The first four columns in these data are paired with the second four columns. We construct a pairedData in a similar fashion to the countData object.
+<<>>=
+pairCD <- new("countData", data = list(pairData[,1:4], pairData[,5:8]),
+                 replicates = c(1,1,2,2),
+                 groups = list(NDE = c(1,1,1,1), DE = c(1,1,2,2)),
+              densityFunction = bbDensity)
+@
+
+We can find the library sizes for the data with the \verb'getLibsizes' function.
+<<>>=
+libsizes(pairCD) <- getLibsizes(pairCD)
+@ 
+
+We estimate an empirical distribution on the parameters of a beta-binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a beta-binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
+
+<<>>=
+pairCD <- getPriors(pairCD, samplesize = 1000, cl = cl)
+@
+
+We then acquire posterior likelihoods as before. The use of 'nullData = TRUE' in this context allows us to identify pairs which show no differential expression between replicate groups, but does show deviation from a one-to-one ratio of data between pairs.
+
+<<>>=
+  pairCD <- getLikelihoods(pairCD, pET = 'BIC', nullData = TRUE, cl = cl)
+@ 
+
+
+We can ask for the top candidates for differential expression between replicate groups using the \verb'topCounts' function as before.
+<<>>=
+  topCounts(pairCD, group = 2)
+@ 
+However, we can also look for consistent differential expression between the pairs. 
+<<>>=
+  topCounts(pairCD, group = 1)
+@ 
+
+\section{Case Study: Analysis of sRNA-Seq Data}
+
+\subsection{Introduction}
+
+We will look at data sequenced from small RNAs acquired from six samples of root stock from \textsl{Arabidopsis thaliana} in a grafting experiment \cite{molnar}. Three different biological conditions exist within these data; one in which a Dicer 2,3,4 triple mutant shoot is grafted onto a Dicer 2,3,4 triple mutant root (\textbf{SL236} \& \textbf{SL260}), one in which a wild-type shoot is grafted onto a wild-type root (\textbf{SL239} \& \textbf{SL240}), and one in which a wild-type shoot is grafted onto a Dicer 2,3,4 triple mutant root (\textbf{SL237} \& \textbf{SL238}). Dicer 2,3,4 is required for the production of 22nt and 24nt small RNAs, as well as some 21nt ones. Consequently, if we detect differentially expressed  sRNA loci in the root stock of the grafts, we can make inferences about the mobility of small RNAs.
+
+\subsection{Reading in data}
+
+The data and annotation are stored in two text files. We can read them in using \textbf{R}'s standard functions.
+<<>>=
+data(mobData)
+data(mobAnnotation)
+@ 
+
+\subsection{Making a countData object}
+
+We can create a \verb'countData' object containing all the information we need for a first attempt at a differential expression analysis.
+
+\subsubsection{Including lengths}
+
+\label{Section::seglen}
+
+If two genes are expressed at the same level, but one is twice the length of the other, then (on average) we will sequence twice as many reads from the longer gene. The same is true for sRNA loci, and so in these analyses it is often useful to include the lengths of each feature. The lengths can be derived from the annotation of each feature, but we need to explicitly declare them within the `countData' object.
+
+<<>>=
+seglens <- mobAnnotation$end - mobAnnotation$start + 1
+cD <- new("countData", data = mobData, seglens = seglens, annotation = mobAnnotation)
+@ 
+
+Determining the best library scaling factor to use is a non-trivial task. The simplest approach would be to use the total number of sequenced reads aligning to the genome. However, this approach meas that a few sequences that appear at very high levels can drastically skew the size of the scaling factor. Bullard \textsl{et al} suggest that good results can be obtained by taking the sum of the reads below the $n$th percentile of the data.
+<<>>=
+libsizes(cD) <- getLibsizes(cD, estimationType = "quantile")
+@ 
+
+\subsection{Pairwise Differential Expression}
+
+We start by looking at a pairwise differential expression analysis between two of the sample types. The analysis between samples `SL236', `SL260' and `SL237', `SL238' should be a first step in discovering sRNA loci associated with mobility. 
+
+We begin by selecting a subset of the available data:
+<<>>=
+cDPair <- cD[,1:4]
+@ 
+
+We then need to define the replicate structure of the \verb'countData' object. We do this by creating a vector that defines the replicate group that each sample belongs to.
+<<>>=
+replicates(cDPair) <- as.factor(c("D3/D3", "D3/D3", "WT/D3", "WT/D3"))
+@ 
+
+We next need to define each of the models applicable to the data. In the first case, it is reasonable to suppose that at least some of the loci will be unaffected by the different experimental conditions prevailing in our replicate groups, and so we create one model of no differential expression. 
+
+We do this by defining a vector \verb'NDE'.
+<<>>=
+NDE <- c(1,1,1,1)
+@ 
+Each member of the \verb'NDE' vector represents one sample in our experiment. By giving each item in the \verb'NDE' vector the same number, we indicate that, under the hypothesis of no differential expression, all the samples belong to the same group.
+
+We may also conjecture that some of the loci will be affected depending on whether the shoot is a Dicer mutant or a wild-type \textsl{Arabidopsis} sample.
+<<>>=
+mobile <- c("non-mobile","non-mobile","mobile","mobile")
+@
+This vector indicates that the third and fourth samples, which consist of the wild-type shoot samples, are in a separate expression group to the first and second samples, corresponding to the Dicer 2,3,4 mutant shoot.
+
+We can now add these models to the locus data by modfiying the \verb'@groups' slot
+<<>>=
+groups(cDPair) <- list(NDE = NDE, mobile = mobile)
+@ 
+
+Now that we have defined our models, we need to establish prior distributions for the data. We do this using the \verb'getPriors.NB' function.
+
+<<results = hide>>=
+cDPair <- getPriors.NB(cDPair, samplesize = 1e4, cl = cl)
+@ 
+
+
+The accuracy of the distribution is determined by the number of data points used to estimate the distribution; the `samplesize'. Here we've used a small sample size to reduce the computational effort required, but higher values will give more accurate results (the default is 1e5).
+
+Having found prior distributions for the data, we can identify posterior likelihoods for the data using the \verb'getLikelihoods' function. Before we do this, however, it is worth considering the possibility that some loci will not be expressed at all in our data.
+
+\subsubsection{Null Data}
+
+We first examine the priors to see if any `null' data, consisting of un-expressed sRNA loci, are present. If the distribution of priors for the non-differentially expressed group is bimodal, it is likely that some of the loci are expressed at substantially lower levels than others.
+<<fig = FALSE, label=plotPriors>>=
+plotNullPrior(cDPair)
+@ 
+
+There is some evidence for bimodality, with a small peak of lowly expressed data to the left of the distribution.
+
+\begin{figure}[!ht]
+\begin{center}
+<<label=figPlotPriors, fig=TRUE,echo=FALSE>>=
+<<plotPriors>>
+@
+\caption{Distribution of $\mu_{ij}$. Bimodality suggests the presence of `null', or un-expressed, data.}
+\label{figMAPost}
+\end{center}
+\end{figure}
+
+We can use the \verb'nullData = TRUE' option in the \verb'getLikelihoods' function to allow for the possibility that some of the loci are miscalled in our locus map, and should properly be identified as nulls.
+
+<<results=hide>>=
+cDPair <- getLikelihoods(cDPair, nullData = TRUE, cl = cl)
+@ 
+
+
+
+If we now look at the \verb'cDPair' object, we can see that we have acquired posterior likelihoods for the data
+<<>>=
+cDPair
+@ 
+The estimated posterior likelihoods for each model are stored in the natural logarithmic scale in the \verb'@posteriors' slot of the \verb'countDataPosterior' object. The $n$th column of the posterior likelihoods matrix corresponds to the $n$th model as listed in the \verb'group' slot of \verb'CDPair'. In general, what we would like to do with this information is form a ranked list in which the loci most likely to be differentially expressed are at the top of the list.
+
+Try looking at the proportions of data belonging to each group. Note that these no longer sum to 1, as some data are now classified as `null'.
+<<>>=
+summarisePosteriors(cD)
+@
+
+The value contained in the \verb'@estProps' slot is a best-guess figure for the proportion of data belonging to each model defined by the \verb'@groups' slot. In this case, it is is estimated that approximately 65\% of the loci are not differentially expressed, while 35\% are differentially expressed. These estimates should not be relied upon absolutely, but are a useful indicator of the global structure of the data.
+
+
+We can ask for the rows most likely to be differentially expressed under our different models using the \verb'topCounts' function. If we look at the second model, or grouping structure, we see the top candidates for differential expression. Because the library sizes of the different libraries differ, it can be unclear as to why some loci are identified as differentially expressed unless the data are normalised.
+<<>>=
+topCounts(cDPair, group = 2, normaliseData = TRUE)
+@
+Observe how the data change in the normalised results; the effect is particularly noticable in the SL236 and SL260 datasets, in which the normalised data is much less variable between these two samples.
+
+We can also use \verb'topCounts' to examine the data identified as `null'.
+<<results=hide>>=
+topCounts(cDPair, group = NULL, number = 500)
+@ 
+
+ We can visualise the data in a number of ways. We can first examine the posterior likelihoods against log-ratio values.
+<<fig = FALSE, label=plotPairPosteriors>>=
+plotPosteriors(cDPair, group = 2, samplesA = 1:2, samplesB = 3:4)
+@ 
+
+\begin{figure}[!ht]
+\begin{center}
+<<label=figPlotPairPosteriors, fig=TRUE,echo=FALSE>>=
+<<plotPairPosteriors>>
+@
+\caption{Posterior likelihoods of differential expression against log-ratios of the data. Where the data in one of the sample groups consists entirely of zeros, the log-ratio would be infinite. In this case, we plot instead the log-values of the non-zero group. Note the skew in the data; there are many more loci with a high-likelihood of differential expression over-expressed in the WT/D3 graft compared to the D3/D3 graft than vice versa.}
+\label{figMAPost}
+\end{center}
+\end{figure}
+
+
+ Also informative is the MA-plot. We can color the data by the posterior likelihoods of differential expression.
+<<fig = FALSE, label=plotMAPost>>=
+plotMA.CD(cDPair, samplesA = c(1,2), samplesB = c(3,4),
+          col = rgb(red = exp(cDPair@posteriors[,2]), green = 0, blue = 0))
+@ 
+
+\begin{figure}[!ht]
+\begin{center}
+<<label=figPlotMAPost, fig=TRUE,echo=FALSE>>=
+<<plotMAPost>>
+@
+\caption{`MA'-plot for count data. Where the data in one of the sample groups consists entirely of zeros, the log-ratio would be infinite. In this case, we plot instead the log-values of the non-zero group. Differentially expressed data are colored red, and non-differentially expressed data black.}
+\label{figMAPost}
+\end{center}
+\end{figure}
+
+
+\subsection{Multiple Group Comparisons}
+
+We next examine all three experimental conditions simultaneously. We first need to define the replicate structure of the data.
+<<>>=
+cD@replicates <- as.factor(c("D3/D3", "D3/D3", "WT/D3", "WT/D3", "WT/WT", "WT/WT"))
+@ 
+
+As before, we begin by supposing that at least some of the loci will be unaffected by the different experimental conditions prevailing in our replicate groups, and so we create one model of no differential expression. 
+
+We do this by defining a vector \verb'NDE'.
+<<>>=
+NDE <- factor(c(1,1,1,1,1,1))
+@ 
+Each member of the \verb'NDE' vector represents one sample in our experiment. By giving each item in the \verb'NDE' vector the same number, we indicate that, under the hypothesis of no differential expression, all the samples belong to the same group.
+
+We may also conjecture that some of the loci that are present in the wild-type root will not be present in the Dicer 2,3,4 mutant roots. We represent this conjecture with the vector
+<<>>=
+d3dep <- c("wtRoot","wtRoot","wtRoot","wtRoot","dicerRoot","dicerRoot")
+@
+This vector indicates that the fifth and sixth samples, which consist of the wild-type root samples, are in a separate expression group to the other samples, corresponding to the Dicer 2,3,4 mutant.
+
+Finally, we hypothesise that some of the small RNAs generated in the wild-type shoot will move to the root. We represent this hypothesis with the vector
+<<>>=
+mobile <- c("dicerShoot","dicerShoot","wtShoot","wtShoot","wtShoot","wtShoot")
+@
+This vector shows that all samples with a wild-type shoot are distinct from those samples with a Dicer 2,3,4 shoot.
+
+We can now add these models to the locus data by modfiying the \verb'@groups' slot
+<<>>=
+groups(cD) <- list(NDE = NDE, d3dep = d3dep, mobile = mobile)  
+@ 
+
+Note that in this case the replicate structure does not correspond to any biologically plausible model; we do not expect that any loci will be different between all three experimental groups.
+
+We can now find the priors and likelihoods for this analysis as before.
+
+<<results=hide>>=
+cD <- getPriors.NB(cD, cl = cl)
+cD <- getLikelihoods(cD, nullData = TRUE, cl = cl)
+@
+
+We can see if there are any potential candidates for mobile sRNA loci by using the `topCounts' function.
+<<>>=
+topCounts(cD, group = "mobile", normaliseData = TRUE)  
+@ 
+
+We can also identify dicer-dependent root specific small RNA loci by examining our alternative model for differential expression.
+<<>>=
+topCounts(cD, group = "d3dep", normaliseData = TRUE)  
+@
+
+By including more experimental conditions in our analyses, increasingly complex patterns of expression can be detected from sequencing data.
+
+
+Finally, we shut down the cluster (assuming it was started to begin with).
+<<>>=
+if(!is.null(cl)) stopCluster(cl)
+@
+
+
+\section*{Session Info}
+
+<<>>=
+sessionInfo()
+@ 
+
+
+\begin{thebibliography}{99}
+\bibitem{hardcastle} Thomas J. Hardcastle and Krystyna A. Kelly. \textsl{baySeq: Empirical Bayesian Methods For Identifying Differential Expression In Sequence Count Data.} BMC Bioinformatics (2010).
+\bibitem{molnar} Attila Molnar and Charles W. Bassett and Thomas J. Hardcastle and Ruth Dunn and David C. Bauclombe \textsl{Small silencing RNAs in plants are mobile and direct epigenetic modification in recipient cells.} Science (2010).
+\bibitem{edgeR} Mark Robinson \verb'edgeR'\textsl{:' Methods for differential expression in digital gene expression datasets}. Bioconductor.
+\end{thebibliography}
+
+\end{document}

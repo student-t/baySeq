@@ -1,0 +1,117 @@
+selectTop <- function(cD, group, ordering, orderings = TRUE, decreasing = TRUE, number = 10, likelihood, FDR, FWER) {
+  if(missing(likelihood)) likelihood <- NULL
+  if(missing(FDR)) FDR <- NULL
+  if(missing(FWER)) FWER <- NULL
+  if(missing(ordering)) ordering <- NULL
+
+  if(!missing(group)) return(cD[.selectTags(cD, group = group, ordering = ordering, decreasing = decreasing, number = number, likelihood = likelihood, FDR = FDR, FWER = FWER)])
+
+  if(length(cD@nullPosts) > 0) nullCD <- c(null = .selectTags(cD, NULL, ordering = NULL, decreasing = decreasing, number = number, likelihood, FDR, FWER)) else nullCD <- NULL
+  
+  if(!orderings) {
+    selOrd <- lapply(1:length(cD@groups), function(ii) cD[.selectTags(cD, ii, ordering = NULL, decreasing = decreasing, number = number, likelihood, FDR, FWER),])                     
+    names(selOrd) <- names(cD@groups)
+    } else {
+      selOrd <- do.call("c", lapply(1:ncol(cD@orderings),function(ii) {
+        selord <- lapply(levels(cD@orderings[,ii]), function(ord) cD[.selectTags(cD, ii, ordering = NULL, decreasing = decreasing, number = number, likelihood, FDR, FWER),])
+        names(selord) <- paste(colnames(cD@orderings)[ii], ":", levels(cD@orderings[,ii]), sep = "")
+        names(selord) <- gsub(":$", "", names(selord))
+        selord
+      }))
+    }
+  if(!is.null(nullCD)) return(c(list(nullCD), selOrd)) else return(selOrd)
+}
+  
+#.selectTop <- function(cD, group, ordering, decreasing = TRUE, number = 10, likelihood, FDR, FWER) #{
+#  if(missing(likelihood)) likelihood <- NULL
+#  if(missing(FDR)) FDR <- NULL
+#  if(missing(FWER)) FWER <- NULL
+#  if(missing(ordering)) ordering <- NULL  
+  
+#  selTags <- .selectTags(cD, group, ordering, decreasing = decreasing, number = number, likelihood, FDR, FWER)
+#  cD[selTags,]
+#}
+
+.selectTags <- function(cD, group, ordering, decreasing = TRUE, number = 10, likelihood, FDR, FWER) {
+  if(!inherits(cD, what = "countData"))
+    stop("variable 'cD' must be of or descend from class 'countData'")
+  if(nrow(cD@posteriors) == 0)
+    stop("The '@posteriors' slot of cD is empty!")
+  
+  if(is.character(group))
+    group <- pmatch(group, names(cD@groups))
+  if(!is.null(group) && is.na(group)) stop("Can't match this group name.")
+  
+  if(!is.null(ordering)) {
+    ordCD <- which(cD@orderings[,group] == ordering)
+    cD <- cD[ordCD,]
+  }
+  
+  if(is.null(group)) {
+    if(length(cD@nullPosts) == 0)
+      stop("The '@nullPosts' slot of cD is empty - you can't use 'group = NULL'.")
+    likes <- cD@nullPosts        
+  } else likes <- cD@posteriors[,group,drop = FALSE]    
+  
+  if(!is.null(likelihood)) {
+    cutNumber <- sum(likes > log(likelihood), na.rm = TRUE)
+  } else if (!is.null(FDR)) {
+    cutNumber <- sum(cumsum(1 - exp(sort(likes[,1], decreasing = decreasing))) / 1:sum(!is.na(likes[,1])) < FDR, na.rm = TRUE)
+  } else if (!is.null(FWER)) {
+    cutNumber <- sum(FWER = 1 - cumprod(sort(exp(likes[,1]), decreasing = decreasing)) < FWER, na.rm = TRUE)
+  }
+  if(!is.null(likelihood) | !is.null(FDR) | !is.null(FWER))
+    if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood, FDR or FWER specified; using the 'number' argument instead") else number <- cutNumber
+  
+  number <- min(number, nrow(likes))
+  
+  selTags <- order(likes[,1], decreasing = decreasing)[1:number]
+  if(!is.null(ordering)) selTags <- ordCD[selTags]
+  selTags
+}
+  
+`topCounts` <-
+function(cD, group, ordering, decreasing = TRUE, number = 10, likelihood, FDR, FWER, normaliseData = FALSE)
+  {
+    if(missing(likelihood)) likelihood <- NULL
+    if(missing(FDR)) FDR <- NULL
+    if(missing(FWER)) FWER <- NULL
+    if(missing(ordering)) ordering <- NULL
+    
+    if(is.null(group)) {
+      if(length(cD@nullPosts) == 0)
+        stop("The '@nullPosts' slot of cD is empty - you can't use 'group = NULL'.")
+      likes <- cD@nullPosts        
+    } else likes <- cD@posteriors[,group,drop = FALSE]        
+
+    selTags <- .selectTags(cD, group, ordering, decreasing = decreasing, number = number, likelihood, FDR, FWER)
+    selCD <- cD[selTags,]    
+
+    selData <- .sliceArray(list(selTags), cD@data)
+    if(normaliseData) {
+
+      observables <- .catObservables(cD[selTags,])      
+      selData <- round(selData / observables$libsizes * exp(mean(log(observables$libsizes))) / observables$seglens * exp(mean(log(observables$seglens))))
+      }
+    showData <- .showData(selData)
+    colnames(showData) <- colnames(cD@data)
+    
+    if(length(cD@orderings) > 0 && !is.null(group)) ordering <- cD@orderings[selTags, group, drop = TRUE] else ordering <- rep("", length(selTags))
+    if(all(ordering == "")) noorder <- TRUE else noorder <- FALSE
+    
+    
+    if(nrow(cD@annotation) == 0) annotation <- data.frame(rowID = selTags) else annotation <- cD@annotation[selTags,]    
+    
+    if(inherits(cD, what = "lociData") | inherits(cD, what = "methData"))
+      annotation <- cbind(annotation, GenomicRanges::as.data.frame(cD@coordinates[selTags])) else annotation <- annotation    
+    
+    topTags <- data.frame(annotation, showData, Likelihood = exp(likes[selTags,]),
+                          ordering = ordering,
+                          FDR = cumsum(1 - exp(likes[selTags,1])) / 1:length(selTags),
+                          FWER = 1 - cumprod(exp(likes[selTags,1])))
+    names(topTags)[names(topTags) == "FDR"] <- paste("FDR", names(cD@groups)[group[1]], sep = ".")
+    names(topTags)[names(topTags) == "FWER"] <- paste("FWER", names(cD@groups)[group[1]], sep = ".")
+    if(noorder) topTags <- topTags[,-which(colnames(topTags) == "ordering")]
+    rownames(topTags) <- rownames(cD@data)[selTags]
+    topTags
+  }

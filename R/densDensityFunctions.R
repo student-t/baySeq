@@ -39,7 +39,7 @@ dbetabinom <- function(x, n, prop, disp, log = TRUE) {
     
     alphas = (1/disp - 1) * prop
     
-    ps <- lgamma(rowSums(alphas)) - lgamma(rowSums(alphas) + rowSums(x)) + rowSums(lgamma(x + alphas) - lgamma(alphas))
+    ps <- lfactorial(rowSums(x)) - rowSums(lfactorial(x)) + lgamma(rowSums(alphas)) - lgamma(rowSums(alphas) + rowSums(x)) + rowSums(lgamma(x + alphas) - lgamma(alphas))
     return(ps)
   }
 

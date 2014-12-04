@@ -4,6 +4,8 @@
 \alias{bbDensity}
 \alias{bbNCDist}
 \alias{mdDensity}
+\alias{md2Density}
+\alias{md3Density}
 \alias{nbinomDensity}
 \alias{normDensity}
 %- Also NEED an '\alias' for EACH other topic documented here.

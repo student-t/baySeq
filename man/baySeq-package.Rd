@@ -68,7 +68,7 @@ libsizes(CD) <- getLibsizes(CD)
 CDPriors <- getPriors.NB(CD, cl = NULL)
 
 # estimate posterior likelihoods for each row of data belonging to each hypothesis
-CDPost <- getLikelihoods.NB(CDPriors, cl = NULL)
+CDPost <- getLikelihoods(CDPriors, cl = NULL)
 
 # display the rows of data showing greatest association with the second
 # hypothesis (differential expression)

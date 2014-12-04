@@ -13,7 +13,7 @@ function(cD, group, par = 1)
     
     par(mfrow = c(1, length(ungroup)))
     for(ii in ungroup)
-      plot(density(log(cD@priors$priors[[group]][[ii]][cD@priors$sampled[,2],par]), weights = cD@priors$weights / sum(cD@priors$weights)), main = paste("Log prior means for group:", group))
+      plot(density(log(cD@priors$priors[[group]][[ii]][cD@priors$sampled[,2],par]), weights = cD@priors$sampled[,3] / sum(cD@priors$sampled[,3])), main = paste("Log prior means for group:", group))
   }
 
 plotNullPrior <- function(cD, ...)
@@ -26,8 +26,8 @@ plotNullPrior <- function(cD, ...)
     
     nZ <- nF(cD@priors$priors[[which(aleq)[1]]][[1]][cD@priors$sampled[,2],,drop = FALSE])
 
-    denz <- density(nZ, weights = cD@priors$weights / sum(cD@priors$weights))
-    bS <- bimodalSeparator(nZ, weights = cD@priors$weights)
+    denz <- density(nZ, weights = cD@priors$sampled[,3] / sum(cD@priors$sampled[,3]))
+    bS <- bimodalSeparator(nZ, weights = cD@priors$sampled[,"weights"])
     
 #    if(require("diptest")) submain = paste("unimodality p:", dip.test(nZ[nZ > -Inf & nZ < -Inf])$p)
 

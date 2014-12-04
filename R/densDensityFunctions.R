@@ -1,3 +1,4 @@
+
 .betaBinomialFunction <- function(dat, observables, parameters) {  
 dbetabinom <- function(x, n, prop, disp, log = TRUE) {  
   ps <- rep(NA, (length(x)))
@@ -60,6 +61,121 @@ dbetabinom <- function(x, n, prop, disp, log = TRUE) {
   
   ddirmult(x = x, prop = propmod, disp = disp)
 }
+
+
+
+.multiDirichletFunction2 <- function(dat, observables, parameters) {
+  if(any(sapply(parameters, function(par) any(par < 0) | any(par > 1)))) return(NA)
+
+  ddirmult <- function(x, prop, disp) {  
+    
+    if(nrow(x) != nrow(prop)) stop("Dimension of x does not match dimension of proportions")  
+    
+    ps <- rep(NA, (nrow(x)))
+                                        #  disp <- rep(disp, nrow(prop))    
+    
+    alphas = (1/disp - 1) * prop
+    
+    ps <- lfactorial(rowSums(x)) - rowSums(lfactorial(x)) + lgamma(rowSums(alphas)) - lgamma(rowSums(alphas) + rowSums(x)) + rowSums(lgamma(x + alphas) - lgamma(alphas))
+    return(ps)
+  }
+
+  x <- dat[,,,drop = TRUE]
+  maxp <- order(colSums(x / observables$libsizes), decreasing = TRUE)[1:2]
+  
+  disp <- parameters[[1]]
+  props <- matrix(NA, nrow = nrow(x), ncol = observables$dim[3])
+  props[,maxp] <- do.call("cbind", parameters[-1])
+
+  if(!all(parameters[[2]] >= parameters[[3]])) return(NA)
+  
+  props[is.na(props)] <- (1 - rowSums(props, na.rm = TRUE)) / (observables$dim[3] - 2)
+    
+  if(any(props >= 1) | any(props[,maxp[1]] < 1/observables$dim[3]) | any(props <= 0) | any(disp <= 2e-15)) return(NA)
+  
+  #props <- props * observables$libsizes[,1] / (props * observables$libsizes[,1] + (1-props) * observables$libsizes[,2])
+
+  propmod <- props * observables$libsizes
+  propmod <- propmod / rowSums(propmod)
+
+  disp <- array(disp, dim = dim(x))  
+  ddirmult(x = x, prop = propmod, disp = disp)
+}
+
+.multiDirichletFunction3 <- function(dat, observables, parameters) {
+  if(any(sapply(parameters, function(par) any(par < 0) | any(par > 1)))) return(NA)
+
+  ddirmult <- function(x, prop, disp) {  
+    
+    if(nrow(x) != nrow(prop)) stop("Dimension of x does not match dimension of proportions")  
+    
+    ps <- rep(NA, (nrow(x)))
+                                        #  disp <- rep(disp, nrow(prop))    
+    
+    alphas = (1/disp - 1) * prop
+    
+    ps <- lfactorial(rowSums(x)) - rowSums(lfactorial(x)) + lgamma(rowSums(alphas)) - lgamma(rowSums(alphas) + rowSums(x)) + rowSums(lgamma(x + alphas) - lgamma(alphas))
+    return(ps)
+  }
+
+  x <- dat[,,,drop = TRUE]
+  maxp <- order(colSums(x / observables$libsizes), decreasing = TRUE)[1:3]
+  
+  disp <- parameters[[1]]
+  props <- matrix(NA, nrow = nrow(x), ncol = observables$dim[3])
+  props[,maxp] <- do.call("cbind", parameters[-1])
+
+  if(!all(parameters[[2]] >= parameters[[3]])) return(NA)
+  
+  props[is.na(props)] <- (1 - rowSums(props, na.rm = TRUE)) / (observables$dim[3] - 3)
+    
+  if(any(props >= 1) | any(props[,maxp[1]] < 1/observables$dim[3]) | any(props <= 0) | any(disp <= 2e-15)) return(NA)
+  
+  #props <- props * observables$libsizes[,1] / (props * observables$libsizes[,1] + (1-props) * observables$libsizes[,2])
+
+  propmod <- props * observables$libsizes
+  propmod <- propmod / rowSums(propmod)
+
+  disp <- array(disp, dim = dim(x))  
+  ddirmult(x = x, prop = propmod, disp = disp)
+}
+
+
+
+.multiSymDirichletFunction <- function(dat, observables, parameters) {
+  if(any(sapply(parameters, function(par) any(par < 0) | any(par > 1)))) return(NA)
+
+  ddirmult <- function(x, conc) {  
+    
+    #if(nrow(x) != nrow(prop)) stop("Dimension of x does not match dimension of proportions")  
+    
+    ps <- rep(NA, (nrow(x)))
+                                        #  disp <- rep(disp, nrow(prop))    
+    
+    alphas = 1/conc
+    
+    ps <- lfactorial(rowSums(x)) - rowSums(lfactorial(x)) + lgamma(rowSums(alphas)) - lgamma(rowSums(alphas) + rowSums(x)) + rowSums(lgamma(x + alphas) - lgamma(alphas))
+    return(ps)
+  }
+
+  conc <- parameters[[1]]
+#  props <- do.call("cbind", parameters[-1])
+#  props <- cbind(do.call("cbind", parameters[-1]), 1 - rowSums(props))
+#  props <- cbind(props, 1 - props)
+
+  if(any(conc <= 2e-15)) return(NA)
+  
+  #props <- props * observables$libsizes[,1] / (props * observables$libsizes[,1] + (1-props) * observables$libsizes[,2])
+
+#  propmod <- props * observables$libsizes
+#  propmod <- propmod / rowSums(propmod)
+
+  x <- dat[,,,drop = TRUE]
+  conc <- array(conc, dim = dim(x))
+  
+  ddirmult(x = x, conc)
+}
+
 
 
 .nbinomDens <- function(dat, observables, parameters) {

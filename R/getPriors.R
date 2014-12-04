@@ -307,6 +307,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
 
   sy[,1] <- samplingSubset[sy[,1]]
   names(NBpar) <- names(groups)
-  NBpar <- list(sampled = sy, weights = weights, priors = NBpar)
+  NBpar <- list(sampled = cbind(sy, weights = weights / sum(weights)), priors = NBpar)
   new(class(cD), cD, priorType = "NB-QL", priors = NBpar, densityFunction = nbinomDensity)
 }

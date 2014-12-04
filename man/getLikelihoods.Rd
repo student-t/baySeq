@@ -21,9 +21,10 @@ NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-04, nullData = FALSE,
 returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling =
 FALSE, cl, ...)
 getLikelihoods(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
-priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE,
+priorSubset = NULL, bootStraps = 1, bsNullOnly = TRUE, conv = 1e-4, nullData = FALSE,
 modelPriorSets = list(), modelPriorValues = list(), returnAll = FALSE,
-returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, cl = NULL) 
+returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, modelLikes =
+TRUE, cl = NULL) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -45,6 +46,9 @@ returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, cl = NULL)
     used to estimate prior probabilities on each of the groups. See Details.}
   \item{bootStraps}{How many iterations of bootstrapping should be used
     in the (re)estimation of priors in the negative binomial method.}
+  \item{bsNullOnly}{If TRUE (default, bootstrap hyper-parameters based
+    on the likelihood of the null model and its inverse only; otherwise,
+    on the likelihood of all models.}
   \item{conv}{If not null, bootstrapping iterations will cease if the
     mean squared difference between posterior likelihoods of consecutive
     bootstraps drops below this value.}
@@ -66,7 +70,12 @@ returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, cl = NULL)
   \item{verbose}{Should status messages be displayed? Defaults to TRUE.}
   \item{discardSampling}{If TRUE, discards information about which data
     rows are sampled to generate prior information. May slightly degrade
-    the results but reduce computational time required. Defaults to FALSE.}
+    the results but reduce computational time required. Defaults to
+    FALSE.}
+  \item{modelLikes}{If TRUE (default), returns likelihoods for each
+    model. If FALSE, returns likelihoods for each hyper-parameter, from
+    which the posterior joint distribution on hyper-parameters can be
+    inferred.} 
   \item{cl}{A SNOW cluster object.}
   \item{...}{Any additional information to be passed to the
     \code{'getLikelihoods'} function by the now deprecated functions.}

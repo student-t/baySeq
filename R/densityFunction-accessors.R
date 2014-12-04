@@ -6,6 +6,8 @@ setMethod("initialize", "densityFunction", function(.Object, ...) {
   if("equalOverReplicates" %in% names(dotlist))
     if(is.logical(dotlist$equalOverReplicates))
       dotlist$equalOverReplicates <- (eval(parse(text = paste("function(dat, observables)", "c(", paste(dotlist$equalOverReplicates, collapse = ", "), ")"))))
+  if(!("modifyNullPriors" %in% names(dotlist)))
+    dotlist$modifyNullPriors <- function(x, datdim) x
   
   .Object <- do.call("callNextMethod", c(list(.Object), dotlist))
   .Object

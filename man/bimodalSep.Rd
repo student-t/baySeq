@@ -9,7 +9,7 @@
   principally intended to be a quick and easy way of separating
   bimodally distributed data.}
 \usage{
-bimodalSeparator(x, weights = NULL, minperc = 10)
+bimodalSeparator(x, weights = NULL, minperc = 0.1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

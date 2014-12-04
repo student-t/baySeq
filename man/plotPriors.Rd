@@ -44,8 +44,6 @@ plotPriors(cD, group, par = 1)
 
 data(CDPriors)
 
-try(stopCluster(cl))
-
 plotPriors(CDPriors, group = "NDE", par = 1)
 }
 

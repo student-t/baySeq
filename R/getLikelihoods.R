@@ -1,3 +1,10 @@
+.posteriorWeights <- function(cD, group) {
+  numintSamp <- cD@priors$sampled
+  weights <- cD@priors$weights
+  numintSamp <- list(list(cbind(numintSamp, weights)))
+  priorWeights <- .constructWeights(numintSamp = numintSamp, CDpriors = CDpriors, consensus = consensus) 
+}
+
 makeOrderings <- function(cD, orderingFunction)
   {
     if(missing(orderingFunction)) orderingFunction <- cD@densityFunction@orderingFunction
@@ -14,7 +21,7 @@ makeOrderings <- function(cD, orderingFunction)
           gorders <- sapply(glev, function(gg) {
             orderon <- orderingFunction(dat = .sliceArray(list(NULL, which(group == gg)), cD@data, drop = FALSE),
                                         observables = lapply(observables, function(obs) .sliceArray(list(NULL, which(group == gg)), obs, drop = FALSE)))
-            if(is.matrix(orderon)) orderon <- rowMeans(orderon)
+            if(is.matrix(orderon)) orderon <- rowMeans(orderon, na.rm = TRUE)
             orderon
           })
 
@@ -129,42 +136,41 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
     list(posteriors = posteriors, priors = prs)
   }
 
+.constructWeights <- function(numintSamp, weights = weights, CDpriors, withinCluster = FALSE, consensus = FALSE)
+  {
+    if(is.numeric(weights)) weights <- list(list(weights))
+    priorWeights <- lapply(1:length(numintSamp), function(ii)
+                           lapply(1:length(numintSamp[[ii]]), function(jj)
+                                  {                                      
+                                    samplings <- numintSamp[[ii]][[jj]]
+                                    samplings <- samplings[order(samplings[,2]),]
+                                    if(consensus) intervals <- findInterval(1:nrow(CDpriors) - 0.5, samplings[,2]) + 1 else intervals <- findInterval(1:nrow(CDpriors[[ii]][[jj]]) - 0.5, samplings[,2]) + 1
+                                    intlens <- diff(c(intervals, nrow(samplings) + 1))                                                                       
+                                    weightP <- c()
+                                    weightP[intlens == 1] <- (samplings[,3] * weights[[ii]][[jj]])[intervals[intlens == 1]]
+                                    if(any(intlens > 1))
+                                      weightP[which(intlens > 1)] <- sapply(which(intlens > 1), function(kk)
+                                                                            sum((samplings[,3] * weights[[ii]][[jj]])[intervals[kk] + 0:(intlens[kk] - 1)]))
+                                    weightP
+                                  }))
+    
+    if(withinCluster) {
+      assign("priorWeights", priorWeights, envir = .GlobalEnv)
+      return(invisible(NULL))
+    } else return(priorWeights)
+  }
+
 
 
 `getLikelihoods` <-
-function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, conv = 1e-4, nullData = FALSE, modelPriorSets = list(), modelPriorValues = list(), returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, cl = NULL)
-  {    
-    if(length(modelPriorValues) == 0 & !missing(prs)) modelPriorValues <- prs
-
-    constructWeights <- function(withinCluster = FALSE, consensus = FALSE)
-      {
-        priorWeights <- lapply(1:length(numintSamp), function(ii)
-                               lapply(1:length(numintSamp[[ii]]), function(jj)
-                                      {                                      
-                                        samplings <- numintSamp[[ii]][[jj]]
-                                        samplings <- samplings[order(samplings[,2]),]
-                                        if(consensus) intervals <- findInterval(1:nrow(CDpriors) - 0.5, samplings[,2]) + 1 else intervals <- findInterval(1:nrow(CDpriors[[ii]][[jj]]) - 0.5, samplings[,2]) + 1
-                                        intlens <- diff(c(intervals, nrow(samplings) + 1))                                                                       
-                                        weights <- c()
-                                        weights[intlens == 1] <- samplings[intervals[intlens == 1],3]
-                                        if(any(intlens > 1))
-                                          weights[which(intlens > 1)] <- sapply(which(intlens > 1), function(kk)
-                                                                                sum(samplings[intervals[kk] + 0:(intlens[kk] - 1),3]))
-                                        weights
-                                      }))
-                                                                     
-        if(withinCluster) {
-          assign("priorWeights", priorWeights, envir = .GlobalEnv)
-          return(invisible(NULL))
-        } else return(priorWeights)
-      }
-    
-    bootStrap <- function(xdata, groups, consensus = FALSE, differentWeights = differentWeights) {
+function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, bsNullOnly = TRUE, conv = 1e-4, nullData = FALSE, modelPriorSets = list(), modelPriorValues = list(), returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, modelLikes = TRUE, cl = NULL)
+  {
+    .likeDataObs <- function(xdata, densityFunction, groups, consensus = FALSE, differentWeights = differentWeights, modelLikes = TRUE, rowObservables, cellObservables) {
       `logsum` <-
         function(x) {
           max(x, max(x, na.rm = TRUE) + log(sum(exp(x - max(x, na.rm = TRUE)), na.rm = TRUE)), na.rm = TRUE)
-        }
-
+    }
+      
       PDgivenr.Consensus <- function (number, cts, xrobs, xcobs, sobs, priors, groups, priorWeights, numintSamp, differentWeights)
         {
           prior <- lapply(1:ncol(priors), function(jj) priors[,jj])
@@ -186,7 +192,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                                          observables = xobs,
                                          parameters = lapply(prior, function(priorpar) rep(priorpar, each = ncol(cts)))),
                          ncol = ncol(cts), byrow = TRUE)
-
+          
           if(differentWeights)
             {
               ld <- sapply(1:length(groups), function(grpnum) {
@@ -214,58 +220,65 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
               ld <- sapply(1:length(groups), function(grpnum) {
                 group <- groups[[grpnum]]
                 sum(sapply(1:length(levels(group)), function(gg) {
-                  selcts <- which(group == levels(group)[gg] & !is.na(group))
-                  logsum(rowSums(datalikes[,selcts,drop = FALSE], na.rm = TRUE) + lweight) - lsumweight
-                })) 
+              selcts <- which(group == levels(group)[gg] & !is.na(group))
+              logsum(rowSums(datalikes[,selcts,drop = FALSE], na.rm = TRUE) + lweight) - lsumweight
+            })) 
               })
               
             }
           ld
         }
       
-      PDgivenr <- function (number, cts, xrobs, xcobs, sobs, priors, group, wts, sampInfo, differentWeights)
+      PDgivenr <- function (number, cts, xrobs, xcobs, sobs, priors, group, wts, sampInfo, differentWeights, modelLikes = TRUE)
         {          
-          sum(
-            sapply(1:length(levels(group)), function(gg) {
-              selcts <- group == levels(group)[gg] & !is.na(group)
-              weightings <- wts[[c(1, gg)[differentWeights + 1]]]
-              nzWts <- weightings != 0
-
-              prior <- lapply(1:ncol(priors[[gg]]), function(jj) priors[[gg]][nzWts,jj])
-              xobs <- c(xrobs,
-                        lapply(xcobs, function(obs)
-                               array(.sliceArray(list(NULL, which(selcts)), obs, drop = FALSE), dim = c(sum(nzWts) * sum(selcts), dim(obs)[-(1:2)], 1))),
-                        lapply(sobs, function(obs) {
-                          slobs <- .sliceArray(list(which(selcts)), obs, drop = FALSE)
-                          if(is.vector(slobs) || length(dim(slobs)) == 1) {
-                            return(rep(slobs, sum(nzWts)))
-                          } else apply(slobs, 2:length(dim(slobs)), function(x) rep(x, sum(nzWts)))                            
-                        })
-                        )
-              xobs <- c(xobs, list(dim = datdim))
-              
-              repcts <- apply(.sliceArray(list(NULL, which(selcts)), cts, drop = FALSE), (1:length(dim(cts)))[-2], function(x) rep(x, sum(nzWts)))
-              
-              wsInfo <- which(sampInfo[[c(1, gg)[differentWeights + 1]]][,1] == number)
-              weightings[sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,2]] <- weightings[sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,2]] - sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,3]
-                
-                logsum(
-                  rowSums(
-                    matrix(
-                      densityFunction(repcts,
-                                      observables = xobs,
-                                      parameters = lapply(prior, function(priorpar) rep(priorpar, each = sum(selcts))))
-                      ,ncol = sum(selcts),byrow = TRUE)
-                    , na.rm = TRUE)
-                  + log(weightings[nzWts])                      
-                  ) - log(sum(weightings[nzWts]))
-            })
-            )
+          glikes <- sapply(1:length(levels(group)), function(gg) {
+            selcts <- group == levels(group)[gg] & !is.na(group)
+            weightings <- wts[[c(1, gg)[differentWeights + 1]]]
+            nzWts <- weightings != 0
+            
+            prior <- lapply(1:ncol(priors[[gg]]), function(jj) priors[[gg]][nzWts,jj])
+            xobs <- c(xrobs,
+                      lapply(xcobs, function(obs)
+                             array(.sliceArray(list(NULL, which(selcts)), obs, drop = FALSE), dim = c(sum(nzWts) * sum(selcts), dim(obs)[-(1:2)], 1))),
+                      lapply(sobs, function(obs) {
+                        slobs <- .sliceArray(list(which(selcts)), obs, drop = FALSE)
+                        if(is.vector(slobs) || length(dim(slobs)) == 1) {
+                          return(rep(slobs, sum(nzWts)))
+                        } else apply(slobs, 2:length(dim(slobs)), function(x) rep(x, sum(nzWts)))                            
+                      })
+                      )
+            xobs <- c(xobs, list(dim = datdim))
+            
+            repcts <- apply(.sliceArray(list(NULL, which(selcts)), cts, drop = FALSE), (1:length(dim(cts)))[-2], function(x) rep(x, sum(nzWts)))
+            
+            wsInfo <- which(sampInfo[[c(1, gg)[differentWeights + 1]]][,1] == number)
+            weightings[sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,2]] <- weightings[sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,2]] - sampInfo[[c(1, gg)[differentWeights + 1]]][wsInfo,3]
+            
+            likeD <- rowSums(
+                       matrix(
+                         densityFunction(repcts,
+                                         observables = xobs,
+                                         parameters = lapply(prior, function(priorpar) rep(priorpar, each = sum(selcts))))
+                         ,ncol = sum(selcts),byrow = TRUE)
+                       , na.rm = TRUE) + log(weightings[nzWts]) - log(sum(weightings[nzWts]))
+            
+            if(modelLikes) {
+              mL <- logsum(likeD)
+              return(mL)
+            } else {
+              lD <- rep(-Inf, nrow(priors[[gg]]))
+              lD[nzWts] <- likeD
+              return(lD)
+            }
+          })
+          if(modelLikes) {
+            return(sum(glikes))
+          } else return(glikes)        
         }
       
       xid <- xdata$id
       cts <- xdata$data
-
+      
       xrobs <- lapply(rowObservables, function(obs) {
         if(is.vector(obs)) return(obs[xid])
         if(is.array(obs)) return(obs[xid,])
@@ -275,50 +288,31 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
       xcobs <- lapply(cellObservables, function(obs) .sliceArray(list(xid), obs, drop = FALSE))
       
       if(consensus) {
-        PDgivenr.Consensus(xid, cts, xrobs = xrobs, xcobs = xcobs, sobs = sampleObservables, priors = CDpriors, groups = groups, priorWeights = priorWeights, numintSamp = numintSamp, differentWeights = differentWeights)
+        PDlikes <- PDgivenr.Consensus(xid, cts, xrobs = xrobs, xcobs = xcobs, sobs = sampleObservables, priors = CDpriors, groups = groups, priorWeights = priorWeights, numintSamp = numintSamp, differentWeights = differentWeights)
       } else {      
-        sapply(1:length(CDpriors), function(gg)
-               PDgivenr(number = xid, cts = cts, xrobs = xrobs, xcobs = xcobs, sobs = sampleObservables, priors = CDpriors[[gg]], group = groups[[gg]],
-                        wts = priorWeights[[c(1, gg)[differentWeights + 1]]],
-                        sampInfo = numintSamp[[c(1, gg)[differentWeights + 1]]],
-                        differentWeights = differentWeights)
-               )
+        PDlikes <- lapply(1:length(CDpriors), function(gg)
+                          PDgivenr(number = xid, cts = cts, xrobs = xrobs, xcobs = xcobs, sobs = sampleObservables, priors = CDpriors[[gg]], group = groups[[gg]],
+                                   wts = priorWeights[[c(1, gg)[differentWeights + 1]]],
+                                   sampInfo = numintSamp[[c(1, gg)[differentWeights + 1]]],
+                                   differentWeights = differentWeights, modelLikes = modelLikes)
+                          )
+        if(modelLikes) PDlikes <- unlist(PDlikes)
       }
+      return(PDlikes)
     }
 
-    if(!is.null(cl))
-      {
-        clustAssign <- function(object, name)
-          {
-            assign(name, object, envir = .GlobalEnv)
-            NULL
-          }
-        
-        getLikelihoodsEnv <- new.env(parent = .GlobalEnv)
-        environment(clustAssign) <- getLikelihoodsEnv
-        environment(bootStrap) <- getLikelihoodsEnv
-      }
 
-    
-    listPosts <- list()
     
     if(!inherits(cD, what = "countData"))
       stop("variable 'cD' must be of or descend from class 'countData'")   
-
-
+    if(length(modelPriorValues) == 0 & !missing(prs)) modelPriorValues <- prs
+        
+    listPosts <- list()
+    
     if(!(class(subset) == "integer" | class(subset) == "numeric" | is.null(subset)))
       stop("'subset' must be integer, numeric, or NULL")    
-    if(is.null(subset)) subset <- 1:nrow(cD)
-#    subset <- subset[rowSums(do.call("cbind",
-#                                     lapply(cD@groups, function(x)
-#                                            do.call("cbind", lapply(levels(x), function(rep)
-#                                                                    apply(.sliceArray(list(subset, which(x == rep)), cD@data), c(1,2), function(z)
-#                                                                          
-#                                                                               
-#                                            ))== 0]
-    
-    if(is.null(priorSubset)) priorSubset <- subset
-    
+    if(is.null(subset)) subset <- 1:nrow(cD)    
+    if(is.null(priorSubset)) priorSubset <- subset    
     if(length(modelPriorSets) == 0) modelPriorSets <- list(subset)
     if(any(duplicated(unlist(modelPriorSets)))) stop("Some element appears twice in the modelPriorSets list")
     if(!all(subset %in% unlist(modelPriorSets))) stop("The modelPriorSets list does not contain all the data specified in the `subset' parameter (or all data, if this parameter is not specified).")
@@ -347,22 +341,19 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     if(pET %in% c("iteratively", "BIC") && (any(sapply(modelPriorValues, length) < 100) & sapply(modelPriorSets, is.null))) warning("Some subsets contain fewer than one hundred members; estimation of model priors may be unstable")
     
     if(is.null(conv)) conv <- 0
-#    if(nrow(cD@seglens) == 0) cD@seglens <- matrix(1, ncol = ncol(cD@data), nrow = nrow(cD@data))
-#    if(ncol(cD@seglens) == 1) cD@seglens <- matrix(cD@seglens, ncol = ncol(cD@data), nrow = nrow(cD@data))
 
-#    libsizes <- as.double(cD@libsizes)
     groups <- cD@groups
     CDpriors <- cD@priors$priors
     densityFunction <- cD@densityFunction@density
-    nullFunction = cD@densityFunction@nullFunction
-#    nullQuantiles = cD@densityFunction@nullQuantiles
+    nullFunction <- cD@densityFunction@nullFunction
+    modifyNullPriors <- cD@densityFunction@modifyNullPriors
     if(is.null(body(nullFunction)) & nullData) {
       warning("nullData cannot be TRUE if no nullFunction is specified within the supplied densityFunction object.")
       nullData <- FALSE
     }
-#    if(length(nullQuantiles) == 0) nullQuantiles = c(0,1)
     numintSamp <- cD@priors$sampled
-    weights <- cD@priors$weights
+    weights <- cD@priors$weights; if(is.null(weights)) weights <- rep(1, nrow(cD@priors$sampled))
+    nullWeights <- cD@priors$nullWeights;
     data <- cD@data
     datdim <- dim(cD)
 
@@ -384,8 +375,8 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     if(is.numeric(weights) & is.matrix(numintSamp) & bootStraps == 1 & !nullData)
       {
         differentWeights <- FALSE
-        numintSamp <- list(list(cbind(numintSamp, weights)))
-        priorWeights <- constructWeights(consensus = consensus)
+        numintSamp <- list(list(numintSamp))
+        priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, consensus = consensus)
       } else {
         differentWeights <- TRUE
             
@@ -395,9 +386,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         if(is.null(weights))
           weights <- lapply(numintSamp, function(x) lapply(x, function(z) weights = rep(1, nrow(z))))
         if(is.numeric(weights))
-          weights <- lapply(numintSamp, function(x) lapply(x, function(z) weights = weights))        
-        numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]], weights = weights[[ii]][[jj]])))        
-        priorWeights <- constructWeights(consensus = consensus)
+          weights <- lapply(numintSamp, function(x) lapply(x, function(z) weights = weights))
+#        numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]], weights = weights[[ii]][[jj]])))        
+        priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, consensus = consensus)
       }
 
     if(nullData)
@@ -405,21 +396,27 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         ndelocGroup <- which(unlist(lapply(cD@groups, function(x) all(x[!is.na(x)] == x[!is.na(x)][1])))) 
         if(length(ndelocGroup) == 0) stop("If 'nullData = TRUE' then there must exist some vector in groups whose members are all identical") else ndelocGroup <- ndelocGroup[1]
 
-        if(!consensus) ndePriors <- nullFunction(CDpriors[[ndelocGroup]][[1]]) else ndePriors <- nullFunction(CDpriors)
-        weights <- priorWeights[[ndelocGroup]][[1]]
-        sep <- bimodalSeparator(ndePriors[ndePriors > -Inf], weights[ndePriors > -Inf])
-        
         groups <- c(groups, null = groups[ndelocGroup])
         ndenulGroup <- length(groups)
-        modelPriorValues <- lapply(modelPriorValues, function(prs) c(prs, 1 - sum(prs)))
-
-        CDpriors[[ndenulGroup]] <- CDpriors[[ndelocGroup]]
-        priorWeights[[ndenulGroup]] <- priorWeights[[ndelocGroup]]
-        priorWeights[[ndenulGroup]][[1]] <- priorWeights[[ndenulGroup]][[1]] * as.numeric(ndePriors <= sep)
-        priorWeights[[ndelocGroup]][[1]] <- priorWeights[[ndelocGroup]][[1]] * as.numeric(ndePriors > sep)
         numintSamp[[ndenulGroup]] <- numintSamp[[ndelocGroup]]
-        numintSamp[[ndelocGroup]][[1]][numintSamp[[ndelocGroup]][[1]][,2] %in% which(ndePriors <= sep),3] <- 0
-        numintSamp[[ndenulGroup]][[1]][numintSamp[[ndenulGroup]][[1]][,2] %in% which(ndePriors > sep),3] <- 0
+        CDpriors[[ndenulGroup]] <- modifyNullPriors(CDpriors[[ndelocGroup]], datdim)
+        
+        if(!consensus) ndePriors <- nullFunction(CDpriors[[ndelocGroup]][[1]]) else ndePriors <- nullFunction(CDpriors)        
+        
+        if(is.null(nullWeights)) {
+          nullweights <- priorWeights[[ndelocGroup]][[1]]
+          sep <- bimodalSeparator(ndePriors[ndePriors > -Inf], nullweights[ndePriors > -Inf])
+          
+          modelPriorValues <- lapply(modelPriorValues, function(prs) c(prs, 1 - sum(prs)))          
+          priorWeights[[ndenulGroup]] <- priorWeights[[ndelocGroup]]
+          priorWeights[[ndenulGroup]][[1]] <- priorWeights[[ndenulGroup]][[1]] * as.numeric(ndePriors <= sep)
+          priorWeights[[ndelocGroup]][[1]] <- priorWeights[[ndelocGroup]][[1]] * as.numeric(ndePriors > sep)
+          weights[[ndenulGroup]] <- weights[[ndelocGroup]]
+          weights[[ndelocGroup]][[1]][numintSamp[[ndelocGroup]][[1]][,2] %in% which(ndePriors <= sep)] <- 0
+          weights[[ndenulGroup]][[1]][numintSamp[[ndenulGroup]][[1]][,2] %in% which(ndePriors > sep)] <- 0
+        } else weights[[ndenulGroup]] <- nullWeights
+
+        priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, consensus = consensus)
       }
     
     
@@ -428,11 +425,17 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     converged <- FALSE
 
     if(!is.null(cl)) {
+      clustAssign <- function(object, name)
+        {
+          assign(name, object, envir = .GlobalEnv)
+          NULL
+        }
+      
       clusterCall(cl, clustAssign, CDpriors, "CDpriors")
       clusterCall(cl, clustAssign, datdim, "datdim")
       clusterCall(cl, clustAssign, densityFunction, "densityFunction")
-      clusterCall(cl, clustAssign, rowObservables, "rowObservables")
-      clusterCall(cl, clustAssign, cellObservables, "cellObservables")
+#      clusterCall(cl, clustAssign, rowObservables, "rowObservables")
+#      clusterCall(cl, clustAssign, cellObservables, "cellObservables")
       clusterCall(cl, clustAssign, sampleObservables, "sampleObservables")
       clusterCall(cl, clustAssign, .sliceArray, ".sliceArray")
       clusterCall(cl, clustAssign, .prepareSlice, ".prepareSlice")
@@ -459,43 +462,44 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
       } else return(TRUE)
     }    
 
-#    if(length(priorReps) == 0 || !any(priorReps %in% postRows))
-#      {
-#        orddat <- do.call("order", c(lapply(1:ncol(seglens), function(ii) seglens[postRows,ii]), lapply(1:ncol(cD@data), function(ii) cD@data[postRows,ii])))
-#        whunq <- .fastUniques(cbind(seglens[postRows,], cD@data[postRows,])[orddat,,drop = FALSE])
-#        postRows <- postRows
-#      }else
     whunq <- TRUE
     
     for(cc in 1:bootStraps)
-      {
-        if(cc > 1) numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]][,1:2], weights = exp(posteriors[numintSamp[[ii]][[jj]][,1],ii]))))          
+      {          
+        if(cc > 1)
+          {
+            if(!bsNullOnly | !nullData) {
+              weights <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) exp(posteriors[numintSamp[[ii]][[jj]][,1],ii])))
+            } else {
+              weights <- lapply(1:length(numintSamp), function(ii)
+                                   lapply(1:length(numintSamp[[ii]]), function(jj)
+                                          {
+                                            if(ii == ndenulGroup) weights = exp(posteriors[numintSamp[[ii]][[jj]][,1],ii]) else weights = 1 - exp(posteriors[numintSamp[[ii]][[jj]][,1],ndenulGroup])
+                                            weights
+                                          }))
+            }
+          }
         
         if (is.null(cl)) {
           if(cc > 1)
-            priorWeights <- constructWeights()
+            priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors)
           
-          ps <- do.call("rbind", lapply(sliceData[postRows[whunq]],
-                                        bootStrap, groups = groups, consensus = consensus, differentWeights = differentWeights))
+          ps <- lapply(sliceData[postRows[whunq]],
+                                        .likeDataObs, densityFunction = densityFunction, groups = groups, consensus = consensus, differentWeights = differentWeights, modelLikes = modelLikes, rowObservables = rowObservables, cellObservables = cellObservables)
           
         } else {
-          environment(constructWeights) <- getLikelihoodsEnv
           clusterCall(cl, clustAssign, numintSamp, "numintSamp")
-          clusterCall(cl, constructWeights, withinCluster = TRUE, consensus = consensus)
+          clusterCall(cl, .constructWeights, numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, withinCluster = TRUE, consensus = consensus)
 
-          ps <- do.call("rbind", parLapply(cl[1:min(length(cl), length(postRows[whunq]))], sliceData[postRows[whunq]],
-                          bootStrap, groups = groups, consensus = consensus, differentWeights = differentWeights))
+          ps <- parLapply(cl[1:min(length(cl), length(postRows[whunq]))], sliceData[postRows[whunq]],
+                                           .likeDataObs, densityFunction = densityFunction, groups = groups, consensus = consensus, differentWeights = differentWeights, modelLikes = modelLikes, rowObservables = rowObservables, cellObservables = cellObservables)
         }
+
+        if(!modelLikes) return(ps)
 
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))
 
-        rps[postRows[whunq],] <- ps
-
-#        if(length(priorReps) == 0 || !any(priorReps %in% postRows))
-#          {
-#            rps[postRows[orddat],] <- rps[postRows[orddat[rep(which(whunq), diff(c(which(whunq), length(whunq) + 1)))]],]
-#          }
-        
+        rps[postRows[whunq],] <- do.call("rbind", ps)
 
         if(returnPD) {
           if(verbose) message("done.")
@@ -532,11 +536,6 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
           if(all(abs(exp(posteriors[compPosts,,drop = FALSE]) - exp(newPosts[compPosts,,drop = FALSE])) < conv)) converged <- TRUE
 
         posteriors <- newPosts
-#        prs <- pps$priors
-#        propest <- rbind(propest, prs)
-
-#        estProps <- pps$priors
-#        names(estProps) <- names(cD@groups)
 
         cat(".")        
 
@@ -550,11 +549,12 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
               nullPosts <- retPosts[,ndenulGroup,drop = FALSE]
               retPosts <- retPosts[,-ndenulGroup, drop = FALSE]
             }
-#            estProps <- apply(exp(retPosts), 2, mean, na.rm = TRUE)
-            
-            colnames(retPosts) <- names(cD@groups)
+            colnames(retPosts) <- names(cD@groups)            
+            if(nullData) {
+              cD@priors$weights <- weights[-ndenulGroup]
+              cD@priors$nullWeights <- weights[[ndenulGroup]]
+            } else cD@priors$weights <- weights
             listPosts[[cc]] <- (new(class(cD), cD, posteriors = retPosts,
-#                                    estProps = estProps,
                                     nullPosts = nullPosts, priorModels = restprs))
             if(!is.null(body(cD@densityFunction@orderingFunction)))
               listPosts[[cc]] <- makeOrderings(listPosts[[cc]])

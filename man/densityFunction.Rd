@@ -37,6 +37,8 @@ Objects can be created by calls of the form \code{new("densityFunction", ...)}.
       which can be partitioned to identify `null' data.}
     \item{\code{orderingFunction}:}{An optional \code{"function"} for
       ordering the data between groups of a model.}
+    \item{\code{modifyNullPriors}:}{An optional \code{"function"} for
+      modifying the priors for the `null' data.}
   }
 }
 \section{Methods}{

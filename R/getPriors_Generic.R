@@ -8,35 +8,38 @@
   }
   
   .getSinglePriors <- function(x, datdim, replicates, groups, optimFunction, eqovRep, initiatingValues, lower, upper, consensus)#, dataLL)
-    {
-#      xid <- x[1]
-#      x <- x[-1]
-#      if(dataLL > 1)
-#        split(x, cut(1:8, breaks = 2, labels= FALSE))
-
+    {      
       xid <- x$id
+
       dat <- x$data
-
-#      write(paste(xid, "*", sep = ""), file = "priorlog.txt", append = TRUE)
-
-#      xrobs <- lapply(rowObservables, function(obs) {
-#        if(is.vector(obs)) return(obs[xid])
-#        if(is.array(obs)) return(obs[xid,])
-#      })
 
       xrobs <- lapply(rowObservables, function(obs) .sliceArray(list(xid),obs, drop = FALSE))
       xcobs <- lapply(cellObservables, function(obs) .sliceArray(list(xid), obs, drop = FALSE))
-      xobs <- c(xrobs, xcobs, sampleObservables, list(dim = datdim))
       
-      optimFixed <- function(vars, dat, replicates, xobs)
+      repobs <- lapply(levels(replicates), function(rep) {
+        repdim <- datdim
+        repdim[2] <- sum(replicates == rep)
+        c(xrobs,
+          lapply(xcobs, function(obs) .sliceArray(list(1, which(replicates == rep)), obs)),
+          lapply(sampleObservables, function(obs) .sliceArray(list(which(replicates == rep)), obs)),
+          list(dim = repdim))
+      })
+      repdat <- lapply(levels(replicates), function(rep) .sliceArray(list(NULL, which(replicates == rep)), dat, drop = FALSE))
+                             
+      optimFixed <- function(vars, repdat, datdim, replicates, repobs)
         {    
           pars <- split(vars, splitOptimFixed)
           pars[!eqovRep] <- lapply(pars[!eqovRep], function(par) par[match(replicates, levels(replicates))])
-          pars[eqovRep] <- lapply(pars[eqovRep], function(par) rep(par, ncol(dat)))
-          xobs$priorEstimator <- TRUE
-          sum(optimFunction(dat, xobs, pars))
+          pars[eqovRep] <- lapply(pars[eqovRep], function(par) rep(par, datdim[2]))
+          sum(
+            sapply(levels(replicates), function(rep) {            
+            xobs <- repobs[[which(levels(replicates) == rep)]]
+            xobs$priorEstimator <- TRUE
+            sum(optimFunction(repdat[[which(levels(replicates) == rep)]], xobs, lapply(pars, function(x) x[replicates == rep])))
+          })
+            )
         }
-      
+                       
       optimGroup <- function(vars, fixed, gdat, xobs, ...)
         {
           pars <- list()
@@ -46,7 +49,6 @@
           xobs$priorEstimator <- TRUE
           sum(optimFunction(gdat, xobs, pars))
         }  
-
 
       parOptimFixed <- do.call("rbind", lapply(levels(replicates), function(rep) {
         repdat <- .sliceArray(list(NULL, which(replicates == rep)), dat, drop = FALSE)
@@ -64,7 +66,7 @@
       splitOptimFixed <- do.call("c", lapply(1:length(eqovRep), function(ii) if(eqovRep[ii]) ii else rep(ii, length(levels(replicates)))))
 
       if(any(eqovRep))
-        fixed <- split(optim(par = parOptimFixed, fn = optimFixed, dat = dat, replicates = replicates, control = list(fnscale = -1, maxit = 5000, reltol = 1e-50), xobs = xobs)$par, splitOptimFixed)[eqovRep]
+        fixed <- split(optim(par = parOptimFixed, fn = optimFixed, repdat = repdat, datdim = datdim, replicates = replicates, control = list(fnscale = -1, maxit = 5000, reltol = 1e-50), repobs = repobs)$par, splitOptimFixed)[eqovRep]
 
       groupValues <- function(gg, group) {
         gdat <- .sliceArray(list(NULL, which(group == gg)), dat, drop = FALSE)
@@ -213,7 +215,7 @@
 
   sy <- cbind(sampled = samplingSubset[sampDat], representative = 1:length(sampDat))
   names(LNpar) <- names(groups)
-  LNpar <- list(sampled = sy, weights = weights, priors = LNpar)
+  LNpar <- list(sampled = cbind(sy, weights = weights / sum(weights)), priors = LNpar)
   cD@priorType <- "user-supplied function"; cD@priors = LNpar
   cD
 }

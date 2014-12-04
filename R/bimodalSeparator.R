@@ -22,41 +22,32 @@
   }
 
 
-bimodalSeparator <- function(x, weights = NULL, minperc = 10) {
+bimodalSeparator <- function(x, weights = NULL, minperc = 0.1) {
   
   if(is.null(weights)) weights <- rep(1, length(x))
 
   xnif <- (x < Inf & x > -Inf)
-  x <- x[xnif]
+  z <- x[xnif]
   weights <- weights[xnif]
 
-  weights <- round(weights/min(weights))  
-  z <- sort(rep(x, weights))
-  
+#  weights <- round(weights/min(weights))
+#  weights <- round(weights / max(weights) * 1000)
+#  z <- sort(rep(x, weights))
+
+  rordz <- order(z)
+  z <- z[rordz]
+  weights <- weights[rordz]
+
+  weighted.var <- function(x, w)
+    sum(w * (x - weighted.mean(x, w))^2) / (sum(w) - sum(w^2) / sum(w))
   
   zsel <- rep(TRUE, length(z))
-#  if(require("diptest")) dip <- dip.test(z)$p
-#  if(dip > 0.05) warning(paste("Bimodality not (p = ", round(dip, digits = 3), ") present; null data estimation may be inaccurate.", sep = ""))
-  
-#  while(TRUE) {    
-#    denz <- .bimodalKernel(z[zsel])
-    
-    # discard outlier cases
-    
-#    thresholds <- denz$x[which(denz$y > c(denz$y[-1], 0) & denz$y > c(0, denz$y[-length(denz$y)]))]
-    
-#    if(sum(z > max(thresholds)) < 0.05 * length(z)) zsel[union(max(which(zsel)), which(z > max(thresholds)))] <- FALSE
-#    if(sum(z < min(thresholds)) < 0.05 * length(z)) zsel[union(min(which(zsel)), which(z < min(thresholds)))] <- FALSE
-#    if(sum(z > max(thresholds)) > 0.05 * length(z) & sum(z < max(thresholds)) > 0.05 * length(z)) break
-#  }
-  
-  # selects within that region using Otsu's graylevel conversion method
 
 
   while(TRUE) {
     varest <- sapply(1:(length(z[zsel]) - 1), function(index)
-                     index * var(z[zsel][1:index]) + (length(z[zsel]) - index) * var(z[zsel][(index + 1):length(z[zsel])]))
-  
+                     index * weighted.var(z[zsel][1:index], weights[zsel][1:index]) + (length(z[zsel]) - index) * weighted.var(z[zsel][(index + 1):length(z[zsel])], weights[zsel][(index + 1):length(z[zsel])]))
+
     threshold <- mean(z[zsel][which.min(varest) + 0:1])
     if(sum(z > max(threshold)) < (minperc / 100) * length(z)) zsel[union(max(which(zsel)), which(z > max(threshold)))] <- FALSE
     if(sum(z < min(threshold)) < (minperc / 100) * length(z)) zsel[union(min(which(zsel)), which(z < min(threshold)))] <- FALSE

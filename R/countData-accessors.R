@@ -274,8 +274,8 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
     i <- 1:nrow(x@data)
   if(is.logical(i)) i <- which(i)
 
-    x@data <- .sliceArray(list(i, j), x@data)
-
+  x@data <- .sliceArray(list(i, j), x@data)
+  
   x@annotation <- x@annotation[i,, drop = FALSE]
   if(nrow(x@posteriors) > 0)
     x@posteriors <- x@posteriors[i,, drop = FALSE]

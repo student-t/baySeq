@@ -13,8 +13,8 @@
 
       dat <- x$data
 
-      xrobs <- lapply(rowObservables, function(obs) .sliceArray(list(xid),obs, drop = FALSE))
-      xcobs <- lapply(cellObservables, function(obs) .sliceArray(list(xid), obs, drop = FALSE))
+      xrobs <- x$rowObs
+      xcobs <- x$cellObs
       
       repobs <- lapply(levels(replicates), function(rep) {
         repdim <- datdim
@@ -172,10 +172,13 @@
     }
   }
 
-  pslice <- .prepareSlice(list("XXX"), data)
-  sliceText <- paste("data[", sapply(sampDat, function(ii) gsub("XXX", ii, pslice)), ",drop=FALSE]", sep = "")
-  sliceData <- lapply(1:length(sampDat), function(id) list(id = sampDat[id], data = eval(parse(text = sliceText[id]))))
-         
+  sliceData <- lapply(1:nrow(data), function(id)
+                      list(id = id,
+                           data = asub(data, id, dims = 1, drop = FALSE),
+                           cellObs = lapply(cellObservables, function(cob) asub(cob, id, dims = 1, drop = FALSE)),
+                           rowObs = lapply(rowObservables, function(rob) asub(rob, id, dims = 1, drop = FALSE))))
+
+
 #  dataLL = length(dim(data)) - 1
 #  if(dataLL == 1) data <- data
 #  if(dataLL > 1) data <- matrix(apply(z, 3, c), nrow = nrow(z))
@@ -183,20 +186,11 @@
   if(is.null(cl)) {
     parEach <- lapply(sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = eqovRep, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
   } else {
+    clusterExport(cl, c("sampleObservables", ".sliceArray"), envir = environment())
+
     getPriorsEnv <- new.env(parent = .GlobalEnv)
     environment(.getSinglePriors) <- getPriorsEnv
-    clustAssign <- function(object, name)
-      {
-        assign(name, object, envir = .GlobalEnv)
-        NULL
-      }    
-    environment(clustAssign) <- getPriorsEnv
-    clusterCall(cl, clustAssign, sampleObservables, "sampleObservables")
-    clusterCall(cl, clustAssign, rowObservables, "rowObservables")
-    clusterCall(cl, clustAssign, cellObservables, "cellObservables")
-    clusterCall(cl, clustAssign, .sliceArray, ".sliceArray")
-    clusterCall(cl, clustAssign, .prepareSlice, ".prepareSlice")      
-    parEach <- parLapply(cl, sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = eqovRep, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
+    parEach <- parLapplyLB(cl, sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = eqovRep, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
   }
 
   if(consensus) {
@@ -214,7 +208,7 @@
     clusterEvalQ(cl, rm(list = ls()))
 
   sy <- cbind(sampled = samplingSubset[sampDat], representative = 1:length(sampDat))
-  names(LNpar) <- names(groups)
+  if(!consensus) names(LNpar) <- names(groups)
   LNpar <- list(sampled = cbind(sy, weights = weights / sum(weights)), priors = LNpar)
   cD@priorType <- "user-supplied function"; cD@priors = LNpar
   cD

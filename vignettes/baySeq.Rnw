@@ -126,7 +126,7 @@ The calculated priors are stored in the \verb'@priors' slot of the \verb'countDa
 We then acquire posterior likelihoods, estimating the proportions of differentially expressed counts.
 
 <<>>=
-CD <- getLikelihoods(CD, pET = 'BIC', cl = cl)
+CD <- getLikelihoods(CD, cl = cl, bootStraps = 3, verbose = FALSE)
 CD@estProps
 CD@posteriors[1:10,]
 CD@posteriors[101:110,]

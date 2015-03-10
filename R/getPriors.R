@@ -170,13 +170,6 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
       }
     }
   
-  if(!is.null(cl))
-    {
-      getPriorsEnv <- new.env(parent = .GlobalEnv)
-      environment(optimoverPriors) <- getPriorsEnv
-    }
-  
-  
   if(any(sapply(cD@groups, class) != "factor"))
     {
       cD@groups <- lapply(cD@groups, as.factor)
@@ -284,7 +277,11 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
 
   if(is.null(cl)) {
     parEach <- apply(z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag, zeroML = zeroML, consensus = consensus)
-  } else parEach <- parApply(cl, z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag, zeroML, consensus = consensus)  
+  } else {
+    getPriorsEnv <- new.env(parent = .GlobalEnv)
+    environment(optimoverPriors) <- getPriorsEnv
+    parEach <- parApply(cl, z, 1, optimoverPriors, estimation = estimation, replicates = replicates, groups = groups, libsizes = libsizes, equalDispersions = equalDispersions, lensameFlag = lensameFlag, zeroML, consensus = consensus)  
+  }
   
   if(consensus) NBpar <- t(parEach) else {
     NBpar <- lapply(1:length(groups), function(gg)

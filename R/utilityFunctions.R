@@ -46,35 +46,8 @@
   }
       
 
-.prepareSlice <- function(slices, array) {
-  slice <- paste(
-             paste(
-               sapply(slices, function(x)
-                      if(!is.null(x)) {
-                        wdif <- which(diff(x) != 1)
-                        ranges <- sapply(split(x, rep(1:(length(wdif) + 1), c(wdif, length(x)) - c(1, wdif + 1) + 1)), range)
-                        if(length(ranges)) {
-                          ranges[2,ranges[1,] == ranges[2,]] <- ""
-                          ranges <- as.vector(rbind(ranges[1,], c("",":")[as.integer(ranges[2,] != "") + 1], ranges[2,], ",")) 
-                          ranges <- paste("c(", paste(ranges[-length(ranges)], collapse = ""), ")", sep = "")
-                        } else ranges <- 0
-                        return(ranges)
-                      } else return("")),
-               collapse = ","),
-             paste(rep(",", length(dim(array)) - length(slices)), collapse = ""), sep = "")
-  slice
-}
-
 .sliceArray <- function(slices, array, drop = FALSE) {
   if((is.vector(array) & sum(!sapply(slices, is.null)) > 1) || (is.array(array) & length(slices) > length(dim(array)))) warning("dimensions of slice exceed dimensions of array")
-  #if(is.vector(array)) return(array[slices[[min(which(!sapply(slices, is.null)))]]])
-  #dropText <- c(", drop = FALSE", ", drop = TRUE")[as.numeric(drop) + 1]
-  #slice <- .prepareSlice(slices, array)
-  #sarray <- eval(
-  #            parse(
-  #              text = paste("array[", slice, dropText, "]", sep = "")
-  #              )
-  #            )
 
   sarray <- asub(array, slices, dims = 1:length(slices), drop = drop)
   

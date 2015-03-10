@@ -13,7 +13,7 @@ selectTop <- function(cD, group, ordering, orderings = TRUE, decreasing = TRUE, 
     names(selOrd) <- names(cD@groups)
     } else {
       selOrd <- do.call("c", lapply(1:ncol(cD@orderings),function(ii) {
-        selord <- lapply(levels(cD@orderings[,ii]), function(ord) cD[.selectTags(cD, ii, ordering = NULL, decreasing = decreasing, number = number, likelihood, FDR, FWER),])
+        selord <- lapply(levels(cD@orderings[,ii]), function(ord) cD[.selectTags(cD, ii, ordering = ord, decreasing = decreasing, number = number, likelihood, FDR, FWER),])
         names(selord) <- paste(colnames(cD@orderings)[ii], ":", levels(cD@orderings[,ii]), sep = "")
         names(selord) <- gsub(":$", "", names(selord))
         selord

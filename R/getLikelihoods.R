@@ -422,10 +422,16 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     converged <- FALSE
 
     if(consensus) {
-      permat <- do.call("rbind", lapply(1:length(levels(cD@replicates)), function(kk)
-                                        chooseMatrix(length(levels(cD@replicates)), kk)))[,match(replicates(cD), unique(as.character(replicates(cD))))] == 1      
-      whmat <- apply(permat, 1, function(x) which(x))
+#      rg <- do.call("rbind", groups)
+#      greps <- unique(lapply(1:ncol(rg), function(ii) which(colSums(rg == rg[,ii]) == nrow(rg))))
+#      gr <- c(); gr[unlist(greps)] <- rep(1:length(greps), sapply(greps, length))
+#      permat <- do.call("rbind", lapply(1:max(gr), function(kk)
+#                                        chooseMatrix(max(gr), kk)))[,gr] == 1
+
       z <- lapply(groups, function(grp) split(1:ncol(cD), as.numeric(grp)))
+      whmat <- unique(do.call("c",z))
+
+                                        #      whmat <- apply(permat, 1, function(x) which(x))
       matmat <- match(do.call("c", z), whmat)
       zid <- rep(1:length(z), sapply(z, length))
     } else {
@@ -530,7 +536,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
           prs <- modelPriorValues[[pp]]
           if(pET == "iterative" || (pET == "BIC" & all(is.na(modelPriorValues[[pp]]))))
             {
-              if(all(1:nrow(cD) == pSub)) pps <- rps else pps <- rps[pSub,,drop = FALSE]
+              if(length(pSub) == nrow(cD) && all(1:nrow(cD) == pSub)) pps <- rps else pps <- rps[pSub,,drop = FALSE]
               restprs <- getPosteriors(ps = pps, prs, pET = pET, marginalise = FALSE, groups = groups, priorSubset = NULL, eqOverRep = cD@densityFunction@equalOverReplicates(dim(cD)), cl = cl)$priors
             } else restprs <- prs
           restprs

@@ -24,7 +24,7 @@ getLikelihoods(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
 priorSubset = NULL, bootStraps = 1, bsNullOnly = TRUE, conv = 1e-4, nullData = FALSE,
 modelPriorSets = list(), modelPriorValues = list(), returnAll = FALSE,
 returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, modelLikes =
-TRUE, cl = NULL) 
+TRUE, cl = NULL, tempFile = NULL, largeness = 1e+08) 
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -77,6 +77,13 @@ TRUE, cl = NULL)
     which the posterior joint distribution on hyper-parameters can be
     inferred.} 
   \item{cl}{A SNOW cluster object.}
+  \item{tempFile}{Temporary file prefix for saving data
+    likelihoods. Primarily for debugging purposes at this
+    stage. Defaults to NULL, in which case no temporary data are saved.}
+  \item{largeness}{The maximum size over which data likelihoods are
+    calculated. Objects larger than this are split. This is most useful
+    in combination with the saving of temporary files in the case of
+    excessively large analyses.}
   \item{...}{Any additional information to be passed to the
     \code{'getLikelihoods'} function by the now deprecated functions.}
 }

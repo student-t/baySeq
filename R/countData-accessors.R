@@ -263,7 +263,7 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
         if(length(x@orderings) > 0)
           {
             warning("Selection of samples (columns) will invalidate the values calculated in slot 'orderings', and so these will be discarded.")
-            x@orderings <- matrix(nrow = 0, ncol = 0)
+            x@orderings <- data.frame()
           }
 
       }

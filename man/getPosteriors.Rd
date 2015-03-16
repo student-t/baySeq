@@ -10,7 +10,7 @@
 }
 \usage{
 getPosteriors(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL, maxit = 100, accuracy =
-1e-5, cl = cl)
+1e-5, eqOverRep = NULL, cl = cl)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -33,7 +33,9 @@ getPosteriors(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = 
     tried if we are bootstrapping prior probabilities from the data?}
   \item{accuracy}{How small should the difference in estimated priors be
     before we stop bootstrapping.}
-  \item{cl}{A SNOW cluster object.}
+  \item{eqOverRep}{A boolean describing which prior values are equally
+    marginally distributed over replicates.}
+  \item{cl}{Parallelisation cluster object.}
 }
 
 \details{

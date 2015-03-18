@@ -172,7 +172,7 @@
     }
   }
 
-  sliceData <- lapply(1:nrow(data), function(id)
+  sliceData <- lapply(sampDat, function(id)
                       list(id = id,
                            data = asub(data, id, dims = 1, drop = FALSE),
                            cellObs = lapply(cellObservables, function(cob) asub(cob, id, dims = 1, drop = FALSE)),

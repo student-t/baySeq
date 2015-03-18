@@ -550,7 +550,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
 
         ppsPosts <- lapply(1:length(modelPriorSets), function(pp) {
           pSub <- intersect(union(priorReps, subset), modelPriorSets[[pp]])
-          if(all(1:nrow(cD) == pSub)) pps <- rps else pps <- rps[pSub,,drop = FALSE]
+          if(length(pSub) == nrow(cD) && all(1:nrow(cD) == pSub)) pps <- rps else pps <- rps[pSub,,drop = FALSE]
           pps <- getPosteriors(ps = pps, prs = restprs[[pp]], pET = "none", marginalise = marginalise, groups = groups, priorSubset = NULL, cl = cl)
           list(pps = pps, pSub = pSub)
         })

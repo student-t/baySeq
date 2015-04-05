@@ -150,7 +150,7 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
 
 
 `getLikelihoods` <-
-function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, bsNullOnly = TRUE, conv = 1e-4, nullData = FALSE, modelPriorSets = list(), modelPriorValues = list(), returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, modelLikes = TRUE, cl = NULL, tempFile = NULL, largeness = 1e8)#, restrictResults = FALSE)
+function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset = NULL, bootStraps = 1, bsNullOnly = TRUE, conv = 1e-4, nullData = FALSE, weightByLocLikelihoods = TRUE, modelPriorSets = list(), modelPriorValues = list(), returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, modelLikes = TRUE, cl = NULL, tempFile = NULL, largeness = 1e8)#, restrictResults = FALSE)
   {
     .likeDataObs <- function(xdata, densityFunction, groups, consensus = FALSE, differentWeights = differentWeights, modelLikes = TRUE) { #, restrictResults) {
       `logsum` <-
@@ -401,19 +401,27 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         CDpriors[[ndenulGroup]] <- modifyNullPriors(CDpriors[[ndelocGroup]], datdim)
         
         if(!consensus) ndePriors <- nullFunction(CDpriors[[ndelocGroup]][[1]]) else ndePriors <- nullFunction(CDpriors)        
-        
-        if(is.null(nullWeights)) {
-          nullweights <- priorWeights[[ndelocGroup]][[1]]
-          sep <- bimodalSeparator(ndePriors[ndePriors > -Inf], nullweights[ndePriors > -Inf])
+
+        if(weightByLocLikelihoods && "locLikelihoods"%in% slotNames(cD)){
+          newts <- exp(rowSums(log(1 - exp(cD@locLikelihoods)), na.rm = TRUE))[cD@priors$sampled[,1]]
           
-          modelPriorValues <- lapply(modelPriorValues, function(prs) c(prs, 1 - sum(prs)))          
-          priorWeights[[ndenulGroup]] <- priorWeights[[ndelocGroup]]
-          priorWeights[[ndenulGroup]][[1]] <- priorWeights[[ndenulGroup]][[1]] * as.numeric(ndePriors <= sep)
-          priorWeights[[ndelocGroup]][[1]] <- priorWeights[[ndelocGroup]][[1]] * as.numeric(ndePriors > sep)
-          weights[[ndenulGroup]] <- weights[[ndelocGroup]]
-          weights[[ndelocGroup]][[1]][numintSamp[[ndelocGroup]][[1]][,2] %in% which(ndePriors <= sep)] <- 0
-          weights[[ndenulGroup]][[1]][numintSamp[[ndenulGroup]][[1]][,2] %in% which(ndePriors > sep)] <- 0
-        } else weights[[ndenulGroup]] <- nullWeights
+          weights <- lapply(groups, function(x) lapply(levels(x), function(jj) return(1 - newts)))
+          weights[[ndenulGroup]][[1]] <- newts
+          cD
+        } else {                                      
+          if(is.null(nullWeights)) {
+            nullweights <- priorWeights[[ndelocGroup]][[1]]
+            sep <- bimodalSeparator(ndePriors[ndePriors > -Inf], nullweights[ndePriors > -Inf])
+            
+            modelPriorValues <- lapply(modelPriorValues, function(prs) c(prs, 1 - sum(prs)))          
+            priorWeights[[ndenulGroup]] <- priorWeights[[ndelocGroup]]
+            priorWeights[[ndenulGroup]][[1]] <- priorWeights[[ndenulGroup]][[1]] * as.numeric(ndePriors <= sep)
+            priorWeights[[ndelocGroup]][[1]] <- priorWeights[[ndelocGroup]][[1]] * as.numeric(ndePriors > sep)
+            weights[[ndenulGroup]] <- weights[[ndelocGroup]]
+            weights[[ndelocGroup]][[1]][numintSamp[[ndelocGroup]][[1]][,2] %in% which(ndePriors <= sep)] <- 0
+            weights[[ndenulGroup]][[1]][numintSamp[[ndenulGroup]][[1]][,2] %in% which(ndePriors > sep)] <- 0
+          } else weights[[ndenulGroup]] <- nullWeights
+        }
 
         priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, consensus = consensus)
       }

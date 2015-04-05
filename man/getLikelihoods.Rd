@@ -22,9 +22,10 @@ returnAll = FALSE, returnPD = FALSE, verbose = TRUE, discardSampling =
 FALSE, cl, ...)
 getLikelihoods(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL,
 priorSubset = NULL, bootStraps = 1, bsNullOnly = TRUE, conv = 1e-4, nullData = FALSE,
-modelPriorSets = list(), modelPriorValues = list(), returnAll = FALSE,
-returnPD = FALSE, verbose = TRUE, discardSampling = FALSE, modelLikes =
-TRUE, cl = NULL, tempFile = NULL, largeness = 1e+08) 
+ weightByLocLikelihoods = TRUE, modelPriorSets = list(),
+modelPriorValues = list(), returnAll = FALSE, returnPD = FALSE, verbose
+= TRUE, discardSampling = FALSE, modelLikes = TRUE, cl = NULL, tempFile
+= NULL, largeness = 1e+08)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -54,6 +55,9 @@ TRUE, cl = NULL, tempFile = NULL, largeness = 1e+08)
     bootstraps drops below this value.}
   \item{nullData}{If TRUE, looks for segments or counts with no true
     expression. See Details.}
+  \item{weightByLocLikelihoods}{If a locLikelihoods slot is present in
+    the `cD' object, and nullData = TRUE, then the initial weighting on
+    nulls will be determined from the locLikelihoods slot. Defaults to TRUE.}
   \item{modelPriorSets}{If given, a list object, which defines subsets of
     the data for which different priors on the different models might be
     expected. See Details.}

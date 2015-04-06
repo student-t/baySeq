@@ -25,7 +25,7 @@ Other required slots of the \verb'densityFunction' object are \verb'initiatingVa
 
 Optionally a function may be provided in \verb'@stratifyFunction' to stratify the data and improve prior estimation in the tails where the \verb'samplesize' argument in the getPriors function is less than the row dimension of the \verb'countData' object. If this is provided, the \verb'@stratifyBreaks' slot should give the number of strata to be used.
 
-Below a model is constructed based on the normal distribution. The standard deviation is assumed to be constant for a given row of data across all experimental condidtions, while the means (normalised by library scaling factor) are allowed to vary across experimental conditions.
+Below a model is constructed based on the normal distribution. The standard deviation is assumed to be constant for a given row of data across all experimental conditions, while the means (normalised by library scaling factor) are allowed to vary across experimental conditions.
 
 <<echo = false, results = hide>>=
 set.seed(102)
@@ -130,6 +130,51 @@ legend(x = "bottomright", legend = c("standard baySeq", "Generic (NB-distributio
 The generic negative-binomial data performs almost identically to standard baySeq. The methods differ in that the standard baySeq uses quasi-maximum-likelihood to estimate the priors, while generic baySeq uses maximum-likelihood (since no generic method exists for quasi-maximum-likelihood on arbitrary distributions).
 
 
+\section{Paired Data Analysis}
+
+We illustrate the possibilities of `null' data, in which two separate models are applied to data equivalently expressed across all samples. The process for analysing paired data follows approximately the same steps as for analysing unpaired data, however, two different types of differential expression can exist within paired data. Firstly, we can find differential expression between replicate groups, as before. However, we can also find (consistent) differential expression between pairs; this would occur when for a single row of data, the first member of each pair differs from the second member of each pair. \verb'baySeq' can identify both these types of differential expression simultaneously, and we implement this proceedure below.
+
+We begin by loading a simulated dataset containing counts for four paired datasets.
+<<>>=
+  data(pairData)  
+@ 
+
+The first four columns in these data are paired with the second four columns. We construct a count data containing paired data in a similar fashion to the countData object. Note that the data are now three dimensional; for each row and each sample there are two observations.
+<<>>=
+pairCD <- new("countData", data = array(c(pairData[,1:4], pairData[,5:8]), dim = c(nrow(pairData), 4, 2)),
+                 replicates = c(1,1,2,2),
+                 groups = list(NDE = c(1,1,1,1), DE = c(1,1,2,2)),
+              densityFunction = bbDensity)
+@
+
+We can find the library sizes for the data with the \verb'getLibsizes' function.
+<<>>=
+libsizes(pairCD) <- getLibsizes(pairCD)
+@ 
+
+We estimate an empirical distribution on the parameters of a beta-binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a beta-binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
+
+<<>>=
+pairCD <- getPriors(pairCD, samplesize = 1000, cl = cl)
+@
+
+We then acquire posterior likelihoods as before. The use of 'nullData = TRUE' in this context allows us to identify pairs which show no differential expression between replicate groups, but does show deviation from a one-to-one ratio of data between pairs.
+
+<<>>=
+  pairCD <- getLikelihoods(pairCD, pET = 'BIC', nullData = TRUE, cl = cl)
+@ 
+
+
+We can ask for the top candidates for differential expression between replicate groups using the \verb'topCounts' function as before.
+<<>>=
+  topCounts(pairCD, group = 2)
+@ 
+However, we can also look for consistent differential expression between the pairs. 
+<<>>=
+  topCounts(pairCD, group = 1)
+@ 
+
+
 \section{Different Model Priors}
 
 It is now possible to use different model priors for different subsets of the countData object. If we expect a certain class of genes (for example) to have a different prior likelihood towards differential expression than another such class, we can separate the two sets and estimate (or set) the model priors independently.
@@ -200,7 +245,6 @@ if(!is.null(cl)) stopCluster(cl)
 <<>>=
 sessionInfo()
 @ 
-
 
 \end{document}
 

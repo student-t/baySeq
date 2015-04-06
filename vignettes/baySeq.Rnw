@@ -16,17 +16,15 @@ BiocStyle::latex()
 
 \section{Introduction}
 
-This vignette is intended to give a rapid introduction to the commands used in implementing two methods of evaluating differential expression in Solexa-type, or \textsl{count} data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly \cite{hardcastle}. The major improvement made in this release is the option to include region length in evaluating differential expression between genomic regions (e.g. genes). See Section \ref{Section::seglen} for more details.
+This vignette is intended to give a rapid introduction to the commands used in implementing empirical Bayesian methods of evaluating differential expression in high-throughput sequencing data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly (2010) \cite{hardcastle} and Hardcastle (2015) \cite{hardcastle2015}.
 
-We assume that we have discrete data from a set of sequencing or other high-throughput experiments, arranged in a matrix such that each column describes a sample and each row describes some entity for which counts exist. For example, the rows may correspond to the different sequences observed in a sequencing experiment. The data then consists of the number of times each sequence is observed in each sample. We wish to determine which, if any, rows of the data correspond to some patterns of differential expression across the samples. This problem has been addressed for pairwise differential expression by the \verb'edgeR' \cite{edgeR} package. 
-
-However, \verb'baySeq' takes an alternative approach to analysis that allows more complicated patterns of differential expression than simple pairwise comparison, and thus is able to cope with more complex experimental designs. We also observe that the methods implemented in \verb'baySeq' perform at least as well, and in some circumstances considerably better than those implemented in \verb'edgeR' \cite{hardcastle}.
+We assume that we have data from a set of sequencing or other high-throughput experiments, arranged in an array such that each column describes a sample and each row describes some genomic event for which data have been acquired. For example, the rows may correspond to the different sequences observed in a sequencing experiment. The data then consists of the number of times each sequence is observed in each sample. We wish to determine which, if any, rows of the data correspond to some patterns of differential expression across the samples. 
 
 \verb'baySeq' uses empirical Bayesian methods to estimate the posterior likelihoods of each of a set of models that define patterns of differential expression for each row. This approach begins by considering a distribution for the row defined by a set of underlying parameters for which some prior distribution exists. By estimating this prior distribution from the data, we are able to assess, for a given model about the relatedness of our underlying parameters for multiple libraries, the posterior likelihood of the model.
 
-In forming a set of models upon the data, we consider which patterns are biologically likely to occur in the data. For example, suppose we have count data from some organism in condition $A$ and condition $B$. Suppose further that we have two biological replicates for each condition, and hence four libraries $A_1, A_2, B_1, B_2$, where $A_1$, $A_2$ and $B_1$, $B_2$ are the replicates. It is reasonable to suppose that at least some of the rows may be unaffected by our experimental conditions $A$ and $B$, and the count data for each sample in these rows will be \textsl{equivalent}. These data need not in general be identical across each sample due to random effects and different library sizes, but they will share the same underlying parameters. However, some of the rows may be influenced by the different experimental conditions $A$ and $B$. The count data for the samples $A_1$ and $A_2$ will then be equivalent, as will the count data for the samples $B_1$ and $B_2$. However, the count data between samples $A_1, A_2, B_1, B_2$ will not be equivalent. For such a row, the data from samples $A_1$ and $A_2$ will then share the same set of underlying parameters, the data from samples $B_1$ and $B_2$ will share the same set of underlying parameters, but, crucially, the two sets will not be identical.
+In forming a set of models upon the data, we consider which patterns are biologically likely to occur in the data. For example, suppose we have count data from some organism in condition $A$ and condition $B$. Suppose further that we have two biological replicates for each condition, and hence four libraries $A_1, A_2, B_1, B_2$, where $A_1$, $A_2$ and $B_1$, $B_2$ are the replicates. It is reasonable to suppose that at least some of the rows may be unaffected by our experimental conditions $A$ and $B$, and the count data for each sample in these rows will be \textsl{equivalent}. These data need not in general be identical across each sample due to random effects and different library sizes, but they will share the same underlying parameters. However, some of the rows may be influenced by the different experimental conditions $A$ and $B$. The count data for the samples $A_1$ and $A_2$ will then be equivalent, as will the count data for the samples $B_1$ and $B_2$. However, the count data between samples $A_1, A_2, B_1, B_2$ will not be equivalent. For such a row, the data from samples $A_1$ and $A_2$ will then share the same set of underlying parameters, the data from samples $B_1$ and $B_2$ will share the same set of underlying parameters, but, crucially, the two sets will not be identical. However, \verb'baySeq' takes an alternative approach to analysis that allows more complicated patterns of differential expression than simple pairwise comparison, and thus is able to cope with more complex experimental designs (Section~\ref{sec:multgroup}).
 
-Our task is thus to determine the posterior likelihood of each model for each row of the data.
+In this initial vignette, we consider RNA-seq type data assumed to follow a negative binomial distribution. Alternative scenarios are discussed in the vignette \textsl{Advanced analysis using baySeq; generic distribution definitions}.
 
 \section{Preparation}
 
@@ -163,50 +161,6 @@ plotPosteriors(CD, group = "DE", col = c(rep("red", 100), rep("black", 900)))
 
 
 \clearpage
-
-\section{Paired Data Analysis}
-
-There now exists functionality to analyse paired data through a similar process, using the beta-binomial distribution. The process for analysing paired data follows approximately the same steps as for analysing unpaired data. However, two different types of differential expression can exist within paired data. Firstly, we can find differential expression between replicate groups, as before. However, we can also find (consistent) differential expression between pairs; this would occur when for a single row of data, the first member of each pair differs from the second member of each pair. \verb'baySeq' can identify both these types of differential expression simultaneously, and we implement this proceedure below.
-
-We begin by loading a simulated dataset containing counts for four paired datasets.
-<<>>=
-  data(pairData)  
-@ 
-
-The first four columns in these data are paired with the second four columns. We construct a pairedData in a similar fashion to the countData object.
-<<>>=
-pairCD <- new("countData", data = list(pairData[,1:4], pairData[,5:8]),
-                 replicates = c(1,1,2,2),
-                 groups = list(NDE = c(1,1,1,1), DE = c(1,1,2,2)),
-              densityFunction = bbDensity)
-@
-
-We can find the library sizes for the data with the \verb'getLibsizes' function.
-<<>>=
-libsizes(pairCD) <- getLibsizes(pairCD)
-@ 
-
-We estimate an empirical distribution on the parameters of a beta-binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a beta-binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
-
-<<>>=
-pairCD <- getPriors(pairCD, samplesize = 1000, cl = cl)
-@
-
-We then acquire posterior likelihoods as before. The use of 'nullData = TRUE' in this context allows us to identify pairs which show no differential expression between replicate groups, but does show deviation from a one-to-one ratio of data between pairs.
-
-<<>>=
-  pairCD <- getLikelihoods(pairCD, pET = 'BIC', nullData = TRUE, cl = cl)
-@ 
-
-
-We can ask for the top candidates for differential expression between replicate groups using the \verb'topCounts' function as before.
-<<>>=
-  topCounts(pairCD, group = 2)
-@ 
-However, we can also look for consistent differential expression between the pairs. 
-<<>>=
-  topCounts(pairCD, group = 1)
-@ 
 
 \section{Case Study: Analysis of sRNA-Seq Data}
 
@@ -373,6 +327,8 @@ plotMA.CD(cDPair, samplesA = c(1,2), samplesB = c(3,4),
 
 \subsection{Multiple Group Comparisons}
 
+\label{sec:multgroup}
+
 We next examine all three experimental conditions simultaneously. We first need to define the replicate structure of the data.
 <<>>=
 cD@replicates <- as.factor(c("D3/D3", "D3/D3", "WT/D3", "WT/D3", "WT/WT", "WT/WT"))
@@ -440,8 +396,8 @@ sessionInfo()
 
 \begin{thebibliography}{99}
 \bibitem{hardcastle} Thomas J. Hardcastle and Krystyna A. Kelly. \textsl{baySeq: Empirical Bayesian Methods For Identifying Differential Expression In Sequence Count Data.} BMC Bioinformatics (2010).
+\bibitem{hardcastle2015} Thomas J. Hardcastle. \textsl{Generalised empirical Bayesian methods for discovery of differential data in high-throughput biology.} bioR$\chi$v preprint (2015).
 \bibitem{molnar} Attila Molnar and Charles W. Bassett and Thomas J. Hardcastle and Ruth Dunn and David C. Bauclombe \textsl{Small silencing RNAs in plants are mobile and direct epigenetic modification in recipient cells.} Science (2010).
-\bibitem{edgeR} Mark Robinson \verb'edgeR'\textsl{:' Methods for differential expression in digital gene expression datasets}. Bioconductor.
 \end{thebibliography}
 
 \end{document}

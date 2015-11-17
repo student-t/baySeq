@@ -109,7 +109,7 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
           }
         
         if(!is.null(cl)) {
-          clusterExport(cl, "priorSubset", envir = environment)
+          clusterExport(cl, "priorSubset", envir = environment())
           
           getPostsEnv <- new.env(parent = .GlobalEnv)
           environment(intmargins) <- getPostsEnv
@@ -350,6 +350,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
     }
     numintSamp <- cD@priors$sampled
     weights <- cD@priors$weights; if(is.null(weights)) weights <- rep(1, nrow(cD@priors$sampled))
+
     nullWeights <- cD@priors$nullWeights;
     data <- cD@data
     datdim <- dim(cD)
@@ -386,7 +387,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
           weights <- lapply(numintSamp, function(x) lapply(x, function(z) weights = rep(1, nrow(z))))
         if(is.numeric(weights))
           weights <- lapply(numintSamp, function(x) lapply(x, function(z) weights = weights))
-#        numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]], weights = weights[[ii]][[jj]])))        
+#        numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]], weights = weights[[ii]][[jj]]        
         priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, consensus = consensus)
       }
 
@@ -402,7 +403,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         
         if(!consensus) ndePriors <- nullFunction(CDpriors[[ndelocGroup]][[1]]) else ndePriors <- nullFunction(CDpriors)        
 
-        if(weightByLocLikelihoods && "locLikelihoods"%in% slotNames(cD)){
+        if(weightByLocLikelihoods && "locLikelihoods" %in% slotNames(cD) && nrow(cD@locLikelihoods) > 0){
           newts <- exp(rowSums(log(1 - exp(cD@locLikelihoods)), na.rm = TRUE))[cD@priors$sampled[,1]]
           
           weights <- lapply(groups, function(x) lapply(levels(x), function(jj) return(1 - newts)))
@@ -411,8 +412,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         } else {                                      
           if(is.null(nullWeights)) {
             nullweights <- priorWeights[[ndelocGroup]][[1]]
-            sep <- bimodalSeparator(ndePriors[ndePriors > -Inf], nullweights[ndePriors > -Inf])
-            
+            sep <- bimodalSeparator(ndePriors[ndePriors > -Inf], nullweights[ndePriors > -Inf])            
             modelPriorValues <- lapply(modelPriorValues, function(prs) c(prs, 1 - sum(prs)))          
             priorWeights[[ndenulGroup]] <- priorWeights[[ndelocGroup]]
             priorWeights[[ndenulGroup]][[1]] <- priorWeights[[ndenulGroup]][[1]] * as.numeric(ndePriors <= sep)
@@ -422,7 +422,6 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
             weights[[ndenulGroup]][[1]][numintSamp[[ndenulGroup]][[1]][,2] %in% which(ndePriors > sep)] <- 0
           } else weights[[ndenulGroup]] <- nullWeights
         }
-
         priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, consensus = consensus)
       }
         

@@ -118,9 +118,11 @@ bbDensity <- new("densityFunction",
 normDensity <- new("densityFunction",
                    description = "A density function based on the normal distribution.",
                    density = .normDensityFunction,
-                   initiatingValues = function(dat, observables) c(max(mean(dat / observables$libsizes), min(0.1 / observables$libsizes)), max(sd(dat), 1e-4)),
+                   initiatingValues = function(dat, observables)
+                       c(mean(dat / observables$libsizes), max(sd(dat), 1e-4)),
                    equalOverReplicates = c(FALSE, TRUE),
-                   lower = function(dat) 0, upper = function(dat) 1 + max(dat) * 2,
+                   lower = function(dat) min(dat) - diff(range(dat)) - 1,
+                   upper = function(dat) max(dat) + diff(range(dat)) + 1,
                    stratifyFunction = rowMeans, stratifyBreaks = 10,
                    nullFunction = function(pars) pars[,1])
 
@@ -166,7 +168,8 @@ bbNCDist <- new("densityFunction",
                 equalOverReplicates = c(FALSE, TRUE),
                 lower = function(data) 0,
                 upper = function(data) 1,
-                stratifyFunction = function(data) rowMeans(data[,,1] / (data[,,1] + data[,,2]), na.rm = TRUE),
+                                        #                stratifyFunction = function(data) rowMeans(data[,,1] / (data[,,1] + data[,,2]), na.rm = TRUE),
+                stratifyFunction = function(data) rowSums(data[,,1]) / rowSums(data),                
                 stratifyBreaks = 10,
                 nullFunction = function(pars) abs(0.5 - pars[,1]),
                 orderingFunction = function(dat, observables) {

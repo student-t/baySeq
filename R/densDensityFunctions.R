@@ -189,8 +189,8 @@ dbetabinom <- function(x, n, prop, disp, log = TRUE) {
 
 
 .normDensityFunction <- function(dat, observables, parameters) {
-  if(any(sapply(parameters, function(par) any(par < 0)))) return(NA)
-  dnorm(dat, parameters[[1]] * observables$libsizes, parameters[[2]], log = TRUE)
+    if(any(parameters[[2]] < 0)) return(NA)
+    dnorm(dat, parameters[[1]] * observables$libsizes, parameters[[2]], log = TRUE)
 }
 
 .dZINB <- function(dat, observables, parameters) {
@@ -230,9 +230,12 @@ dbetabinom <- function(x, n, prop, disp, log = TRUE) {
       ps[smallDisp] <- dbinom(x[smallDisp], n[smallDisp], prob = prop[smallDisp], log = log)
     
     if(length(largeDisp) > 0) {
-      if(missing(alpha)) alpha <- (1/disp - 1) * prop
-      if(missing(beta)) beta <- (1/disp - 1) * (1-prop)
-      if(missing(lbaba)) lbaba <- lbeta(alpha[largeDisp], beta[largeDisp])
+        if(missing(alpha))
+            alpha <- (1/disp - 1) * prop
+        if(missing(beta))
+            beta <- (1/disp - 1) * (1-prop)
+        if(missing(lbaba))
+            lbaba <- lbeta(alpha[largeDisp], beta[largeDisp])
       
       if(!log) {
         ps[largeDisp] <- choose(n[largeDisp], x[largeDisp]) * beta((x + alpha)[largeDisp], (n - x + beta)[largeDisp]) / beta(alpha[largeDisp], beta[largeDisp])

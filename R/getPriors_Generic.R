@@ -153,7 +153,7 @@
       properCut <- function(x, breaks) if(breaks == 1) return(rep(1, length(x))) else return(cut(x, breaks, labels = FALSE))     
       cutdat <- properCut(stratDat, breaks)
       spldat <- split(1:nrow(data), cutdat)
-      spldat <- spldat[order(sapply(spldat, length), decreasing = FALSE)]
+#      spldat <- spldat[order(sapply(spldat, length), decreasing = FALSE)]
     } else spldat <- list(1:nrow(data))
 
     spllen <- sapply(spldat, length)

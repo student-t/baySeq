@@ -124,7 +124,11 @@ normDensity <- new("densityFunction",
                    lower = function(dat) min(dat) - diff(range(dat)) - 1,
                    upper = function(dat) max(dat) + diff(range(dat)) + 1,
                    stratifyFunction = rowMeans, stratifyBreaks = 10,
-                   nullFunction = function(pars) pars[,1])
+                   nullFunction = function(pars) pars[,1],
+                   orderingFunction = function(dat, observables)
+                       data <- dat / observables$libsizes
+               )
+                                                                  
 
 
 ZINBDensity <- new("densityFunction",
@@ -169,7 +173,7 @@ bbNCDist <- new("densityFunction",
                 lower = function(data) 0,
                 upper = function(data) 1,
                                         #                stratifyFunction = function(data) rowMeans(data[,,1] / (data[,,1] + data[,,2]), na.rm = TRUE),
-                stratifyFunction = function(data) rowSums(data[,,1]) / rowSums(data),                
+                stratifyFunction = function(data) rowSums(data[,,1]) / rowSums(data),
                 stratifyBreaks = 10,
                 nullFunction = function(pars) abs(0.5 - pars[,1]),
                 orderingFunction = function(dat, observables) {
@@ -180,7 +184,7 @@ bbNCDist <- new("densityFunction",
                 })
 
 
-methObservables <- function(mD) {
+.oldmethObservables <- function(mD) {
   cdat <- mD@data[,,1]
   upplim <- matrix(qbinom(0.005, as.vector(cdat), rep(mD@sampleObservables$nonconversion, each = nrow(mD)), lower.tail = FALSE), nrow = nrow(mD), ncol = ncol(mD))
   lowlim <- matrix(qbinom(0.005, as.vector(cdat), rep(mD@sampleObservables$nonconversion, each = nrow(mD)), lower.tail = TRUE), nrow = nrow(mD), ncol = ncol(mD))
@@ -209,3 +213,41 @@ methObservables <- function(mD) {
   mD@cellObservables$modls <- modls
   mD
 }
+
+methObservables <- function(mD) {
+  cdat <- matrix(mD@data[,,1, drop = FALSE], ncol = ncol(mD))
+  tdat <- matrix(mD@data[,,2, drop = FALSE], ncol = ncol(mD))
+  upplim <- matrix(qbinom(0.01, as.vector(tdat) + as.vector(cdat), rep(mD@sampleObservables$nonconversion, each = nrow(mD)), lower.tail = FALSE), nrow = nrow(mD), ncol = ncol(mD))
+  lowlim <- matrix(qbinom(0.01, as.vector(tdat), rep(mD@sampleObservables$nonconversion, each = nrow(mD)), lower.tail = TRUE), nrow = nrow(mD), ncol = ncol(mD))
+  upplim <- upplim - pmax(upplim - cdat, 0);
+  lowlim <- lowlim - pmax(lowlim - cdat, 0);
+  
+  widlim <- upplim - lowlim + 1
+
+  ms <- sequence(as.vector(widlim)) - 1 + rep(lowlim, widlim)
+  z <- split(dbinom(ms,
+                    size = ms + rep(tdat, widlim),
+                    prob = rep(rep(mD@sampleObservables$nonconversion, each = nrow(mD)), widlim), log = TRUE),
+             rep(1:length(widlim), widlim))
+             
+  ncll <- array(z, dim = dim(cdat))
+                                        #  ncseq <- array(split(sequence(as.vector(widlim)) - 1, rep(1:length(upplim), widlim)), dim = dim(cdat))
+  ncseq <- array(split(ms, rep(1:length(upplim), widlim)), dim = dim(cdat))
+  ncmin <- array(lowlim, dim = dim(cdat))
+  ncrange <- array(widlim, dim = dim(cdat))
+  
+  lchoo <- array(split(
+      lchoose(n = rep(as.vector(cdat + tdat), widlim), k = rep(as.vector(cdat), widlim) - ms)
+    , rep(1:length(upplim), widlim)), dim = dim(cdat))
+  
+#  modls <- array(sapply(split(unlist(ncll) + unlist(lchoo), rep(1:length(upplim), widlim)), max), dim = dim(cdat))
+  
+  mD@cellObservables$ncll <- ncll
+  mD@cellObservables$ncseq <- ncseq
+  mD@cellObservables$ncrange <- ncrange
+  mD@cellObservables$lchoose <- lchoo
+  mD@cellObservables$ncmin <- ncmin
+#  mD@cellObservables$modls <- modls
+  mD
+}
+

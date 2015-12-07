@@ -189,8 +189,8 @@ dbetabinom <- function(x, n, prop, disp, log = TRUE) {
 
 
 .normDensityFunction <- function(dat, observables, parameters) {
-    if(any(parameters[[2]] < 0)) return(NA)
-    dnorm(dat, parameters[[1]] * observables$libsizes, parameters[[2]], log = TRUE)
+  if(any(parameters[[2]] < 0)) return(NA)
+  dnorm(dat, parameters[[1]] * observables$libsizes, parameters[[2]], log = TRUE)
 }
 
 .dZINB <- function(dat, observables, parameters) {
@@ -239,7 +239,7 @@ dbetabinom <- function(x, n, prop, disp, log = TRUE) {
       
       if(!log) {
         ps[largeDisp] <- choose(n[largeDisp], x[largeDisp]) * beta((x + alpha)[largeDisp], (n - x + beta)[largeDisp]) / beta(alpha[largeDisp], beta[largeDisp])
-      } else ps[largeDisp] <- lchoo[largeDisp] + lbeta((x + alpha)[largeDisp], (n - x + beta)[largeDisp]) - lbaba
+    } else ps[largeDisp] <- lchoo[largeDisp] + lbeta((x + alpha)[largeDisp], (n - x + beta)[largeDisp]) - lbaba
     }  
     return(ps)
   }
@@ -250,30 +250,46 @@ dbetabinom <- function(x, n, prop, disp, log = TRUE) {
   if(any(parameters[[2]] < 1e-15) || any(parameters[[2]] >= 1)) return(NA)
   
   repness <- observables$ncrange
+  largeness <- 1e7
+  if(round(sum(repness) / largeness) > 1) {
+      repsplit <- split(1:nrow(repness), cut(cumsum(rowSums(repness)), breaks = round(sum(rowSums(repness)) / largeness), labels = FALSE))
+  } else repsplit <- list(1:nrow(repness))
+                                        #  names(parameters)[1:2] <- c("prop", "disp")
+  ll <- do.call("c", lapply(repsplit, function(repid) {      
+      datid <- dat[repid,,,drop = FALSE]
+      obsid <- list()
+      obsid$ncseq <- observables$ncseq[repid,,drop = FALSE]
+      obsid$lchoose <- observables$lchoose[repid,,drop = FALSE]
+      obsid$ncll <- observables$ncll[repid,,drop = FALSE]
+      repnessid <- repness[repid,,drop = FALSE]
+      tmat <- matrix(FALSE, nrow = nrow(dat), ncol = ncol(dat)); tmat[repid,] <- TRUE
+      parid <- lapply(parameters, function(par) par[which(as.vector(tmat))])
 
-#  names(parameters)[1:2] <- c("prop", "disp")
+      
+      if(length(parid) == 2) {
+          likes <- dbetabinom(
+              x = rep(datid[,,1], repnessid) - unlist(obsid$ncseq),
+              n = rep(datid[,,1] + datid[,,2], repnessid),
+              lchoo = unlist(obsid$lchoose),
+              prop = rep(parid[[1]], repnessid),
+              disp = rep(parid[[2]], repnessid)) + unlist(obsid$ncll)
+      } else {
+          likes <- dbetabinom(
+              x = rep(datid[,,1], repnessid) - unlist(obsid$ncseq),
+              n = rep(datid[,,1] + datid[,,2], repnessid),
+              lchoo = unlist(obsid$lchoose),
+              prop = rep(parid[[1]], repnessid),
+              disp = rep(parid[[2]], repnessid),
+              alpha = rep(parid[[3]], repnessid),
+              beta = rep(parid[[4]], repnessid),
+              lbaba = rep(parid[[5]], repnessid))+ unlist(obsid$ncll)
+      }
 
-  if(length(parameters) == 2) {
-    likes <- dbetabinom(
-               x = rep(dat[,,1], repness) - unlist(observables$ncseq),
-               n = rep(dat[,,1] + dat[,,2], repness),
-               lchoo = unlist(observables$lchoose),
-               prop = rep(parameters[[1]], repness),
-               disp = rep(parameters[[2]], repness)) + unlist(observables$ncll)
-  } else {
-    likes <- dbetabinom(
-               x = rep(dat[,,1], repness) - unlist(observables$ncseq),
-               n = rep(dat[,,1] + dat[,,2], repness),
-               lchoo = unlist(observables$lchoose),
-               prop = rep(parameters[[1]], repness),
-               disp = rep(parameters[[2]], repness),
-               alpha = rep(parameters[[3]], repness),
-               beta = rep(parameters[[4]], repness),
-               lbaba = rep(parameters[[5]], repness))+ unlist(observables$ncll)
-  }
-                           
-  ll <- sapply(
-          split(likes, rep(1:length(repness), repness)),                
+      ll <- sapply(
+          split(likes, rep(1:length(repnessid), repnessid)),                
           .logsum)
+  }))
+                           
+
 ll
 }

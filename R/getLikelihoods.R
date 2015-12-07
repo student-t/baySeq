@@ -276,14 +276,14 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
       if(consensus) {
         PDlikes <- PDgivenr.Consensus(number = xid, cts = cts, xrobs = xrobs, xcobs = xcobs, sobs = sampleObservables, priors = CDpriors, groups = groups, priorWeights = priorWeights, numintSamp = numintSamp, differentWeights = differentWeights)
       } else {      
-        PDlikes <- lapply(1:length(CDpriors), function(gg)
-                          PDgivenr(
-                            number = xid, cts = cts, xrobs = xrobs, xcobs = xcobs, sobs = sampleObservables, priors = CDpriors[[gg]], group = groups[[gg]],
-                            wts = priorWeights[[c(1, gg)[differentWeights + 1]]],
-                            sampInfo = numintSamp[[c(1, gg)[differentWeights + 1]]],
-                            differentWeights = differentWeights, modelLikes = modelLikes
+          PDlikes <- lapply(1:length(CDpriors), function(gg)
+              PDgivenr(
+                  number = xid, cts = cts, xrobs = xrobs, xcobs = xcobs, sobs = sampleObservables, priors = CDpriors[[gg]], group = groups[[gg]],
+                  wts = priorWeights[[c(1, gg)[differentWeights + 1]]],
+                  sampInfo = numintSamp[[c(1, gg)[differentWeights + 1]]],
+                  differentWeights = differentWeights, modelLikes = modelLikes
+              )
                             )
-                          )
         if(modelLikes) PDlikes <- unlist(PDlikes)
       }
 #      if(restrictResults) {
@@ -387,7 +387,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
           weights <- lapply(numintSamp, function(x) lapply(x, function(z) weights = rep(1, nrow(z))))
         if(is.numeric(weights))
           weights <- lapply(numintSamp, function(x) lapply(x, function(z) weights = weights))
-#        numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]], weights = weights[[ii]][[jj]]        
+#        numintSamp <- lapply(1:length(numintSamp), function(ii) lapply(1:length(numintSamp[[ii]]), function(jj) cbind(numintSamp[[ii]][[jj]], weights = weights[[ii]][[jj]])))        
         priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, consensus = consensus)
       }
 
@@ -412,7 +412,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         } else {                                      
           if(is.null(nullWeights)) {
             nullweights <- priorWeights[[ndelocGroup]][[1]]
-            sep <- bimodalSeparator(ndePriors[ndePriors > -Inf], nullweights[ndePriors > -Inf])            
+            sep <- bimodalSeparator(ndePriors[ndePriors > -Inf], nullweights[ndePriors > -Inf])
             modelPriorValues <- lapply(modelPriorValues, function(prs) c(prs, 1 - sum(prs)))          
             priorWeights[[ndenulGroup]] <- priorWeights[[ndelocGroup]]
             priorWeights[[ndenulGroup]][[1]] <- priorWeights[[ndenulGroup]][[1]] * as.numeric(ndePriors <= sep)
@@ -424,7 +424,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
         }
         priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, consensus = consensus)
       }
-        
+
     propest <- NULL
     converged <- FALSE
 
@@ -499,34 +499,34 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
             priorWeights <- .constructWeights(numintSamp = numintSamp, weights = weights, CDpriors = CDpriors)
 
           for(ss in 1:length(splitRows)) {
-            tps <- lapply(sliceData[splitRows[[ss]]],
-                          .likeDataObs, densityFunction = densityFunction, groups = groups, consensus = consensus, differentWeights = differentWeights, modelLikes = modelLikes)
-            if(!is.null(tempFile)) {
-              ps <- tps 
-              save(ps, file = paste(tempFile, "_", ss, ".RData", sep = ""))
-              if(verbose) message(".", appendLF = FALSE)
-            } else ps <- c(ps, tps)
+              tps <- lapply(sliceData[splitRows[[ss]]],
+                            .likeDataObs, densityFunction = densityFunction, groups = groups, consensus = consensus, differentWeights = differentWeights, modelLikes = modelLikes)
+              if(!is.null(tempFile)) {
+                  ps <- tps 
+                  save(ps, file = paste(tempFile, "_", ss, ".RData", sep = ""))
+                  if(verbose) message(".", appendLF = FALSE)
+              } else ps <- c(ps, tps)
           }
-        } else {
+      } else {
           clusterExport(cl, "numintSamp", envir = environment())
-
+          
           clusterCall(cl, .constructWeights, numintSamp = numintSamp, weights = weights, CDpriors = CDpriors, withinCluster = TRUE, consensus = consensus)
 
           getLikesEnv <- new.env(parent = .GlobalEnv)
           environment(.likeDataObs) <- getLikesEnv
           for(ss in 1:length(splitRows)) {
-            tps <- parLapplyLB(cl[1:min(length(cl), length(postRows[whunq]))], sliceData[splitRows[[ss]]],
-                              .likeDataObs, densityFunction = densityFunction, groups = groups, consensus = consensus, differentWeights = differentWeights, modelLikes = modelLikes)#, restrictResults = restrictResults)
-            if(!is.null(tempFile)) {
-              ps <- tps 
-              save(ps, file = paste(tempFile, "_", ss, ".RData", sep = ""))
-              if(verbose) message(".", appendLF = FALSE)
-            } else ps <- c(ps, tps)
+              tps <- parLapplyLB(cl[1:min(length(cl), length(postRows[whunq]))], sliceData[splitRows[[ss]]],
+                                 .likeDataObs, densityFunction = densityFunction, groups = groups, consensus = consensus, differentWeights = differentWeights, modelLikes = modelLikes)#, restrictResults = restrictResults)
+              if(!is.null(tempFile)) {
+                  ps <- tps 
+                  save(ps, file = paste(tempFile, "_", ss, ".RData", sep = ""))
+                  if(verbose) message(".", appendLF = FALSE)
+              } else ps <- c(ps, tps)
           }
-        }
-
+      }
+        
         if(!is.null(tempFile)) return(paste(tempFile, "_", 1:length(splitRows), ".RData", sep = ""))
-       
+        
         if(!modelLikes) return(ps)
 
         rps <- matrix(NA, ncol = length(groups), nrow = nrow(cD@data))

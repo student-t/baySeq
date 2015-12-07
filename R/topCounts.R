@@ -5,26 +5,26 @@ selectTop <- function(cD, group, ordering, orderings = TRUE, decreasing = TRUE, 
   if(missing(ordering)) ordering <- NULL
 
   if(!missing(group)) {
-      st <- .selectTags(cD, group = group, ordering = ordering, decreasing = decreasing, number = number, likelihood = likelihood, FDR = FDR, FWER = FWER)
-      if(!is.null(st)) return(cD[st,]) else return(NULL)
+    st <- .selectTags(cD, group = group, ordering = ordering, decreasing = decreasing, number = number, likelihood = likelihood, FDR = FDR, FWER = FWER)
+    if(!is.null(st)) return(cD[st,]) else return(NULL)
   }
-  
+
   if(length(cD@nullPosts) > 0) {
-      st <- .selectTags(cD, NULL, ordering = NULL, decreasing = decreasing, number = number, likelihood, FDR, FWER)
-      if(!is.null(st)) nullCD <- cD[st,] else nullCD <- NULL
+    st <- .selectTags(cD, NULL, ordering = NULL, decreasing = decreasing, number = number, likelihood, FDR, FWER)
+    if(!is.null(st)) nullCD <- cD[st,] else nullCD <- NULL
   } else nullCD <- NULL
-
-
-
+  
+  
+  
   if(!orderings) {
-      selOrd <- lapply(1:length(cD@groups), function(ii) cD[.selectTags(cD, ii, ordering = NULL, decreasing = decreasing, number = number, likelihood, FDR, FWER),])                     
+    selOrd <- lapply(1:length(cD@groups), function(ii) cD[.selectTags(cD, ii, ordering = NULL, decreasing = decreasing, number = number, likelihood, FDR, FWER),])                     
     names(selOrd) <- names(cD@groups)
     } else {
       selOrd <- do.call("c", lapply(1:ncol(cD@orderings),function(ii) {
-          selord <- lapply(levels(cD@orderings[,ii]), function(ord) {
-              st <- .selectTags(cD, ii, ordering = ord, decreasing = decreasing, number = number, likelihood, FDR, FWER)
-              if(!is.null(st)) cD[st,] else NULL
-          })          
+        selord <- lapply(levels(cD@orderings[,ii]), function(ord) {
+          st <- .selectTags(cD, ii, ordering = ord, decreasing = decreasing, number = number, likelihood, FDR, FWER)
+          if(!is.null(st)) cD[st,] else NULL
+        })
         names(selord) <- paste(colnames(cD@orderings)[ii], ":", levels(cD@orderings[,ii]), sep = "")
         names(selord) <- gsub(":$", "", names(selord))
         selord
@@ -69,7 +69,7 @@ selectTop <- function(cD, group, ordering, orderings = TRUE, decreasing = TRUE, 
   }
   
   ordgroups <- order(.logRowSum(neglikes), decreasing = !decreasing)
-  
+
   if(!is.null(likelihood)) {
     cutNumber <- sum(likes > log(likelihood), na.rm = TRUE)
   } else if (!is.null(FDR)) {
@@ -78,16 +78,15 @@ selectTop <- function(cD, group, ordering, orderings = TRUE, decreasing = TRUE, 
     cutNumber <- sum(1 - cumprod(exp(likes[ordgroups,1])) < FWER, na.rm = TRUE)
   }
   if(!is.null(likelihood) | !is.null(FDR) | !is.null(FWER)) {
-      if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood, FDR or FWER specified")
-      number <- cutNumber
-  }
-  
+     if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood, FDR or FWER specified")
+     number <- cutNumber
+   }
   number <- min(number, nrow(likes))
 
   if(number > 0) {
-      selTags <- ordgroups[1:number]
-      if(!is.null(ordering)) selTags <- ordCD[selTags]
-      return(selTags)
+    selTags <- ordgroups[1:number]
+    if(!is.null(ordering)) selTags <- ordCD[selTags]
+    return(selTags)
   } else return(NULL)
 }
   
@@ -104,11 +103,11 @@ function(cD, group, ordering, decreasing = TRUE, number = 10, likelihood, FDR, F
     if(!is.null(group) && is.na(group)) stop("Can't match this group name.")
     
     selTags <- .selectTags(cD, group, ordering, decreasing = decreasing, number = number, likelihood, FDR, FWER)
+    
 
     if(!is.null(group)) likes <- cD@posteriors[selTags,group] else likes <- cD@nullPosts[selTags,1]
-    
+
     if(all(is.null(selTags))) return(NULL)
-    
     
     selData <- .sliceArray(list(selTags), cD@data)
     if(normaliseData) {

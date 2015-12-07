@@ -1,3 +1,8 @@
+.ciEstimator <- function(posteriors, n = 10000, ci = 0.05) {
+  zz <- matrix(rbinom(length(posteriors) * n, 1, posteriors), ncol = n)
+  quantile(colSums(zz), probs = c(ci / 2, 1 - ci / 2))
+}
+
 summarisePosteriors <- function(cD, orderings = TRUE)
   {
     if(orderings & nrow(cD@orderings) == 0) {

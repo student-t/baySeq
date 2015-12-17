@@ -6,9 +6,9 @@
 \title{baySeq: Empirical Bayesian analysis of patterns of differential expression in count data}
 \author{Thomas J. Hardcastle}
 
-\RequirePackage{/home/bioinf/tjh48/R/x86_64-unknown-linux-gnu-library/3.1/BiocStyle/resources/latex/Bioconductor}
+\RequirePackage{/applications/R/R-3.2.0/library/BiocStyle/resources/latex/Bioconductor}
 
-\AtBeginDocument{\bibliographystyle{/home/bioinf/tjh48/R/x86_64-unknown-linux-gnu-library/3.1/BiocStyle/resources/latex/unsrturl}}
+\AtBeginDocument{\bibliographystyle{/applications/R/R-3.2.0/library/BiocStyle/resources/latex/unsrturl}}
 \usepackage{Sweave}
 \begin{document}
 
@@ -16,17 +16,15 @@
 
 \section{Introduction}
 
-This vignette is intended to give a rapid introduction to the commands used in implementing two methods of evaluating differential expression in Solexa-type, or \textsl{count} data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly \cite{hardcastle}. The major improvement made in this release is the option to include region length in evaluating differential expression between genomic regions (e.g. genes). See Section \ref{Section::seglen} for more details.
+This vignette is intended to give a rapid introduction to the commands used in implementing empirical Bayesian methods of evaluating differential expression in high-throughput sequencing data by means of the \verb'baySeq' \textsf{R} package. For fuller details on the methods being used, consult Hardcastle \& Kelly (2010) \cite{hardcastle} and Hardcastle (2015) \cite{hardcastle2015}.
 
-We assume that we have discrete data from a set of sequencing or other high-throughput experiments, arranged in a matrix such that each column describes a sample and each row describes some entity for which counts exist. For example, the rows may correspond to the different sequences observed in a sequencing experiment. The data then consists of the number of times each sequence is observed in each sample. We wish to determine which, if any, rows of the data correspond to some patterns of differential expression across the samples. This problem has been addressed for pairwise differential expression by the \verb'edgeR' \cite{edgeR} package. 
-
-However, \verb'baySeq' takes an alternative approach to analysis that allows more complicated patterns of differential expression than simple pairwise comparison, and thus is able to cope with more complex experimental designs. We also observe that the methods implemented in \verb'baySeq' perform at least as well, and in some circumstances considerably better than those implemented in \verb'edgeR' \cite{hardcastle}.
+We assume that we have data from a set of sequencing or other high-throughput experiments, arranged in an array such that each column describes a sample and each row describes some genomic event for which data have been acquired. For example, the rows may correspond to the different sequences observed in a sequencing experiment. The data then consists of the number of times each sequence is observed in each sample. We wish to determine which, if any, rows of the data correspond to some patterns of differential expression across the samples. 
 
 \verb'baySeq' uses empirical Bayesian methods to estimate the posterior likelihoods of each of a set of models that define patterns of differential expression for each row. This approach begins by considering a distribution for the row defined by a set of underlying parameters for which some prior distribution exists. By estimating this prior distribution from the data, we are able to assess, for a given model about the relatedness of our underlying parameters for multiple libraries, the posterior likelihood of the model.
 
-In forming a set of models upon the data, we consider which patterns are biologically likely to occur in the data. For example, suppose we have count data from some organism in condition $A$ and condition $B$. Suppose further that we have two biological replicates for each condition, and hence four libraries $A_1, A_2, B_1, B_2$, where $A_1$, $A_2$ and $B_1$, $B_2$ are the replicates. It is reasonable to suppose that at least some of the rows may be unaffected by our experimental conditions $A$ and $B$, and the count data for each sample in these rows will be \textsl{equivalent}. These data need not in general be identical across each sample due to random effects and different library sizes, but they will share the same underlying parameters. However, some of the rows may be influenced by the different experimental conditions $A$ and $B$. The count data for the samples $A_1$ and $A_2$ will then be equivalent, as will the count data for the samples $B_1$ and $B_2$. However, the count data between samples $A_1, A_2, B_1, B_2$ will not be equivalent. For such a row, the data from samples $A_1$ and $A_2$ will then share the same set of underlying parameters, the data from samples $B_1$ and $B_2$ will share the same set of underlying parameters, but, crucially, the two sets will not be identical.
+In forming a set of models upon the data, we consider which patterns are biologically likely to occur in the data. For example, suppose we have count data from some organism in condition $A$ and condition $B$. Suppose further that we have two biological replicates for each condition, and hence four libraries $A_1, A_2, B_1, B_2$, where $A_1$, $A_2$ and $B_1$, $B_2$ are the replicates. It is reasonable to suppose that at least some of the rows may be unaffected by our experimental conditions $A$ and $B$, and the count data for each sample in these rows will be \textsl{equivalent}. These data need not in general be identical across each sample due to random effects and different library sizes, but they will share the same underlying parameters. However, some of the rows may be influenced by the different experimental conditions $A$ and $B$. The count data for the samples $A_1$ and $A_2$ will then be equivalent, as will the count data for the samples $B_1$ and $B_2$. However, the count data between samples $A_1, A_2, B_1, B_2$ will not be equivalent. For such a row, the data from samples $A_1$ and $A_2$ will then share the same set of underlying parameters, the data from samples $B_1$ and $B_2$ will share the same set of underlying parameters, but, crucially, the two sets will not be identical. However, \verb'baySeq' takes an alternative approach to analysis that allows more complicated patterns of differential expression than simple pairwise comparison, and thus is able to cope with more complex experimental designs (Section~\ref{sec:multgroup}).
 
-Our task is thus to determine the posterior likelihood of each model for each row of the data.
+In this initial vignette, we consider RNA-seq type data assumed to follow a negative binomial distribution. Alternative scenarios are discussed in the vignette \textsl{Advanced analysis using baySeq; generic distribution definitions}.
 
 \section{Preparation}
 
@@ -169,33 +167,33 @@ numeric(0)
 > CD@posteriors[1:10,]
 \end{Sinput}
 \begin{Soutput}
-              NDE         DE
- [1,] -0.05785436 -2.8786141
- [2,] -0.60770125 -0.7865821
- [3,] -0.02267424 -3.7978417
- [4,] -0.03829895 -3.2814212
- [5,] -0.06111185 -2.8254498
- [6,] -0.24028992 -1.5436494
- [7,] -0.10047096 -2.3477015
- [8,] -0.05848951 -2.8680102
- [9,] -0.84533261 -0.5610923
-[10,] -0.05877428 -2.8632941
+             NDE           DE
+ [1,] -0.7182509 -0.668658236
+ [2,] -1.1044953 -0.402536517
+ [3,] -1.0081651 -0.453953780
+ [4,] -2.8017825 -0.062622240
+ [5,] -0.7890052 -0.605679477
+ [6,] -1.0411667 -0.435474739
+ [7,] -6.4331196 -0.001608722
+ [8,] -4.4751954 -0.011453337
+ [9,] -1.1732792 -0.370123308
+[10,] -1.8065428 -0.179390934
 \end{Soutput}
 \begin{Sinput}
 > CD@posteriors[101:110,]
 \end{Sinput}
 \begin{Soutput}
-                NDE        DE
- [1,] -0.0413146245 -3.207125
- [2,] -0.0620833648 -2.810158
- [3,] -0.1330864634 -2.082562
- [4,] -0.0131592982 -4.337199
- [5,] -0.0005957398 -7.426004
- [6,] -0.0139591116 -4.278594
- [7,] -0.0003559449 -7.940913
- [8,] -0.0823896105 -2.537208
- [9,] -0.0259610279 -3.664111
-[10,] -0.0715282079 -2.673214
+                NDE         DE
+ [1,] -3.509570e-02  -3.367173
+ [2,] -3.456222e-10 -21.785679
+ [3,] -4.959439e-02  -3.028572
+ [4,] -2.507815e-02  -3.698271
+ [5,] -2.022689e-05 -10.808508
+ [6,] -2.900704e-02  -3.554685
+ [7,] -5.219352e-02  -2.978780
+ [8,] -1.773987e-02  -4.040798
+ [9,] -4.623394e-02  -3.097069
+[10,] -1.502412e-02  -4.205601
 \end{Soutput}
 \end{Schunk}
 
@@ -216,27 +214,27 @@ We can ask for the top candidates for differential expression using the \verb'to
 \end{Sinput}
 \begin{Soutput}
    annotation simA.1 simA.2 simA.3 simA.4 simA.5 simB.1 simB.2 simB.3 simB.4 simB.5
-1   count_519      0      0      1      0      1      1      2      2      0      1
-2    count_57      0      0      1      1      0      9     16     18      2      7
-3   count_229      0      0      1      1      1      0      0      0      1      1
-4   count_895      0      0      1      0      4      0      1      1      0      0
-5   count_584      0      0      0      0      1      2      1      1      0      0
-6   count_310      0      0      0      0      0      1      2      0      0      2
-7   count_720      0      0      0      0      2      0      0      2      0      1
-8   count_933      0      0      1      0      1      1      1      1      1      1
-9   count_681      0      0      1      1      2      2      0      0      0      2
-10  count_186      0      0      0      0      2      0      3      0      0      2
-   Likelihood ordering      FDR.DE     FWER.DE
-1   0.9989934      2>1 0.001006632 0.001006632
-2   0.9985572      2>1 0.001224727 0.002448001
-3   0.9980784      1>2 0.001457006 0.004364860
-4   0.9966011      1>2 0.001942478 0.007748918
-5   0.9961003      2>1 0.002333922 0.011618402
-6   0.9958276      2>1 0.002640340 0.015742351
-7   0.9945422      2>1 0.003042838 0.021114257
-8   0.9903166      2>1 0.003872904 0.030593169
-9   0.9879030      1>2 0.004786698 0.042320128
-10  0.9824264      2>1 0.006065384 0.059149977
+1    count_80      1      1      0      1      1     13     21      8      6     20
+2    count_78      1      1      0      1      1      8     13      7      9     10
+3    count_66      0      0      0      0      0     15     10      4      4     10
+4    count_21      2      0      1      1      0     15     15      6      5     11
+5     count_7      9      8      8      8      9      1      2      1      0      0
+6    count_26     13      4     11      5      7      1      1      1      0      0
+7    count_64      6      6      8     11      9      1      1      0      0      1
+8    count_72      0      0      1      0      0      7      6      4      3      8
+9    count_83     14      6      9      2      9      1      0      0      1      1
+10   count_27      5      3      6      4      7      0      0      0      1      0
+   Likelihood ordering       FDR.DE      FWER.DE
+1   0.9995791      2>1 0.0004208781 0.0004208781
+2   0.9992829      2>1 0.0005689902 0.0011376785
+3   0.9990943      2>1 0.0006812318 0.0020423631
+4   0.9985733      2>1 0.0008675879 0.0034661055
+5   0.9983926      1>2 0.0010155560 0.0050679624
+6   0.9980266      1>2 0.0011752048 0.0070314101
+7   0.9962283      1>2 0.0015461322 0.0107765864
+8   0.9957691      2>1 0.0018817294 0.0149619013
+9   0.9954451      1>2 0.0021787486 0.0194486539
+10  0.9941751      1>2 0.0025433681 0.0251603097
 \end{Soutput}
 \end{Schunk}
 
@@ -258,93 +256,6 @@ We can plot the posterior likelihoods against the log-ratios of the two sets of 
 
 
 \clearpage
-
-\section{Paired Data Analysis}
-
-There now exists functionality to analyse paired data through a similar process, using the beta-binomial distribution. The process for analysing paired data follows approximately the same steps as for analysing unpaired data. However, two different types of differential expression can exist within paired data. Firstly, we can find differential expression between replicate groups, as before. However, we can also find (consistent) differential expression between pairs; this would occur when for a single row of data, the first member of each pair differs from the second member of each pair. \verb'baySeq' can identify both these types of differential expression simultaneously, and we implement this proceedure below.
-
-We begin by loading a simulated dataset containing counts for four paired datasets.
-\begin{Schunk}
-\begin{Sinput}
->   data(pairData)  
-\end{Sinput}
-\end{Schunk}
-
-The first four columns in these data are paired with the second four columns. We construct a pairedData in a similar fashion to the countData object.
-\begin{Schunk}
-\begin{Sinput}
-> pairCD <- new("countData", data = list(pairData[,1:4], pairData[,5:8]),
-+                  replicates = c(1,1,2,2),
-+                  groups = list(NDE = c(1,1,1,1), DE = c(1,1,2,2)),
-+               densityFunction = bbDensity)
-\end{Sinput}
-\end{Schunk}
-
-We can find the library sizes for the data with the \verb'getLibsizes' function.
-\begin{Schunk}
-\begin{Sinput}
-> libsizes(pairCD) <- getLibsizes(pairCD)
-\end{Sinput}
-\end{Schunk}
-
-We estimate an empirical distribution on the parameters of a beta-binomial distribution by bootstrapping from the data, taking individual counts and finding the maximum likelihood parameters for a beta-binomial distribution. By taking a sufficiently large sample, an empirical distribution on the parameters is estimated. A sample size of around 10000 iterations is suggested, depending on the data being used), but 1000 is used here to rapidly generate the plots and tables.
-
-\begin{Schunk}
-\begin{Sinput}
-> pairCD <- getPriors(pairCD, samplesize = 1000, cl = cl)
-\end{Sinput}
-\end{Schunk}
-
-We then acquire posterior likelihoods as before. The use of 'nullData = TRUE' in this context allows us to identify pairs which show no differential expression between replicate groups, but does show deviation from a one-to-one ratio of data between pairs.
-
-\begin{Schunk}
-\begin{Sinput}
->   pairCD <- getLikelihoods(pairCD, pET = 'BIC', nullData = TRUE, cl = cl)
-\end{Sinput}
-\begin{Soutput}
-.
-\end{Soutput}
-\end{Schunk}
-
-
-We can ask for the top candidates for differential expression between replicate groups using the \verb'topCounts' function as before.
-\begin{Schunk}
-\begin{Sinput}
->   topCounts(pairCD, group = 2)
-\end{Sinput}
-\begin{Soutput}
-   rowID   X1.1  X1.2     X2.1   X2.2 Likelihood ordering      FDR.DE     FWER.DE
-1      5 159:73 44:24     0:49   0:68  0.9978811      1>2 0.002118874 0.002118874
-2     35  53:12  19:7     0:77    0:6  0.9949696      1>2 0.003574615 0.007138572
-3     53  709:0 895:0  373:191 124:60  0.9934377      1>2 0.004570516 0.013654043
-4     96   25:0  73:0      8:3  36:13  0.9907159      1>2 0.005748906 0.022811355
-5     65   80:0  48:0    36:50   12:3  0.9877494      1>2 0.007049251 0.034782533
-6     24   63:0  21:0    47:80   6:13  0.9850678      1>2 0.008363084 0.049195400
-7     90  268:0  39:0   74:107  98:36  0.9808506      1>2 0.009903983 0.067402717
-8     68 123:63 38:36 1198:179 350:18  0.9661290      2>1 0.012899858 0.098990702
-9     71    8:0  15:0    21:16    2:1  0.9655804      1>2 0.015290940 0.130003080
-10    50  43:19 44:46    106:6  133:5  0.9649363      2>1 0.017268214 0.160508373
-\end{Soutput}
-\end{Schunk}
-However, we can also look for consistent differential expression between the pairs. 
-\begin{Schunk}
-\begin{Sinput}
->   topCounts(pairCD, group = 1)
-\end{Sinput}
-\begin{Soutput}
-   rowID    X1.1  X1.2    X2.1  X2.2 Likelihood     FDR.NDE    FWER.NDE
-1    116   17:70  1:40   9:117  3:45  0.9924372 0.007562831 0.007562831
-2    166 1027:27 835:8 1155:29 138:0  0.9900925 0.008735174 0.017395419
-3    146    1:38  0:68    0:28  0:26  0.9860246 0.010481904 0.031127675
-4    123     1:4  1:11     0:5  1:14  0.9827337 0.012178006 0.047856527
-5    180     1:2  1:16    2:41   0:2  0.9787194 0.013998530 0.068118739
-6    193    69:1  10:1  119:17  53:5  0.9781810 0.015301943 0.088451459
-7    138    0:12   0:4     0:4  0:13  0.9659482 0.017980495 0.119491338
-8    101    0:30   0:5    0:60  0:24  0.9657384 0.020015636 0.149658992
-9    144     0:4  0:21     0:2  0:12  0.9656937 0.021603489 0.178831055
-10   127     0:3  0:12    0:15   0:4  0.9656224 0.022880899 0.207060863
-\end{Soutput}
-\end{Schunk}
 
 \section{Case Study: Analysis of sRNA-Seq Data}
 
@@ -608,6 +519,8 @@ We can also use \verb'topCounts' to examine the data identified as `null'.
 
 \subsection{Multiple Group Comparisons}
 
+\label{sec:multgroup}
+
 We next examine all three experimental conditions simultaneously. We first need to define the replicate structure of the data.
 \begin{Schunk}
 \begin{Sinput}
@@ -739,8 +652,9 @@ Finally, we shut down the cluster (assuming it was started to begin with).
 > sessionInfo()
 \end{Sinput}
 \begin{Soutput}
-R version 3.1.2 (2014-10-31)
+R version 3.2.0 (2015-04-16)
 Platform: x86_64-unknown-linux-gnu (64-bit)
+Running under: Debian GNU/Linux 8 (jessie)
 
 locale:
  [1] LC_CTYPE=en_GB.UTF-8       LC_NUMERIC=C               LC_TIME=en_GB.UTF-8       
@@ -753,20 +667,19 @@ attached base packages:
 [9] base     
 
 other attached packages:
-[1] baySeq_2.1.14         perm_1.0-0.0          abind_1.4-0          
-[4] GenomicRanges_1.17.48 GenomeInfoDb_1.1.26   IRanges_1.99.32      
-[7] S4Vectors_0.2.8       BiocGenerics_0.11.5  
+[1] baySeq_2.5.3         perm_1.0-0.0         abind_1.4-3          GenomicRanges_1.20.5
+[5] GenomeInfoDb_1.4.1   IRanges_2.2.4        S4Vectors_0.6.0      BiocGenerics_0.14.0 
 
 loaded via a namespace (and not attached):
-[1] BiocStyle_1.3.15 tools_3.1.2      XVector_0.5.8   
+[1] compiler_3.2.0  BiocStyle_1.6.0 XVector_0.8.0   tools_3.2.0    
 \end{Soutput}
 \end{Schunk}
 
 
 \begin{thebibliography}{99}
 \bibitem{hardcastle} Thomas J. Hardcastle and Krystyna A. Kelly. \textsl{baySeq: Empirical Bayesian Methods For Identifying Differential Expression In Sequence Count Data.} BMC Bioinformatics (2010).
+\bibitem{hardcastle2015} Thomas J. Hardcastle. \textsl{Generalised empirical Bayesian methods for discovery of differential data in high-throughput biology.} bioR$\chi$v preprint (2015).
 \bibitem{molnar} Attila Molnar and Charles W. Bassett and Thomas J. Hardcastle and Ruth Dunn and David C. Bauclombe \textsl{Small silencing RNAs in plants are mobile and direct epigenetic modification in recipient cells.} Science (2010).
-\bibitem{edgeR} Mark Robinson \verb'edgeR'\textsl{:' Methods for differential expression in digital gene expression datasets}. Bioconductor.
 \end{thebibliography}
 
 \end{document}

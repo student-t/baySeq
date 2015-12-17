@@ -111,8 +111,12 @@ function(cD, group, ordering, decreasing = TRUE, number = 10, likelihood, FDR, F
     
     selData <- .sliceArray(list(selTags), cD@data)
     if(normaliseData) {
-      observables <- .catObservables(cD[selTags,])      
-      selData <- round(selData / observables$libsizes * exp(mean(log(observables$libsizes))) / observables$seglens * exp(mean(log(observables$seglens))))
+        observables <- .catObservables(cD[selTags,])
+        
+        meanLibs <- array(apply(
+            matrix(apply(observables$libsizes, setdiff(1:length(dim(cD@data)), 2), function(x) exp(mean(log(x)))), nrow = nrow(observables$libsizes))
+          , 2, function(x) matrix(x, nrow = length(x), ncol = dim(cD@data)[2])), dim(observables$libsizes))
+        selData <- round(selData / observables$libsizes * meanLibs / observables$seglens * exp(mean(log(observables$seglens))))
       }
     showData <- .showData(selData)
     colnames(showData) <- colnames(cD@data)

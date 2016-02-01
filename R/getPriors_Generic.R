@@ -121,7 +121,7 @@
 
   
   if(is.null(samplingSubset))
-    samplingSubset <- 1:nrow(cD)
+      samplingSubset <- 1:nrow(cD)
   
   sD <- cD[samplingSubset,]
   groups <- sD@groups
@@ -145,74 +145,85 @@
   sampleObservables <- lapply(sampleObservables, function(x) if(length(dim(x)) == 1) as.vector(x) else x)
   
   if(nrow(data) <= samplesize) {
-    sampDat <- 1:nrow(data)
-    weights <- rep(1, nrow(data))
+      sampDat <- 1:nrow(data)
+      weights <- rep(1, nrow(data))
   } else {  
-    if(length(densityFunction@stratifyBreaks) > 0) breaks <- densityFunction@stratifyBreaks else breaks <- 1  
-    if(!is.null(formals(densityFunction@stratifyFunction)) & breaks > 1) {
-        if(length(data) == 1) stratDat <- densityFunction@stratifyFunction(data) else stratDat <- densityFunction@stratifyFunction(data)
-        properCut <- function(x, breaks) if(breaks == 1) return(rep(1, length(x))) else return(cut(x, breaks, labels = FALSE))     
-        cutdat <- properCut(stratDat, breaks)
-        spldat <- split(1:nrow(data), cutdat)
-#        spldat <- spldat[order(sapply(spldat, length), decreasing = FALSE)]
-    } else spldat <- list(1:nrow(data))
-
-    spllen <- sapply(spldat, length)
-
-    if(any(spllen < ceiling(samplesize / spllen))) {
-        sampType <- min(which(((samplesize - cumsum(spllen)) / (length(spldat):1 - 1))[-length(spllen)] <= spllen[-1]))
-        sampLess <- ceiling((samplesize - sum(spllen[1:(sampType)])) / (length(spllen) - sampType))         
-        sampDat <- c(spldat[1:sampType],
-                     lapply(spldat[(sampType + 1):length(spldat)], function(x) sample(x, size = sampLess, replace = FALSE)))
-        weights <- rep(sapply(spldat, length) / sapply(sampDat, length), sapply(sampDat, length))
-        sampDat <- unlist(sampDat)
-    } else {
-      sampDat <- lapply(spldat, function(x) sample(x, size = min(length(x), ceiling(samplesize / length(spldat))), replace = FALSE))        
+      if(length(densityFunction@stratifyBreaks) > 0) breaks <- densityFunction@stratifyBreaks else breaks <- 1  
+      if(!is.null(formals(densityFunction@stratifyFunction)) & breaks > 1) {
+          if(length(data) == 1) stratDat <- densityFunction@stratifyFunction(data) else stratDat <- densityFunction@stratifyFunction(data)
+          properCut <- function(x, breaks) if(breaks == 1) return(rep(1, length(x))) else return(cut(x, breaks, labels = FALSE))     
+          cutdat <- properCut(stratDat, breaks)
+          spldat <- split(1:nrow(data), cutdat)
+                                        #        spldat <- spldat[order(sapply(spldat, length), decreasing = FALSE)]
+      } else spldat <- list(1:nrow(data))
+      
+      spllen <- sapply(spldat, length)
+      
+                                        #    if(any(spllen < ceiling(samplesize / spllen))) {
+                                        #        sampType <- min(which(((samplesize - cumsum(spllen)) / (length(spldat):1 - 1))[-length(spllen)] <= spllen[-1]))
+                                        #        sampLess <- ceiling((samplesize - sum(spllen[1:(sampType)])) / (length(spllen) - sampType))         
+                                        #        sampDat <- c(spldat[1:sampType],
+                                        #                     lapply(spldat[(sampType + 1):length(spldat)], function(x) sample(x, size = sampLess, replace = FALSE)))
+                                        #        weights <- rep(sapply(spldat, length) / sapply(sampDat, length), sapply(sampDat, length))
+                                        #        sampDat <- unlist(sampDat)
+      
+      stratSS <- rep(NA, length(spllen))
+      curSS <- ceiling(samplesize / length(spldat))
+      
+      for(ii in 1:length(spllen)) {
+          stratSS[order(spllen)[ii]] <- min(sort(spllen)[ii], curSS)
+          curSS <- ceiling((samplesize - sum(stratSS, na.rm = TRUE)) / (length(spldat) - ii))
+      }
+                                        #    } else {
+      sampDat <- lapply(1:length(spldat), function(ii) {
+          x <- spldat[[ii]]
+          sample(x, size = stratSS[ii], replace = FALSE)
+      })
       weights <- rep(sapply(spldat, length) / sapply(sampDat, length), sapply(sampDat, length))
       sampDat <- unlist(sampDat)
-    }
   }
-
+  
   sliceData <- lapply(sampDat, function(id)
-                      list(id = id,
-                           data = asub(data, id, dims = 1, drop = FALSE),
-                           cellObs = lapply(cellObservables, function(cob) asub(cob, id, dims = 1, drop = FALSE)),
-                           rowObs = lapply(rowObservables, function(rob) asub(rob, id, dims = 1, drop = FALSE))))
-
-
-#  dataLL = length(dim(data)) - 1
-#  if(dataLL == 1) data <- data
-#  if(dataLL > 1) data <- matrix(apply(z, 3, c), nrow = nrow(z))
-
-  save(sliceData, file = "tempSlice.RData")
+      list(id = id,
+           data = asub(data, id, dims = 1, drop = FALSE),
+           cellObs = lapply(cellObservables, function(cob) asub(cob, id, dims = 1, drop = FALSE)),
+           rowObs = lapply(rowObservables, function(rob) asub(rob, id, dims = 1, drop = FALSE))))
+  
+  
+                                        #  dataLL = length(dim(data)) - 1
+                                        #  if(dataLL == 1) data <- data
+                                        #  if(dataLL > 1) data <- matrix(apply(z, 3, c), nrow = nrow(z))
+  
+  #save(sliceData, file = "tempSlice.RData")
   
   if(is.null(cl)) {
       parEach <- lapply(sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = eqovRep, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
   } else {
       clusterExport(cl, c("sampleObservables", ".sliceArray"), envir = environment())
-
+      
       getPriorsEnv <- new.env(parent = .GlobalEnv)
       environment(.getSinglePriors) <- getPriorsEnv
       parEach <- parLapplyLB(cl, sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = eqovRep, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
   }
-
+  
   if(consensus) {
-    LNpar <- do.call("rbind", parEach)
-    names(LNpar) <- NULL  
+      LNpar <- do.call("rbind", parEach)
+      names(LNpar) <- NULL  
   } else {
-    LNpar <- lapply(1:length(groups), function(gg)
-                    lapply(1:length(levels(groups[[gg]])), function(ii)
-                           do.call("rbind", lapply(parEach, function(x) x[[gg]][[ii]]))))
+      LNpar <- lapply(1:length(groups), function(gg)
+          lapply(1:length(levels(groups[[gg]])), function(ii)
+              do.call("rbind", lapply(parEach, function(x) x[[gg]][[ii]]))))
   }
-
+  
   if(verbose) message("done.")
-
+  
   if(!is.null(cl))
-    clusterEvalQ(cl, rm(list = ls()))
-
+      clusterEvalQ(cl, rm(list = ls()))
+  
   sy <- cbind(sampled = samplingSubset[sampDat], representative = 1:length(sampDat))
   if(!consensus) names(LNpar) <- names(groups)
   LNpar <- list(sampled = cbind(sy, weights = weights / sum(weights)), priors = LNpar)
   cD@priorType <- "user-supplied function"; cD@priors = LNpar
   cD
 }
+

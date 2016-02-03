@@ -15,11 +15,11 @@ setMethod("summary", "countData", function(object, ...) {
         ords <- levels(cd@orderings[,gg])
         if(type == "expectations") sums <- sapply(ords, function(ord) sum(exp(cd@posteriors[,gg]) * (cd@orderings[,gg] ==  ord)))
         if(type == "FDR") {
-          sums <- sapply(ords, function(ord) {
-            if(sum(cd@orderings[,gg] == ord) > 0) {
-              tc <- suppressWarnings(topCounts(cd[cd@orderings[,gg] == ord,], gg, FDR = 0.05))
-              suppressWarnings(sum(tc[,colnames(tc) == names(cd@groups)[gg]] == ord & tc$FDR < 0.05))
-            } else return(0)
+            sums <- sapply(ords, function(ord) {
+                if(sum(cd@orderings[,gg] == ord) > 0) {
+                    tc <- suppressWarnings(topCounts(cd[cd@orderings[,gg] == ord,], gg, FDR = 0.05))
+                    suppressWarnings(sum(tc$FDR < 0.05))
+                } else return(0)
           })
         }
         names(sums) <- paste(names(cd@groups)[gg], ords, sep = ":")

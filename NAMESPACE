@@ -1,0 +1,5 @@
+import("methods")
+import("GenomicRanges")
+import("abind")
+exportClasses("countData")
+exportPattern("^[^\\.]")

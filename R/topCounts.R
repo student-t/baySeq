@@ -70,16 +70,17 @@ selectTop <- function(cD, group, ordering, orderings = TRUE, decreasing = TRUE, 
   
   ordgroups <- order(.logRowSum(neglikes), decreasing = !decreasing)
 
-  if(!is.null(likelihood)) {
-    cutNumber <- sum(likes > log(likelihood), na.rm = TRUE)
-  } else if (!is.null(FDR)) {
-    cutNumber <- sum(cumsum(1 - exp(likes[ordgroups,1]))/ 1:sum(!is.na(likes[,1])) < FDR, na.rm = TRUE)
-  } else if (!is.null(FWER)) {
-    cutNumber <- sum(1 - cumprod(exp(likes[ordgroups,1])) < FWER, na.rm = TRUE)
-  }
+  cutNumber <- c()
+  if(!is.null(likelihood))
+      cutNumber <- c(cutNumber, sum(likes > log(likelihood), na.rm = TRUE))
+  if (!is.null(FDR))
+      cutNumber <- c(cutNumber, sum(cumsum(1 - exp(likes[ordgroups,1]))/ 1:sum(!is.na(likes[,1])) < FDR, na.rm = TRUE))
+  if (!is.null(FWER))
+      cutNumber <- c(cutNumber, sum(1 - cumprod(exp(likes[ordgroups,1])) < FWER, na.rm = TRUE))
+  
   if(!is.null(likelihood) | !is.null(FDR) | !is.null(FWER)) {
      if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood, FDR or FWER specified")
-     number <- cutNumber
+     number <- min(cutNumber)
    }
   number <- min(number, nrow(likes))
 

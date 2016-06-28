@@ -22,10 +22,13 @@
   }
 
 
-bimodalSeparator <- function(x, weights = NULL, minperc = 0.1) {
+bimodalSeparator <- function(x, weights = NULL, minperc = 0.1, elbow = NULL) {
   
   if(is.null(weights)) weights <- rep(1, length(x))
 
+  nas <- is.na(x) | is.na(weights)
+  x <- x[!nas]; weights <- weights[!nas]
+  
   xnif <- (x < Inf & x > -Inf)
   z <- x[xnif]
   weights <- weights[xnif]
@@ -43,12 +46,31 @@ bimodalSeparator <- function(x, weights = NULL, minperc = 0.1) {
   
   zsel <- rep(TRUE, length(z))
 
-
+  cumwMean <- function(x, weights)
+      cumsum(x * weights) / cumsum(weights)
+  cumwVar <- function(x, weights) {
+      wm <- cumwMean(x, weights)
+      (cumsum(weights * x^2) + wm^2 * cumsum(weights) - 2 * wm * cumsum(weights * x)) / (cumsum(weights) - cumsum(weights^2) / cumsum(weights))
+  }
+  
   while(TRUE) {
-    varest <- sapply(1:(length(z[zsel]) - 1), function(index)
-                     index * weighted.var(z[zsel][1:index], weights[zsel][1:index]) + (length(z[zsel]) - index) * weighted.var(z[zsel][(index + 1):length(z[zsel])], weights[zsel][(index + 1):length(z[zsel])]))
+      varest <- (1:length(z[zsel]) * cumwVar(z[zsel], weights[zsel]))[-sum(zsel)] +
+          c(rev(1:length(z[zsel]) * cumwVar(rev(z[zsel]), rev(weights[zsel])))[c(-1, -sum(zsel))], NaN)
 
-    threshold <- mean(z[zsel][which.min(varest) + 0:1])
+      minvar <- which.min(varest)
+      threshold <- mean(z[zsel][which.min(varest) + 0:1])
+
+      if(!is.null(elbow) && elbow == "left") {
+          x0 <- z[zsel][2]; y0 <- varest[2]; x1 <- threshold; y1 <- min(varest, na.rm = TRUE)
+          A = y1 - y0; B = -(x1 - x0); C = + (x1 - x0) * y0 - (y1 - y0) * x0
+          threshold <- z[zsel][which.max((abs(A * z[zsel][-sum(zsel)] + B * varest + C) / sqrt(A^2 + B^2))[1:minvar])]
+      } else if(!is.null(elbow) && elbow == "right") {
+          x0 <- z[zsel][length(varest) - 1]; y0 <- varest[length(varest) - 1]; x1 <- threshold; y1 <- min(varest, na.rm = TRUE)
+          A = y1 - y0; B = -(x1 - x0); C = + (x1 - x0) * y0 - (y1 - y0) * x0
+          threshold <- z[zsel][
+                           which.max((abs(A * z[zsel][-sum(zsel)] + B * varest + C) / sqrt(A^2 + B^2))[minvar:length(varest)]) + minvar - 1]
+      }
+      
     if(sum(z > max(threshold)) < (minperc / 100) * length(z)) zsel[union(max(which(zsel)), which(z > max(threshold)))] <- FALSE
     if(sum(z < min(threshold)) < (minperc / 100) * length(z)) zsel[union(min(which(zsel)), which(z < min(threshold)))] <- FALSE
     if(sum(z > max(threshold)) > (minperc / 100) * length(z) & sum(z < max(threshold)) > (minperc / 100) * length(z)) break

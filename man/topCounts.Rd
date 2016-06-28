@@ -20,13 +20,11 @@ FWER, normaliseData = FALSE)
   \item{decreasing}{Ordering on posterior likelihoods.}
   \item{number}{How many results should be returned?}
   \item{likelihood}{If given, ignores `number' and returns all results
-    above a certain likelihood.}
+    above a certain likelihood (and FDR, and FWER, if given).}
   \item{FDR}{If given, ignores `number' and returns all results with an
-    FDR lower than this threshold. Will be ignored if `likelihood' is
-    given.}
+    FDR lower than this threshold (and likelihood, and FWER, if given).}
   \item{FWER}{If given, ignores `number' and returns all results with an
-    FWER lower than this threshold. Will be ignored if `likelihood' or
-    FDR are given.}
+    FWER lower than this threshold (and likelihood, and FDR, if given).}
   \item{normaliseData}{Should the displayed counts be normalised? See
     details. Defaults to FALSE.}
 }
@@ -41,13 +39,8 @@ FWER, normaliseData = FALSE)
   If a \code{\link{countData}} object is given, the returned dataframe
   will contain either the raw counts for that object, or (if
   'normaliseData = TRUE' the counts normalised by library size.
-
-  If a \code{\link{pairedData}} object is given, the returned data frame
-  will contain either the raw counts shown as a ratio, or (if
-  'normaliseData = TRUE' the counts in the '@data' slot as a percentage
-  of the total counts in the '@data' and '@pairData' slots.
 }
-
+  
 \value{
   A dataframe of the top counts associated with some model (group),
   described by annotation drawn from the '@annotation' slot of the

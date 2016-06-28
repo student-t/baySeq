@@ -39,8 +39,9 @@ setMethod("summary", "countData", function(object, ...) {
   
 setGeneric("groups<-", function(x, value) standardGeneric("groups<-"))
 setMethod("groups<-", signature = "countData", function(x, value) {
-  x@groups <- lapply(value, as.factor)
-  x
+    if(any(sapply(value, length) != ncol(x))) stop(paste(sum(sapply(value, length) != ncol(x)), "vector(s) in the groups structure are the wrong length."))
+    x@groups <- lapply(value, as.factor)
+    x
 })
 
 setGeneric("groups", function(x) standardGeneric("groups"))

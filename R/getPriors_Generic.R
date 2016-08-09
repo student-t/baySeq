@@ -2,10 +2,11 @@
 `getPriors` <- function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, consensus = FALSE, cl)
 {
 
-  if(is.null(body(cD@densityFunction@density))) {
-    message("No density provided in cD object; using negative-binomial as default")
+  if(is.null(body(cD@densityFunction[[1]]@density))) {
+    message("No density provided in cD@densityFunction object; using negative-binomial as default")
     densityFunction(cD) <- nbinomDensity
   }
+  if(consensus & length(cD@densityFunction) > 1) stop("You can't use consensus priors and different density functions. Set 'consensus = FALSE' or modify the cD@densityFunction slot.")
   
   .getSinglePriors <- function(x, datdim, replicates, groups, optimFunction, eqovRep, initiatingValues, lower, upper, consensus)#, dataLL)
     {
@@ -134,9 +135,7 @@
   sampleObservables <- sD@sampleObservables
   cellObservables <- sD@cellObservables
   rowObservables <- sD@rowObservables
-  densityFunction <- cD@densityFunction
-
-  eqovRep <- densityFunction@equalOverReplicates(dim(cD))    
+  densityFunction <- cD@densityFunction[[1]]
 
   if(!("seglens" %in% names(cellObservables) || "seglens" %in% names(rowObservables))) rowObservables <- c(rowObservables, list(seglens = rep(1, nrow(cD))))
   if(!("libsizes" %in% names(sampleObservables))) sampleObservables <- c(sampleObservables, list(seglens = rep(1, ncol(cD))))
@@ -197,18 +196,37 @@
   #save(sliceData, file = "tempSlice.RData")
   
   if(is.null(cl)) {
-      parEach <- lapply(sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = eqovRep, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
+      if(length(cD@densityFunction) == 1) {
+          parEach <- lapply(sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = densityFunction@equalOverReplicates(dim(cD)), initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
+      } else {
+          parDF <- lapply(1:length(cD@densityFunction), function(dd) {
+              densityFunction <- cD@densityFunction[[dd]]
+              parEach <- lapply(sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups[dd], optimFunction = densityFunction@density, eqovRep = densityFunction@equalOverReplicates(dim(cD)), initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
+          })
+      }
   } else {
-      clusterExport(cl, c("sampleObservables", ".sliceArray"), envir = environment())
-      
+      clusterExport(cl, c("sampleObservables", ".sliceArray", "asub"), envir = environment())
       getPriorsEnv <- new.env(parent = .GlobalEnv)
-      environment(.getSinglePriors) <- getPriorsEnv
-      parEach <- parLapplyLB(cl, sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = eqovRep, initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
+      environment(.getSinglePriors) <- getPriorsEnv      
+      if(length(cD@densityFunction) == 1) {
+          parEach <- parLapplyLB(cl, sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups, optimFunction = densityFunction@density, eqovRep = densityFunction@equalOverReplicates(dim(cD)), initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
+      } else {
+          parDF <- lapply(1:length(cD@densityFunction), function(dd) {
+              densityFunction <- cD@densityFunction[[dd]]
+              getPriorsEnv <- new.env(parent = .GlobalEnv)
+              environment(.getSinglePriors) <- getPriorsEnv
+              parEach <- parLapplyLB(cl, sliceData, .getSinglePriors, replicates = replicates, datdim = dim(cD), groups = groups[dd], optimFunction = densityFunction@density, eqovRep = densityFunction@equalOverReplicates(dim(cD)), initiatingValues = densityFunction@initiatingValues, lower = densityFunction@lower, upper = densityFunction@upper, consensus = consensus)
+          })
+      }
   }
   
   if(consensus) {
       LNpar <- do.call("rbind", parEach)
-      names(LNpar) <- NULL  
+      names(LNpar) <- NULL
+  } else if(length(cD@densityFunction) > 1) {
+      LNpar <- lapply(1:length(groups), function(gg)
+          lapply(1:length(levels(groups[[gg]])), function(ii)
+              do.call("rbind", lapply(parDF[[gg]], function(x) x[[1]][[ii]]))))
   } else {
       LNpar <- lapply(1:length(groups), function(gg)
           lapply(1:length(levels(groups[[gg]])), function(ii)

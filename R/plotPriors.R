@@ -18,7 +18,7 @@ function(cD, group, par = 1)
 
 plotNullPrior <- function(cD, ...)
   {
-    nF <- densityFunction(cD)@nullFunction
+    nF <- densityFunction(cD)[[1]]@nullFunction
     if(is.null(body(nF))) stop("nullFunction of cD object not specified.")
     
     aleq <- sapply(groups(cD), function(x) all(x == x[1]))

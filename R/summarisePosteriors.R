@@ -11,10 +11,10 @@ summarisePosteriors <- function(cD, orderings = TRUE)
     }
     if(length(cD@nullPosts) > 0) nullPosts <- c(null = sum(exp(cD@nullPosts))) else nullPosts <- NULL
     if(!orderings) {
-      return(c(nullPosts, colSums(exp(cD@posteriors))))
+      return(c(nullPosts, colSums(exp(cD@posteriors), na.rm= TRUE)))
     } else {
       sumOrds <- do.call("c", lapply(1:ncol(cD@orderings),function(ii) {
-        sumord <- sapply(levels(cD@orderings[,ii]), function(ord) sum(exp(cD@posteriors[cD@orderings[,ii] == ord,ii])))
+        sumord <- sapply(levels(cD@orderings[,ii]), function(ord) sum(exp(cD@posteriors[cD@orderings[,ii] == ord,ii]), na.rm = TRUE))
         names(sumord) <- paste(colnames(cD@orderings)[ii], ":", levels(cD@orderings[,ii]), sep = "")
         names(sumord) <- gsub(":$", "", names(sumord))
         sumord

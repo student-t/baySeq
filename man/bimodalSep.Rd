@@ -9,7 +9,7 @@
   principally intended to be a quick and easy way of separating
   bimodally distributed data.}
 \usage{
-bimodalSeparator(x, weights = NULL, minperc = 0.1)
+bimodalSeparator(x, weights = NULL, minperc = 0.1, elbow = NULL)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -18,6 +18,8 @@ bimodalSeparator(x, weights = NULL, minperc = 0.1)
     the variance.}
   \item{minperc}{The required minimum size of each of the two subsets,
     expressed as a percentage of the total size. See Details.}
+  \item{elbow}{If set, finds the 'left' or 'right' elbow of variance, instead of the
+    minimum; defaults to NULL. See Details.}
 }
 
 \details{This function is intended to give a quick and easy way of
@@ -25,7 +27,17 @@ bimodalSeparator(x, weights = NULL, minperc = 0.1)
   in the data, it may be that the value which minimises the variance
   does not split the bimodal data but isolates the outliers. The
   \code{'minperc'} parameter can be used to ensure that each subset of
-  the split data will be of some minimum size, avoiding the outlier problem.
+  the split data will be of some minimum size, avoiding the outlier
+  problem.
+
+  If 'elbow = NULL' (the default) then the split occurs at the value
+  that minimises the variance, x0. If 'elbow = left' then we attempt to find
+  the elbow point to the left of the value that minimises the variance,
+  if 'elbow = right' then we find the elbow point to the right of the
+  value that minimises the variance. Elbow points are found by drawing a
+  line from the first point (for the left elbow) or the last point (for
+  the right elbow) to x0, and finding the location on the curve of
+  summed variances which maximises the distance to that line.
 }
 \value{Numeric value which splits the data.}
 

@@ -68,7 +68,7 @@ setGeneric("seglens<-", function(x, value) standardGeneric("seglens<-"))
 setMethod("seglens<-", signature = "countData", function(x, value) {
   if(!is.numeric(value)) stop("All members of seglens for a countData object must be numeric.")
 
-  if(class(value) == "numeric") {
+  if(inherits(value, "numeric")) {
     if(length(value) != ncol(x)) stop("Length of seglens must be identical to the number of columns of the countData object.")
     value <- matrix(value, ncol = 1)
   } else if(is.array(value))
@@ -87,7 +87,10 @@ setMethod("densityFunction", signature = "countData", function(x) {
 
 setGeneric("densityFunction<-", function(x, value) standardGeneric("densityFunction<-"))
 setMethod("densityFunction<-", signature = "countData", function(x, value) {
-  x@densityFunction <- value
+    if(length(value) != 1 & length(value) != length(x@groups)) stop("The given value must be of length 1 or equal to the number of groups of the object.")
+    if(is.list(value)) {
+        if(any(!sapply(value, function(x) inherits(x, "densityFunction")))) stop("All members of the list must be of (or inherit from) the 'densityFunction' class") else x@densityFunction <- value
+    } else if(!inherits(value, "densityFunction")) stop("The given value must be of (or inherit from) the 'densityFunction' class, or be a list object containing only elements of this class") else x@densityFunction <- list(value)        
   x
 })
 
@@ -163,7 +166,7 @@ setMethod("replicates", signature = "countData", function(x) {
   
 
 
-setMethod("initialize", "countData", function(.Object, ..., data, replicates, libsizes, seglens) {
+setMethod("initialize", "countData", function(.Object, ..., data, replicates, libsizes, seglens, densityFunction) {
   
   .Object <- callNextMethod(.Object, ...)
   
@@ -171,6 +174,7 @@ setMethod("initialize", "countData", function(.Object, ..., data, replicates, li
   if(!missing(data) && is.list(data)) .Object@data <- array(do.call("c", data), c(dim(data[[1]]), length(data)))  
   if(missing(replicates)) replicates <- .Object@replicates
   .Object@replicates <- as.factor(replicates)
+  if(!missing(densityFunction) && inherits(densityFunction, "densityFunction")) densityFunction(.Object) <- list(densityFunction)
 
   if(length(dim(.Object@data)) == 1) .Object@data <- array(.Object@data, dim = c(dim(.Object@data), max(c(0, length(replicates), length(.Object@replicates)))))
   
@@ -185,6 +189,9 @@ setMethod("initialize", "countData", function(.Object, ..., data, replicates, li
   if(ncol(.Object@posteriors) != length(.Object@groups) & ncol(.Object@posteriors) != 0)
     stop("Number of columns in '@posteriors' slot must equal length of '@groups' slot.")
 
+  if(length(.Object@densityFunction) > 1 & length(.Object@densityFunction) != length(.Object@groups))
+      stop("Length of list of densityFunctions in '@densityFunction' slot must be 1 or equal to the length of the '@groups' slot.")
+  
   if(length(.Object@nullPosts) != 0) {
     if(nrow(.Object@nullPosts) != nrow(.Object@data) & nrow((.Object@nullPosts) != 0))
       stop("Number of rows in '@data' slot must equal number of rows of '@nullPosts' slot.")

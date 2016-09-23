@@ -1,4 +1,4 @@
-.posteriorWeights <- function(cD, group) {
+.posteriorWeights <- function(cD, group, CDpriors, consensus) {
   numintSamp <- cD@priors$sampled
   weights <- cD@priors$weights
   numintSamp <- list(list(cbind(numintSamp, weights)))
@@ -89,7 +89,7 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
                   },
                   BIC = {                    
                     sampleSize <- length(groups[[1]])
-                    bicps <- sapply(1:ncol(ps), function(pp) -2 * ps[priorSubset,pp] + (sum(!eqOverRep[[pp]]) * nlevels(groups[[pp]]) + sum(eqOverRep[[pp]])) * log(sampleSize))                        
+                    bicps <- do.call("cbind", lapply(1:ncol(ps), function(pp) -2 * ps[priorSubset,pp] + (sum(!eqOverRep[[pp]]) * nlevels(groups[[pp]]) + sum(eqOverRep[[pp]])) * log(sampleSize)))
                     minbicps <- apply(bicps, 1, which.min)
                     prs <- sapply(1:length(groups), function(x) sum(minbicps == x, na.rm = TRUE))
                     if(any(prs == 0)) prs[prs == 0] <- 1/length(priorSubset) / sum(prs == 0)
@@ -113,7 +113,7 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
           }
         
         if(!is.null(cl)) {
-          clusterExport(cl, "priorSubset", envir = environment())
+            clusterExport(cl, "priorSubset", envir = environment())
           
           getPostsEnv <- new.env(parent = .GlobalEnv)
           environment(intmargins) <- getPostsEnv
@@ -121,8 +121,8 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
         for(ii in 1:100)
           {
             if(!is.null(cl)) {
-              clusterCall(cl, clustAssign, oldposts, "oldposts")
-              newposts <- matrix(parRapply(cl, cbind(1:nrow(ps), ps), intmargins), ncol = ncol(ps), byrow = TRUE)
+                clusterExport(cl, "oldposts", envir = environment())
+                newposts <- matrix(parRapply(cl, cbind(1:nrow(ps), ps), intmargins), ncol = ncol(ps), byrow = TRUE)
             } else newposts <- t(apply(cbind(1:nrow(ps), ps), 1, intmargins))
             
             if(max(abs(exp(newposts) - exp(oldposts))) < 1e-3) break
@@ -139,9 +139,11 @@ function(ps, prs, pET = "none", marginalise = FALSE, groups, priorSubset = NULL,
     if(is.numeric(weights)) weights <- list(list(weights))
     priorWeights <- lapply(1:length(numintSamp), function(ii)
                            lapply(1:length(numintSamp[[ii]]), function(jj)
-                                  {                                      
+                               {
                                     sampw <- cbind(numintSamp[[ii]][[jj]], exweight = weights[[ii]][[jj]])
-                                    sampw <- sampw[order(sampw[,2]),]
+                                    nS = numintSamp[[ii]][[jj]]; exweight = weights[[ii]][[jj]]
+                                    save(sampw, nS, exweight, file = "~/sampw.RData")
+                                    sampw <- sampw[order(sampw[,2]),]                                    
                                     sapply(split(sampw[,4] * sampw[,3], sampw[,2]), sum)
                                   }))
     

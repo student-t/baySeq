@@ -32,7 +32,7 @@
                            
                            edgeR = {                             
                              if(!("edgeR" %in% loadedNamespaces()))
-                               library(edgeR)
+                                 requireNamespace("edgeR", quietly = TRUE)
                              d <- DGEList(counts = data[subset,, drop = FALSE], group = replicates, lib.size = colSums(data, na.rm = TRUE))
                              d <- calcNormFactors(d, ...)
                              d$samples$norm.factors * d$samples$lib.size

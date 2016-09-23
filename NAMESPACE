@@ -1,5 +1,7 @@
 import("methods")
 import("GenomicRanges")
 import("abind")
+import("parallel")
+importFrom("edgeR", "DGEList", "calcNormFactors")
 exportClasses("countData")
 exportPattern("^[^\\.]")

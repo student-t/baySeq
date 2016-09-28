@@ -79,8 +79,8 @@ selectTop <- function(cD, group, ordering, orderings = TRUE, decreasing = TRUE, 
       cutNumber <- c(cutNumber, sum(1 - cumprod(exp(likes[ordgroups,1])) < FWER, na.rm = TRUE))
   
   if(!is.null(likelihood) | !is.null(FDR) | !is.null(FWER)) {
-     if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood, FDR or FWER specified")
-     number <- min(cutNumber)
+      number <- min(cutNumber)
+      if(cutNumber == 0) warning("No features were found using the cutoffs for likelihood, FDR or FWER specified")
    }
   number <- min(number, nrow(likes))
 

@@ -279,10 +279,11 @@ setMethod("[", "countData", function(x, i, j, ..., drop = FALSE) {
 
   
   if(missing(i))
-    i <- 1:nrow(x@data)
+    i <- 1:nrow(x)
   if(is.logical(i)) i <- which(i)
 
-  x@data <- .sliceArray(list(i, j), x@data)
+  if(nrow(x@data) > 0)
+      x@data <- .sliceArray(list(i, j), x@data)
   
   x@annotation <- x@annotation[i,, drop = FALSE]
   if(nrow(x@posteriors) > 0)
@@ -329,7 +330,7 @@ setMethod("show", "countData", function(object) {
 
   cat('\nSlot "data":\n')
 
-  if(nrow(object) > 5)
+  if(nrow(object@data) > 5)
     {
       print(.showData(.sliceArray(list(1:5), object@data)), quote = FALSE)        
       cat(paste(nrow(object) - 5), "more rows...\n")

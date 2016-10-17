@@ -1,0 +1,110 @@
+%\VignetteIndexEntry{Advanced baySeq analyses}
+%\VignettePackage{baySeq}
+%\VignetteKeywords{baySeq, generic, advanced}
+
+\documentclass[a4paper]{article}
+
+\title{Advanced analysis using baySeq; generic distribution definitions}
+\author{Thomas J. Hardcastle}
+
+\RequirePackage{/applications/R/R-3.2.4/library/BiocStyle/resources/tex/Bioconductor}
+
+\AtBeginDocument{\bibliographystyle{/applications/R/R-3.2.4/library/BiocStyle/resources/tex/unsrturl}}
+\usepackage{Sweave}
+\begin{document}
+
+\maketitle
+
+\section{Generic Prior Distributions}
+
+\verb'baySeq' now offers complete user-specification of underlying distributions. This vignette describes using \verb'baySeq' under this protocol. Familiarity with standard (negative-binomial) baySeq is assumed; please consult the other vignettes for a description of this approach.
+
+Analysis is carried out through specification of a \verb'densityFunction' class. The primary value in a \verb'densityFunction' object is the \verb'@density' slot, a user-defined function that should take variables \verb'x', \verb'observables' and \verb'parameters'. \verb'x' corresponds to a row of data in a \verb'countData' object. \verb'observables' is  a list object of observed values that may influence the model. By default, the \verb'@libsizes' and \verb'@seglens' values of the \verb'countData' object will be internally appended to this list, unless objects with these names are otherwise specified by the user. \verb'parameters' is a list object of parameters to be empirically estimated from the data with the \verb'getPriors' function and used to estimate likelihoods with the \verb'getLikelihoods' function. The \verb'@dist' function should return a vector of log-likelihood values (or NA for invalid parameter choices) of the same length as the input variable \verb'x'.
+
+Other required slots of the \verb'densityFunction' object are \verb'initiatingValues', a vector of initiating values to be used in optimisation of the parameters to be used in the \verb'@dist' slot (and thus defining the length of the parameter object) and \verb'equalOverReplicates', a specification of which parameters are fixed for every replicate group and which may vary for different experimental conditions. If only one parameter is variable over experimental conditions, the Nelder-Mead optimisation used may be unstable, and one-dimensional optimisation with user defined functionally specified lower and upper bounds may (optionally) be provided; otherwise, Nelder-Mead will be attempted. 
+
+Optionally a function may be provided in \verb'@stratifyFunction' to stratify the data and improve prior estimation in the tails where the \verb'samplesize' argument in the getPriors function is less than the row dimension of the \verb'countData' object. If this is provided, the \verb'@stratifyBreaks' slot should give the number of strata to be used.
+
+Below a model is constructed based on the normal distribution. The standard deviation is assumed to be constant for a given row of data across all experimental conditions, while the means (normalised by library scaling factor) are allowed to vary across experimental conditions.
+
+
+If parallelisation is available, it is useful to use it.
+
+\begin{Schunk}
+\begin{Sinput}
+> if(require("parallel")) cl <- makeCluster(8) else cl <- NULL
+\end{Sinput}
+\end{Schunk}
+
+\begin{Schunk}
+\begin{Sinput}
+> library(baySeq)
+> normDensityFunction <- function(x, observables, parameters) {
++   if(any(sapply(parameters, function(x) any(x < 0)))) return(rep(NA, length(x)))
++   dnorm(x, mean = parameters[[2]] * observables$libsizes, sd = parameters[[1]], log = TRUE)
++ }
+> normDensity <- new("densityFunction", density = normDensityFunction, initiatingValues = c(0.1, 1),
++                 equalOverReplicates = c(TRUE, FALSE),
++                 lower = function(x) 0, upper = function(x) 1 + max(x) * 2,
++                 stratifyFunction = rowMeans, stratifyBreaks = 10)
+\end{Sinput}
+\end{Schunk}
+
+We construct the \verb'countData' object as before.
+
+\begin{Schunk}
+\begin{Sinput}
+> data(simData)
+> CD <- new("countData", data = simData, 
++           replicates = c("simA", "simA", "simA", "simA", "simA",
++             "simB", "simB", "simB", "simB", "simB"),
++           groups = list(NDE = c(1,1,1,1,1,1,1,1,1,1),
++                          DE = c(1,1,1,1,1,2,2,2,2,2))
++           )
+> libsizes(CD) <- getLibsizes(CD)
+> densityFunction(CD) <- normDensity
+\end{Sinput}
+\end{Schunk}
+
+We can then fit priors and calculate posterior likelihoods based on our specified distributional model.  The distributional model is specified in the 'getPriors' function and will be automatically used in the `getLikelihoods' function
+
+\begin{Schunk}
+\begin{Sinput}
+> normCD <- getPriors(CD, cl = cl)
+> normCD <- getLikelihoods(normCD, cl = cl)
+\end{Sinput}
+\begin{Soutput}
+.
+\end{Soutput}
+\end{Schunk}
+
+Similarly, we can construct a generic version of the negative-binomial model.
+\begin{Schunk}
+\begin{Sinput}
+> nbinomDensityFunction <- function(x, observables, parameters) {
++   if(any(sapply(parameters, function(x) any(x < 0)))) return(NA)
++   dnbinom(x, mu = parameters[[1]] * observables$libsizes * observables$seglens, size = 1 / parameters[[2]], log = TRUE)
++ }
+> densityFunction(CD) <- new("densityFunction", density = nbinomDensityFunction, initiatingValues = c(0.1, 1),
++                           equalOverReplicates = c(FALSE, TRUE),
++                           lower = function(x) 0, upper = function(x) 1 + max(x) * 2,
++                           stratifyFunction = rowMeans, stratifyBreaks = 10)
+> nbCD <- getPriors(CD, cl = cl)
+> nbCD <- getLikelihoods(nbCD, cl = cl)
+\end{Sinput}
+\begin{Soutput}
+.
+\end{Soutput}
+\end{Schunk}
+
+We can compare this to the standard analysis of these data. 
+\begin{Schunk}
+\begin{Sinput}
+> CD <- getPriors.NB(CD, cl = cl)
+> CD <- getLikelihoods(CD, cl = cl)
+\end{Sinput}
+\begin{Soutput}
+.
+\end{Soutput}
+\end{Schunk}
+

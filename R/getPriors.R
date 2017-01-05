@@ -295,7 +295,8 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
                       par[is.na(par[,2]),2] <- 1
                                         #par[is.na(par),2] <- mean(par[,2], na.rm = TRUE)
                       par
-                    }))
+                  }))
+    names(NBpar) <- names(groups)
   } else NBpar[is.na(NBpar[,2]),2] <- 1
                 
   if(!is.null(cl)) clusterEvalQ(cl, rm(list = ls()))
@@ -303,7 +304,7 @@ function (cD, samplesize = 1e5, samplingSubset = NULL, equalDispersions = TRUE, 
   if(verbose) message("done.")
 
   sy[,1] <- samplingSubset[sy[,1]]
-  names(NBpar) <- names(groups)
+                                        
   NBpar <- list(sampled = cbind(sy, weights = weights / sum(weights)), priors = NBpar)
   new(class(cD), cD, priorType = "NB-QL", priors = NBpar, densityFunction = nbinomDensity)
 }

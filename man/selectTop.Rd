@@ -13,12 +13,14 @@
   model) or for all models (and all orderings).
 }
 \usage{
-selectTop(cD, group, ordering, orderings = TRUE, decreasing = TRUE, number = 10, likelihood, FDR, FWER)
+selectTop(cD, group, ordering, orderings = TRUE, decreasing = TRUE,
+number = 10, likelihood, FDR, FWER, posteriors)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{cD}{
-    A \code{\link{countData}} object, with a populated `@posteriors' slot.
+    A \code{\link{countData}} object, with a populated `@posteriors'
+    slot (unless `posteriors' is specified; see below).
 }
   \item{group}{
     Optionally, the model of interest, as defined in the `@groups' slot
@@ -57,7 +59,11 @@ selectTop(cD, group, ordering, orderings = TRUE, decreasing = TRUE, number = 10,
     If given, selects all genomic events for a given model (and
     optionally, ordering) with family-wise error rate below this
     value. Ignored if likelihood or FDR is specified.
-}
+  }
+  \item{posteriors}{
+    If given, a vector of log-posterior likelihoods to use instead of
+    those in the `@posteriors' slot of the `cD' object.
+    }
 }
 
 \value{

@@ -1,23 +1,23 @@
 \name{getPriors}
 \alias{getPriors}
-\alias{getPriors.BB}
 \alias{getPriors.NB}
 
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{Estimates prior parameters for the underlying distributions of
   'count' data.}
 \description{
-  These functions estimate, via maximum or quasi-likelihood methods, the
-  parameters of the underlying distributions for negative binomial
-  distributions on count data, or for beta-binomial distributions on
-  paired count data.
+  These functions estimate, via maximum likelihood methods, the
+  parameters of the underlying distributions specified in the
+  'densityFunction' slot of the countData object. A special case is
+  maintained for historical reasons; getPriors.NB estimates parameters
+  for a negative binomial distribution using quasi-maximum-likelihood methods.
 }
 \usage{
+getPriors(cD, samplesize = 1e5, samplingSubset = NULL,
+consensus = FALSE, cl, verbose = TRUE)
 getPriors.NB(cD, samplesize = 1e5, samplingSubset = NULL,
 equalDispersions = TRUE, estimation = "QL", verbose = TRUE, zeroML =
 FALSE, consensus = FALSE, cl, ...)
-getPriors.BB(cD, samplesize = 1e5, samplingSubset = NULL, verbose =
-TRUE, cl, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -26,20 +26,21 @@ TRUE, cl, ...)
     priors?}
   \item{samplingSubset}{If given, the priors will be sampled only from
     the subset specified.}
+  \item{consensus}{If TRUE, creates a consensus distribution rather than
+    a separate distribution for each member of the groups structure in
+    the `cD' object. See Details.}
+  \item{cl}{A SNOW cluster object.}
+  \item{verbose}{Should status messages be displayed? Defaults to TRUE.}
+  
   \item{equalDispersions}{Should we assume equal dispersions of data
     across all groups in the \code{'cD'} object? Defaults to TRUE; see Details.}
   \item{estimation}{Defaults to "QL", indicating quasi-likelihood
     estimation of priors. Currently, the only other possibilities are "ML",
     a maximum-likelihood method, and "edgeR", the moderated dispersion
     estimates produced by the 'edgeR' package. See Details.}
-  \item{verbose}{Should status messages be displayed? Defaults to TRUE.}
   \item{zeroML}{Should parameters from zero data (rows that within a
     group are all zeros) be estimated using maximum likelihood
     methods (which will result in zeros in the parameters? See Details.}
-  \item{consensus}{If TRUE, creates a consensus distribution rather than
-    a separate distribution for each member of the groups structure in
-    the `cD' object. See Details.}
-  \item{cl}{A SNOW cluster object.}
   \item{...}{Additional parameters to be passed to the
     \code{\link[edgeR:edgeR-package]{estimateTagwiseDisp}} function if
     \code{'estimation = "edgeR"'}.}

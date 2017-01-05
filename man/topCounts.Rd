@@ -8,12 +8,13 @@
 }
 \usage{
 topCounts(cD, group, ordering, decreasing = TRUE, number = 10, likelihood, FDR,
-FWER, normaliseData = FALSE)
+FWER, normaliseData = FALSE, posteriors)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{cD}{\code{\link{countData}} or \code{\link{pairedData}} object,
-    containing posterior likelihoods for each group.}
+  \item{cD}{\code{\link{countData}} object,
+    containing posterior likelihoods for each group (unless `posteriors'
+    is specified; see below).}
   \item{group}{Which group should we give the counts for? See Details.}
   \item{ordering}{If specified, restricts the analysis to a particlar
     ordering on the group.}
@@ -27,6 +28,10 @@ FWER, normaliseData = FALSE)
     FWER lower than this threshold (and likelihood, and FDR, if given).}
   \item{normaliseData}{Should the displayed counts be normalised? See
     details. Defaults to FALSE.}
+  \item{posteriors}{
+    If given, a vector of log-posterior likelihoods to use instead of
+    those in the `@posteriors' slot of the `cD' object.
+  }
 }
 
 \details{  

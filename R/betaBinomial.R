@@ -5,18 +5,18 @@
 #    pmax(maxes, maxes + log(rowSums(exp(z - maxes), na.rm = TRUE)), na.rm = TRUE)
 #  }
 #
-`getPriors.BB` <-
-function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE,
+#`getPriors.BB` <-
+#function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE,
           #zeroDispersion = FALSE, monoModal = FALSE,
-          cl, ...)
-{
+#          cl, ...)
+#{
 
-  warning("This function is deprecated; using 'getPriors' instead.")
-  densityFunction(cD) <- bbDensity
-  return(getPriors(cD, samplesize = samplesize, samplingSubset = samplingSubset, verbose = TRUE, cl = cl))
+#  warning("This function is deprecated; using 'getPriors' instead.")
+#  densityFunction(cD) <- bbDensity
+#  return(getPriors(cD, samplesize = samplesize, samplingSubset = samplingSubset, verbose = TRUE, cl = cl))
   
-  stop("You shouldn't ever see this message.")
-}
+#  stop("You shouldn't ever see this message.")
+#}
 
 #  
 #  monoModal = FALSE

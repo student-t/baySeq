@@ -40,7 +40,8 @@ bimodalSeparator <- function(x, weights = NULL, minperc = 0.1, elbow = NULL) {
   rordz <- order(z)
   z <- z[rordz]
   weights <- weights[rordz]
-
+  weights <- weights / sum(weights)
+  
   weighted.var <- function(x, w)
     sum(w * (x - weighted.mean(x, w))^2) / (sum(w) - sum(w^2) / sum(w))
   

@@ -5,3 +5,8 @@ import("parallel")
 importFrom("edgeR", "DGEList", "calcNormFactors")
 exportClasses("countData")
 exportPattern("^[^\\.]")
+importFrom("graphics", "abline", "axTicks", "axis", "plot", "text")
+importFrom("stats", "dbinom", "density", "dnbinom", "dnorm", "optim",
+           "optimise", "optimize", "pnbinom", "qbinom", "quantile",
+           "rbinom", "weighted.mean")
+importFrom("utils", "modifyList")

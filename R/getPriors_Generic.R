@@ -1,8 +1,8 @@
 
-`getPriors` <- function (cD, samplesize = 1e5, samplingSubset = NULL, verbose = TRUE, consensus = FALSE, cl)
+`getPriors` <- function (cD, samplesize = 1e5, samplingSubset = NULL, consensus = FALSE, cl, verbose = TRUE)
 {
 
-  if(is.null(body(cD@densityFunction[[1]]@density))) {
+  if(length(cD@densityFunction) == 0 || is.null(body(cD@densityFunction[[1]]@density))) {
     message("No density provided in cD@densityFunction object; using negative-binomial as default")
     densityFunction(cD) <- nbinomDensity
   }

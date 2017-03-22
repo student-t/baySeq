@@ -174,7 +174,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                            array(obs, dim = c(ncol(cts) * nrow(priors), dim(obs)[-c(1:2)], 1))),
                     lapply(sobs, function(obs) {
                       slobs <- obs
-                      if(is.vector(slobs) || length(dim(slobs)) == 1) {
+                      if(is.vector(slobs) || is.factor(slobs) || length(dim(slobs)) == 1) {
                         return(rep(slobs, nrow(priors)))
                       } else apply(slobs, 2:length(dim(slobs)), function(x) rep(x, nrow(priors)))
                     })
@@ -238,7 +238,7 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
                              array(.sliceArray(list(NULL, which(selcts)), obs, drop = FALSE), dim = c(sum(nzWts) * sum(selcts), dim(obs)[-(1:2)], 1))),
                       lapply(sobs, function(obs) {
                         slobs <- .sliceArray(list(which(selcts)), obs, drop = FALSE)
-                        if(is.vector(slobs) || length(dim(slobs)) == 1) {
+                        if(is.vector(slobs) || is.factor(slobs) || length(dim(slobs)) == 1) {
                           return(rep(slobs, sum(nzWts)))
                         } else apply(slobs, 2:length(dim(slobs)), function(x) rep(x, sum(nzWts)))                            
                       })
@@ -253,9 +253,9 @@ function(cD, prs, pET = "BIC", marginalise = FALSE, subset = NULL, priorSubset =
             likeD <-
               rowSums(
                 matrix(
-                  densityFunction(repcts,
-                                  observables = xobs,
-                                  parameters = lapply(prior, function(priorpar) rep(priorpar, each = sum(selcts))))
+                    densityFunction(repcts,
+                                    observables = xobs,
+                                    parameters = lapply(prior, function(priorpar) rep(priorpar, each = sum(selcts))))
                   ,ncol = sum(selcts),byrow = TRUE)
                 , na.rm = TRUE) + log(weightings[nzWts]) - log(sum(weightings[nzWts]))            
             

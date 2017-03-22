@@ -154,8 +154,6 @@ nbinomDensity <- new("densityFunction",
                      orderingFunction = function(dat, observables) dat / observables$libsizes / observables$seglens)
 
 
-
-
 bbNCDist <- new("densityFunction",
                 description = "A density function based on the beta-binomial distribution, intended for analysis of methylation data with an observed non-conversion rate in each sample.",
                 density = .betaBinomialNCFunction,

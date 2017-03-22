@@ -7,9 +7,9 @@
 \title{Advanced analysis using baySeq; generic distribution definitions}
 \author{Thomas J. Hardcastle}
 
-\RequirePackage{/applications/R/R-3.2.4/library/BiocStyle/resources/tex/Bioconductor}
+\RequirePackage{/home/bioinf/tjh48/R/x86_64-pc-linux-gnu-library/3.3/BiocStyle/resources/tex/Bioconductor}
 
-\AtBeginDocument{\bibliographystyle{/applications/R/R-3.2.4/library/BiocStyle/resources/tex/unsrturl}}
+\AtBeginDocument{\bibliographystyle{/home/bioinf/tjh48/R/x86_64-pc-linux-gnu-library/3.3/BiocStyle/resources/tex/unsrturl}}
 \usepackage{Sweave}
 \begin{document}
 
@@ -71,40 +71,3 @@ We can then fit priors and calculate posterior likelihoods based on our specifie
 \begin{Schunk}
 \begin{Sinput}
 > normCD <- getPriors(CD, cl = cl)
-> normCD <- getLikelihoods(normCD, cl = cl)
-\end{Sinput}
-\begin{Soutput}
-.
-\end{Soutput}
-\end{Schunk}
-
-Similarly, we can construct a generic version of the negative-binomial model.
-\begin{Schunk}
-\begin{Sinput}
-> nbinomDensityFunction <- function(x, observables, parameters) {
-+   if(any(sapply(parameters, function(x) any(x < 0)))) return(NA)
-+   dnbinom(x, mu = parameters[[1]] * observables$libsizes * observables$seglens, size = 1 / parameters[[2]], log = TRUE)
-+ }
-> densityFunction(CD) <- new("densityFunction", density = nbinomDensityFunction, initiatingValues = c(0.1, 1),
-+                           equalOverReplicates = c(FALSE, TRUE),
-+                           lower = function(x) 0, upper = function(x) 1 + max(x) * 2,
-+                           stratifyFunction = rowMeans, stratifyBreaks = 10)
-> nbCD <- getPriors(CD, cl = cl)
-> nbCD <- getLikelihoods(nbCD, cl = cl)
-\end{Sinput}
-\begin{Soutput}
-.
-\end{Soutput}
-\end{Schunk}
-
-We can compare this to the standard analysis of these data. 
-\begin{Schunk}
-\begin{Sinput}
-> CD <- getPriors.NB(CD, cl = cl)
-> CD <- getLikelihoods(CD, cl = cl)
-\end{Sinput}
-\begin{Soutput}
-.
-\end{Soutput}
-\end{Schunk}
-

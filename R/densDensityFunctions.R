@@ -177,7 +177,6 @@ dbetabinom <- function(x, n, prop, disp, log = TRUE) {
 }
 
 
-
 .nbinomDens <- function(dat, observables, parameters) {
   if(any(sapply(parameters, function(par) any(par < 0)))) return(NA)
 #  if(any(zinf < 1-0.5^(1/observables$dim[2]))) return(NA)
